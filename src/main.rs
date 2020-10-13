@@ -96,15 +96,12 @@ async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
+#[only_in(guilds)]
 async fn top(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let channel = match msg.channel(&ctx.cache).await {
         Some(channel) => channel,
         None => ctx.http.get_channel(msg.channel_id.0).await.unwrap(),
-    };
-    let channel = match channel.guild() {
-        Some(c) => c,
-        None => return Ok(()),
-    };
+    }.guild().unwrap();
 
     let mut usernames = HashMap::new();
     for member in channel.members(&ctx.cache).await.unwrap() {
@@ -114,7 +111,7 @@ async fn top(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         };
         usernames.insert(member.user.id.0, username);
     }
-    let limit: i32 = args.single().unwrap_or(5);
+    let limit: i32 = args.single().unwrap_or(5).max(100);
 
     let rows = {
         let data = ctx.data.read().await;
@@ -136,7 +133,7 @@ LIMIT $2"#,
         .unwrap()
     };
 
-    let mut lines = vec![];
+    let mut lines = Vec::with_capacity(limit as usize);
 
     for row in &rows {
         let user_id = row.get::<Decimal, _>(0).to_u64().unwrap();
