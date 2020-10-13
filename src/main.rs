@@ -103,7 +103,10 @@ async fn top(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         None => ctx.http.get_channel(msg.channel_id.0).await.unwrap(),
     }.guild().unwrap();
 
-    let mut usernames = HashMap::new();
+    // This feels a little clunky (as its also combined with the for loop below)
+    // However in testing it seems faster than not mapping and instead hitting guild.member(&ctx) (falling back to http.get_user) for each member
+    // Worth making note of tho as it probably doesn't scale well to large guilds with hundreds of members
+    let mut usernames: HashMap<u64, String> = HashMap::new();
     for member in channel.members(&ctx.cache).await.unwrap() {
         let username = match member.nick {
             Some(nick) => nick,
@@ -111,7 +114,7 @@ async fn top(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         };
         usernames.insert(member.user.id.0, username);
     }
-    let limit: i32 = args.single().unwrap_or(5).max(100);
+    let limit: u32 = args.single().unwrap_or(5).min(100);
 
     let rows = {
         let data = ctx.data.read().await;
