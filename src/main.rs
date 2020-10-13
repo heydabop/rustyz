@@ -14,6 +14,7 @@ use serenity::prelude::*;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::types::Decimal;
 use sqlx::{Pool, Postgres, Row};
+use std::collections::HashMap;
 
 struct DB;
 
@@ -96,53 +97,57 @@ async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
 
 #[command]
 async fn top(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let limit: i32 = args.single().unwrap_or(5);
-    let chan_id = Decimal::from(msg.channel_id.0);
+    let channel = match msg.channel(&ctx.cache).await {
+        Some(channel) => channel,
+        None => ctx.http.get_channel(msg.channel_id.0).await.unwrap(),
+    };
+    let channel = match channel.guild() {
+        Some(c) => c,
+        None => return Ok(()),
+    };
 
-    let data = ctx.data.read().await;
-    let db = data.get::<DB>().unwrap();
-    let rows = sqlx::query(
-        r#"
-	SELECT author_id, count(author_id) AS num_messages
-	FROM message
-	WHERE chan_id = $1
-	AND content NOT LIKE '/%'
-	GROUP BY author_id
-	ORDER BY count(author_id) DESC
-	LIMIT $2"#,
-    )
-    .bind(chan_id)
-    .bind(limit)
-    .fetch_all(&*db)
-    .await
-    .unwrap();
+    let mut usernames = HashMap::new();
+    for member in channel.members(&ctx.cache).await.unwrap() {
+        let username = match member.nick {
+            Some(nick) => nick,
+            None => member.user.name,
+        };
+        usernames.insert(member.user.id.0, username);
+    }
+    let limit: i32 = args.single().unwrap_or(5);
+
+    let rows = {
+        let data = ctx.data.read().await;
+        let db = data.get::<DB>().unwrap();
+        sqlx::query(
+            r#"
+SELECT author_id, count(author_id) AS num_messages
+FROM message
+WHERE chan_id = $1
+AND content NOT LIKE '/%'
+GROUP BY author_id
+ORDER BY count(author_id) DESC
+LIMIT $2"#,
+        )
+        .bind(Decimal::from(msg.channel_id.0))
+        .bind(limit)
+        .fetch_all(&*db)
+        .await
+        .unwrap()
+    };
 
     let mut lines = vec![];
-    let guild_id = msg.guild_id.unwrap();
 
     for row in &rows {
         let user_id = row.get::<Decimal, _>(0).to_u64().unwrap();
         let num_messages: i64 = row.get(1);
-        let username = {
-            match ctx
-                .cache
-                .member_field(guild_id, user_id, |m| m.nick.clone())
-                .await
-            {
-                Some(nick) if nick.is_some() => nick.unwrap(),
-                _ => match ctx.http.get_member(guild_id.0, user_id).await {
-                    Ok(member) if member.nick.is_some() => member.nick.unwrap(),
-                    _ => match ctx.cache.user(user_id).await {
-                        Some(user) => user.name,
-                        None => match ctx.http.get_user(user_id).await {
-                            Ok(user) => user.name,
-                            Err(_) => String::from("`<UNKNOWN`>"),
-                        },
-                    },
-                },
-            }
+        let username = match usernames.get(&user_id) {
+            Some(username) => username.clone(),
+            None => match ctx.http.get_user(user_id).await {
+                Ok(user) => user.name,
+                Err(_) => String::from("`<UNKNOWN>`"),
+            },
         };
-        println!("{}ms", ms);
         lines.push(format!("{} \u{2014} {}\n", username, num_messages));
     }
 
