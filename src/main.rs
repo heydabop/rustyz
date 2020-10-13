@@ -1,16 +1,19 @@
+#![deny(clippy::all)]
+#![warn(clippy::pedantic)]
+
 use num_traits::cast::ToPrimitive;
 use serde::Deserialize;
 use serenity::async_trait;
 use serenity::client::{Client, Context, EventHandler};
 use serenity::framework::standard::{
-    macros::{command, group},
-    CommandResult, StandardFramework,
+    macros::{command, group, hook},
+    Args, CommandResult, StandardFramework,
 };
-use serenity::model::{channel::Message, gateway::Ready};
+use serenity::model::{channel::Message, gateway::Ready, id::UserId};
 use serenity::prelude::*;
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{Pool, Postgres, Row};
 use sqlx::types::Decimal;
+use sqlx::{Pool, Postgres, Row};
 
 struct DB;
 
@@ -21,6 +24,7 @@ impl TypeMapKey for DB {
 #[derive(Deserialize)]
 struct Config {
     discord_token: String,
+    discord_user_id: u64,
     psql_url: String,
 }
 
@@ -37,6 +41,16 @@ impl EventHandler for Handler {
     }
 }
 
+#[hook]
+async fn before_typing(ctx: &Context, msg: &Message, _: &str) -> bool {
+    let http = ctx.http.clone();
+    let channel_id = msg.channel_id.0;
+    tokio::spawn(async move {
+        let _ = http.broadcast_typing(channel_id).await;
+    });
+    true
+}
+
 #[tokio::main]
 async fn main() {
     let config: Config =
@@ -50,17 +64,21 @@ async fn main() {
         .expect("Error connecting to PSQL database");
 
     let framework = StandardFramework::new()
-        .configure(|c| c.prefix("\\"))
-        .group(&GENERAL_GROUP);
+        .configure(|c| {
+            c.prefix("\\")
+                .with_whitespace(true)
+                .on_mention(Some(UserId(config.discord_user_id)))
+                .no_dm_prefix(true)
+                .case_insensitivity(true)
+        })
+        .group(&GENERAL_GROUP)
+        .before(before_typing);
     let mut client = Client::new(config.discord_token)
+        .type_map_insert::<DB>(pool)
         .event_handler(Handler)
         .framework(framework)
         .await
         .expect("Error creating Discord client");
-    {
-        let mut data = client.data.write().await;
-        data.insert::<DB>(pool);
-    }
 
     println!("Starting...");
 
@@ -77,8 +95,8 @@ async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
-async fn top(ctx: &Context, msg: &Message) -> CommandResult {
-    let limit: i32 = 5;
+async fn top(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    let limit: i32 = args.single().unwrap_or(5);
     let chan_id = Decimal::from(msg.channel_id.0);
 
     let data = ctx.data.read().await;
@@ -113,11 +131,7 @@ async fn top(ctx: &Context, msg: &Message) -> CommandResult {
                 }
             }
         }
-        lines.push(format!(
-            "{} \u{2014} {}\n",
-            username,
-            num_messages
-        ));
+        lines.push(format!("{} \u{2014} {}\n", username, num_messages));
     }
 
     msg.channel_id.say(&ctx.http, lines.concat()).await?;

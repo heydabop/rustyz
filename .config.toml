@@ -1,2 +1,3 @@
 discord_token = ""
+discord_user_id = 0
 psql_url = "postgresql://<user>[:<password>]@<host>[:<port>]/<database>[?sslmode=<ssl-mode>[&sslcrootcert=<path>]]"
