@@ -118,19 +118,31 @@ async fn top(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     .unwrap();
 
     let mut lines = vec![];
+    let guild_id = msg.guild_id.unwrap();
 
     for row in &rows {
         let user_id = row.get::<Decimal, _>(0).to_u64().unwrap();
         let num_messages: i64 = row.get(1);
-        let mut username = String::from("`<UNKNOWN>`");
-        if let Ok(user) = ctx.http.get_user(user_id).await {
-            username = user.name.clone();
-            if let Some(guild_id) = msg.guild_id {
-                if let Some(nick) = user.nick_in(&ctx.http, guild_id).await {
-                    username = nick.clone();
-                }
+        let username = {
+            match ctx
+                .cache
+                .member_field(guild_id, user_id, |m| m.nick.clone())
+                .await
+            {
+                Some(nick) if nick.is_some() => nick.unwrap(),
+                _ => match ctx.http.get_member(guild_id.0, user_id).await {
+                    Ok(member) if member.nick.is_some() => member.nick.unwrap(),
+                    _ => match ctx.cache.user(user_id).await {
+                        Some(user) => user.name,
+                        None => match ctx.http.get_user(user_id).await {
+                            Ok(user) => user.name,
+                            Err(_) => String::from("`<UNKNOWN`>"),
+                        },
+                    },
+                },
             }
-        }
+        };
+        println!("{}ms", ms);
         lines.push(format!("{} \u{2014} {}\n", username, num_messages));
     }
 
