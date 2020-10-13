@@ -7,7 +7,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+num-traits = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serenity = "0.9.0-rc.2"
+sqlx = { version = "0.4.0-beta.1", default-features = false, features = [ "decimal", "runtime-tokio", "macros", "postgres" ] }
 tokio = { version = "0.2", features = ["macros"] }
 toml = "0.5"
