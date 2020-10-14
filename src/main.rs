@@ -2,6 +2,7 @@
 #![warn(clippy::pedantic)]
 
 mod commands;
+mod util;
 
 use commands::{ping::PING_COMMAND, top::TOP_COMMAND};
 use serde::Deserialize;
