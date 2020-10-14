@@ -1,10 +1,7 @@
 use crate::DB;
 use num_traits::cast::ToPrimitive;
 use serenity::client::Context;
-use serenity::framework::standard::{
-    macros::command,
-    Args, CommandResult,
-};
+use serenity::framework::standard::{macros::command, Args, CommandResult};
 use serenity::model::channel::Message;
 use sqlx::types::Decimal;
 use sqlx::Row;
@@ -16,7 +13,9 @@ pub async fn top(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
     let channel = match msg.channel(&ctx.cache).await {
         Some(channel) => channel,
         None => ctx.http.get_channel(msg.channel_id.0).await.unwrap(),
-    }.guild().unwrap();
+    }
+    .guild()
+    .unwrap();
 
     // This feels a little clunky (as its also combined with the for loop below)
     // However in testing it seems faster than not mapping and instead hitting guild.member(&ctx) (falling back to http.get_user) for each member

@@ -3,10 +3,7 @@
 
 mod commands;
 
-use commands::{
-    ping::PING_COMMAND,
-    top::TOP_COMMAND
-};
+use commands::{ping::PING_COMMAND, top::TOP_COMMAND};
 use serde::Deserialize;
 use serenity::async_trait;
 use serenity::client::{Client, Context, EventHandler};
