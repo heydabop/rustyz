@@ -31,8 +31,7 @@ LIMIT $2"#,
         .bind(Decimal::from(msg.channel_id.0))
         .bind(limit)
         .fetch_all(&*db)
-        .await
-        .unwrap()
+        .await?
     };
 
     let mut lines = Vec::with_capacity(limit as usize);
