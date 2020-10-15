@@ -1,3 +1,10 @@
-discord_token = ""
-discord_user_id = 0
-psql_url = "postgresql://<user>[:<password>]@<host>[:<port>]/<database>[?sslmode=<ssl-mode>[&sslcrootcert=<path>]]"
+[discord]
+bot_token = ""
+user_id = 0
+
+[psql]
+url = "postgresql://<user>[:<password>]@<host>[:<port>]/<database>[?sslmode=<ssl-mode>[&sslcrootcert=<path>]]"
+
+[wow]
+client_id = ""
+client_secret = ""
