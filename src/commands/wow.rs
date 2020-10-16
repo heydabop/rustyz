@@ -54,7 +54,8 @@ async fn auth(client_id: &str, client_secret: &str) -> Result<WowAuth, reqwest::
 #[aliases("drip")]
 pub async fn character(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     // Parse out character and realm names from single string arg `<character>-<realm>`
-    let arg = args.single::<String>()?;
+    let mut arg = args.single::<String>()?;
+    arg.make_ascii_lowercase();
     let char_realm: Vec<&str> = arg.split('-').collect();
     if char_realm.len() != 2 {
         msg.channel_id
