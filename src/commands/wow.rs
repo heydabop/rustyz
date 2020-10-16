@@ -52,19 +52,19 @@ async fn auth(client_id: &str, client_secret: &str) -> Result<WowAuth, reqwest::
 // Tries to get transparency png image and crop it, otherwise returns "deafult" jpg image with background
 #[command]
 #[aliases("drip")]
-pub async fn character(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     // Parse out character and realm names from single string arg `<character>-<realm>`
-    let mut arg = args.single::<String>()?;
+    let mut arg = args.rest().to_string();
     arg.make_ascii_lowercase();
-    let char_realm: Vec<&str> = arg.split('-').collect();
+    let char_realm: Vec<&str> = arg.splitn(2, '-').collect();
     if char_realm.len() != 2 {
         msg.channel_id
-            .say(&ctx.http, "`Usage: /wow chracter name-realm`")
+            .say(&ctx.http, "`Usage: /wow [drip|mog] name-realm`")
             .await?;
         return Ok(());
     }
-    let character = char_realm[0];
-    let realm = char_realm[1];
+    let character = char_realm[0].trim();
+    let realm = char_realm[1].trim().replace(" ", "-").replace("'", "");
 
     // Get access token (refreshing if necessary)
     let access_token = {
