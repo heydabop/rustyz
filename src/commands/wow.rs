@@ -1,5 +1,5 @@
 use crate::{WowAuth, WowConfig};
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, TimeZone};
 use image::{imageops, png::PngEncoder, ColorType, ImageFormat};
 use reqwest::{StatusCode, Url};
 use serde::Deserialize;
@@ -28,26 +28,30 @@ struct CharacterMedia {
     render_url: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct Character {
+    last_login_timestamp: i64,
+}
+
 // Get access token from global state or Blizzard API if token missing/expired
 async fn get_access_token(ctx: &Context) -> Result<String, reqwest::Error> {
-        let mut wow_config = {
-            let data = ctx.data.read().await;
-            data.get::<WowConfig>().unwrap().clone()
-        };
-        if wow_config.auth.is_none()
-            || wow_config.auth.as_ref().unwrap().expires_at < SystemTime::now()
-        {
-            // Fetch new access token if we currently have no auth info or auth has expired
-            let new_auth = auth(&wow_config.client_id, &wow_config.client_secret).await?;
-            let access_token = new_auth.access_token.clone();
-            let mut data = ctx.data.write().await;
-            wow_config.auth = Some(new_auth);
-            data.insert::<WowConfig>(wow_config);
-            Ok(access_token)
-        } else {
-            // Otherwise return existing saved token
-            Ok(wow_config.auth.unwrap().access_token)
-        }
+    let mut wow_config = {
+        let data = ctx.data.read().await;
+        data.get::<WowConfig>().unwrap().clone()
+    };
+    if wow_config.auth.is_none() || wow_config.auth.as_ref().unwrap().expires_at < SystemTime::now()
+    {
+        // Fetch new access token if we currently have no auth info or auth has expired
+        let new_auth = auth(&wow_config.client_id, &wow_config.client_secret).await?;
+        let access_token = new_auth.access_token.clone();
+        let mut data = ctx.data.write().await;
+        wow_config.auth = Some(new_auth);
+        data.insert::<WowConfig>(wow_config);
+        Ok(access_token)
+    } else {
+        // Otherwise return existing saved token
+        Ok(wow_config.auth.unwrap().access_token)
+    }
 }
 
 // Get bearer auth token from Blizzard API with client_id and client_secret
@@ -91,35 +95,67 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     let access_token = get_access_token(ctx).await?;
 
-    // Get JSON info of character's appearance
+    let date_format = "%a, %b %-d %Y at %-I:%M%P";
     let client = reqwest::Client::new();
-    let last_modified: Option<String>;
-    let resp  = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/character-media?namespace=profile-us&locale=en_US&access_token={}", realm, character, access_token)).unwrap())
+
+    // Get character last login time (and check if they exist)
+    let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}?namespace=profile-us&locale=en_US&access_token={}", realm, character, access_token)).unwrap())
         .send().await;
-    let media: CharacterMedia = match resp {
-        Ok(resp) => if resp.status() == StatusCode::NOT_FOUND {
-            msg.channel_id.say(&ctx.http, format!("Unable to find {} on {}", character, realm)).await?;
-            return Ok(());
-        } else {
-            last_modified = match &resp.headers().get("last-modified") {
-                Some(lm) => match lm.to_str() {
-                    Ok(val) => if let Ok(last_modified) = DateTime::parse_from_rfc2822(&val) {
-                        Some(format!("Updated on {}", last_modified.with_timezone(&Local).format("%a, %b %-d %Y at %-I:%M%P")))
-                    } else {
-                        println!("Unable to parse last-modified: {}", val);
-                        None
-                    }
-                    Err(_) => None
-                },
-                None => None
-            };
-            resp.json::<CharacterMedia>().await?
-        },
-        Err(e) => return Err(CommandError::from(e))
+    let last_login: String = match resp {
+        Ok(resp) => {
+            if resp.status() == StatusCode::NOT_FOUND {
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        format!("Unable to find {} on {}", character, realm),
+                    )
+                    .await?;
+                return Ok(());
+            } else {
+                let c = resp.json::<Character>().await?;
+                #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+                let last_login_date = Local.timestamp(
+                    c.last_login_timestamp / 1000,
+                    ((c.last_login_timestamp % 1000) * 1000) as u32,
+                );
+                format!("Player last seen on {}", last_login_date.format(date_format))
+            }
+        }
+        Err(e) => return Err(CommandError::from(e)),
     };
+
+    // Get JSON info of character's appearance
+    let resp  = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/character-media?namespace=profile-us&locale=en_US&access_token={}", realm, character, access_token)).unwrap())
+        .send().await?;
+    let last_modified: Option<String> = match &resp.headers().get("last-modified") {
+        Some(lm) => match lm.to_str() {
+            Ok(val) => {
+                if let Ok(last_modified) = DateTime::parse_from_rfc2822(&val) {
+                    Some(format!(
+                        "Image updated on {}",
+                        last_modified.with_timezone(&Local).format(date_format)
+                    ))
+                } else {
+                    println!("Unable to parse last-modified: {}", val);
+                    None
+                }
+            }
+            Err(_) => None,
+        },
+        None => None,
+    };
+    let media = resp.json::<CharacterMedia>().await?;
+
+    let msg_content = if let Some(last_modified) = last_modified {
+        format!("{}\n{}", last_modified, last_login)
+    } else {
+        last_login
+    };
+
 
     let mut found_raw = false; //if we found "row" png image with transparency
     let mut image_url: Option<String> = None; //URL of image we'll use
+
     // First check assets array for main-raw (PNG) image, then main image
     if let Some(assets) = media.assets {
         if let Some(raw) = assets.iter().find(|&a| a.key == "main-raw") {
@@ -138,7 +174,9 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     }
     // If we didn't find a transparent-background PNG image, just send the URL for whatever image we do have (discord will convert it)
     if !found_raw {
-        msg.channel_id.say(&ctx.http, last_modified.unwrap()).await?;
+        msg.channel_id
+            .say(&ctx.http, msg_content)
+            .await?;
         msg.channel_id.say(&ctx.http, image_url.unwrap()).await?;
         return Ok(());
     }
@@ -221,9 +259,7 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 data: Cow::from(cropped_buffer),
                 filename: format!("{}.png", arg),
             });
-            if let Some(last_modified) = last_modified {
-                m.content(last_modified);
-            }
+            m.content(msg_content);
             m
         })
         .await?;
