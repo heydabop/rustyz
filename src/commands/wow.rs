@@ -104,7 +104,7 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             last_modified = match &resp.headers().get("last-modified") {
                 Some(lm) => match lm.to_str() {
                     Ok(val) => if let Ok(last_modified) = DateTime::parse_from_rfc2822(&val) {
-                        Some(format!("Last Updated: {}", last_modified.with_timezone(&Local).to_rfc2822()))
+                        Some(format!("Updated on {}", last_modified.with_timezone(&Local).format("%a, %b %-d %Y at %-I:%M%P")))
                     } else {
                         println!("Unable to parse last-modified: {}", val);
                         None
