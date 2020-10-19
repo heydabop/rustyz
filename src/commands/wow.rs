@@ -118,7 +118,10 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     c.last_login_timestamp / 1000,
                     ((c.last_login_timestamp % 1000) * 1000) as u32,
                 );
-                format!("Player last seen on {}", last_login_date.format(date_format))
+                format!(
+                    "Player last seen on {}",
+                    last_login_date.format(date_format)
+                )
             }
         }
         Err(e) => return Err(CommandError::from(e)),
@@ -152,7 +155,6 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         last_login
     };
 
-
     let mut found_raw = false; //if we found "row" png image with transparency
     let mut image_url: Option<String> = None; //URL of image we'll use
 
@@ -174,9 +176,7 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     }
     // If we didn't find a transparent-background PNG image, just send the URL for whatever image we do have (discord will convert it)
     if !found_raw {
-        msg.channel_id
-            .say(&ctx.http, msg_content)
-            .await?;
+        msg.channel_id.say(&ctx.http, msg_content).await?;
         msg.channel_id.say(&ctx.http, image_url.unwrap()).await?;
         return Ok(());
     }
