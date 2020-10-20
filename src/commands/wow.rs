@@ -7,9 +7,25 @@ use serenity::client::Context;
 use serenity::framework::standard::{macros::command, Args, CommandError, CommandResult};
 use serenity::http::AttachmentType;
 use serenity::model::channel::Message;
+use serenity::utils::Colour;
 use std::borrow::Cow;
 use std::fmt;
 use std::time::{Duration, SystemTime};
+
+const CLASS_COLOURS: [Colour; 12] = [
+    Colour::from_rgb(199, 156, 110),
+    Colour::from_rgb(245, 140, 186),
+    Colour::from_rgb(169, 210, 113),
+    Colour::from_rgb(255, 245, 105),
+    Colour::from_rgb(255, 255, 255),
+    Colour::from_rgb(196, 31, 59),
+    Colour::from_rgb(0, 112, 222),
+    Colour::from_rgb(64, 199, 235),
+    Colour::from_rgb(135, 135, 237),
+    Colour::from_rgb(0, 255, 150),
+    Colour::from_rgb(255, 125, 10),
+    Colour::from_rgb(163, 48, 201),
+];
 
 #[derive(Deserialize)]
 struct AuthResponse {
@@ -24,11 +40,45 @@ struct KeyValue {
 }
 
 #[derive(Deserialize)]
+struct Stat {
+    effective: u32,
+}
+
+impl fmt::Display for Stat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.effective)
+    }
+}
+
+#[derive(Deserialize)]
+struct Rating {
+    value: f32,
+}
+
+impl fmt::Display for Rating {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:.2}%", self.value)
+    }
+}
+
+#[derive(Deserialize)]
 struct Name {
     name: String,
 }
 
 impl fmt::Display for Name {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+#[derive(Deserialize)]
+struct IdName {
+    id: u32,
+    name: String,
+}
+
+impl fmt::Display for IdName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name)
     }
@@ -50,7 +100,7 @@ struct Character {
     gender: Name,
     faction: Name,
     race: Name,
-    character_class: Name,
+    character_class: IdName,
     active_spec: Name,
     realm: Name,
     level: u32,
@@ -58,6 +108,40 @@ struct Character {
     last_login_timestamp: i64,
     average_item_level: u32,
     equipped_item_level: u32,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+struct CharacterStats {
+    health: u64,
+    power: u32,
+    power_type: Name,
+    strength: Stat,
+    agility: Stat,
+    intellect: Stat,
+    stamina: Stat,
+    melee_crit: Rating,
+    melee_haste: Rating,
+    ranged_crit: Rating,
+    ranged_haste: Rating,
+    spell_crit: Rating,
+    spell_haste: Rating,
+    mastery: Rating,
+    versatility_damage_done_bonus: f32,
+}
+
+impl CharacterStats {
+    fn crit(&self) -> f32 {
+        self.melee_crit
+            .value
+            .max(self.ranged_crit.value.max(self.spell_crit.value))
+    }
+
+    fn haste(&self) -> f32 {
+        self.melee_haste
+            .value
+            .max(self.ranged_haste.value.max(self.spell_haste.value))
+    }
 }
 
 impl Character {
@@ -146,6 +230,22 @@ async fn get_character_media(
             media.last_modified = last_modified;
             Ok(media)
         }
+        Err(e) => Err(e),
+    }
+}
+
+async fn get_character_statistics(
+    realm_name: &str,
+    character_name: &str,
+    access_token: &str,
+) -> Result<CharacterStats, reqwest::Error> {
+    let client = reqwest::Client::new();
+
+    // Get JSON info of character's appearance and last modified time of images
+    let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/statistics?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token)).unwrap())
+        .send().await?;
+    match resp.error_for_status() {
+        Ok(resp) => Ok(resp.json::<CharacterStats>().await?),
         Err(e) => Err(e),
     }
 }
@@ -387,6 +487,9 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
             }
         };
 
+    let stats: CharacterStats =
+        get_character_statistics(&realm_name, &character_name, &access_token).await?;
+
     msg.channel_id
         .send_message(&ctx.http, |m| {
             m.embed(|e| {
@@ -399,12 +502,31 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
                         character.active_spec,
                         character.character_class
                     ))
+                    .url(format!(
+                        "https://worldofwarcraft.com/en-us/character/us/{}/{}/",
+                        realm_name, character_name
+                    ))
+                    .colour(CLASS_COLOURS[(character.character_class.id - 1) as usize])
                     .field(
                         "ILVL",
                         format!(
                             "{}/{}",
                             character.equipped_item_level, character.average_item_level
                         ),
+                        true,
+                    )
+                    .field("Health", &stats.health, true)
+                    .field(&stats.power_type, &stats.power, true)
+                    .field("Strength", &stats.strength, true)
+                    .field("Agility", &stats.agility, true)
+                    .field("Intellect", &stats.intellect, true)
+                    .field("Stamina", &stats.stamina, true)
+                    .field("Crit", format!("{:.2}%", &stats.crit()), true)
+                    .field("Haste", format!("{:.2}%", &stats.haste()), true)
+                    .field("Mastery", &stats.mastery, true)
+                    .field(
+                        "Versatility",
+                        format!("{:.2}%", &stats.versatility_damage_done_bonus),
                         true,
                     );
                 if let Some(avatar_url) = avatar_url {
