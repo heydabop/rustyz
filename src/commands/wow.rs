@@ -312,7 +312,19 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     };
 
     // Get JSON info of character's appearance
-    let media = get_character_media(&realm, &character, &access_token).await?;
+    let media: CharacterMedia = match get_character_media(&realm, &character, &access_token).await {
+        Ok(m) => m,
+        Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    format!("Unable to find images for {} on {}", character, realm),
+                )
+                .await?;
+            return Ok(());
+        }
+        Err(e) => return Err(CommandError::from(e)),
+    };
     let last_modified: Option<String> = match media.last_modified {
         Some(lm) => Some(format!("Image updated on {}", lm.format(date_format))),
         None => None,
