@@ -1,5 +1,5 @@
 use crate::{WowAuth, WowConfig};
-use chrono::{DateTime, Local, TimeZone};
+use chrono::{DateTime, Local, TimeZone, Utc};
 use image::{imageops, png::PngEncoder, ColorType, ImageFormat};
 use reqwest::{StatusCode, Url};
 use serde::Deserialize;
@@ -8,6 +8,7 @@ use serenity::framework::standard::{macros::command, Args, CommandError, Command
 use serenity::http::AttachmentType;
 use serenity::model::channel::Message;
 use std::borrow::Cow;
+use std::fmt;
 use std::time::{Duration, SystemTime};
 
 #[derive(Deserialize)]
@@ -16,21 +17,65 @@ struct AuthResponse {
     expires_in: u64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct KeyValue {
     key: String,
     value: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
+struct Name {
+    name: String,
+}
+
+impl fmt::Display for Name {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+#[derive(Deserialize)]
 struct CharacterMedia {
     assets: Option<Vec<KeyValue>>,
     render_url: Option<String>,
+    #[serde(skip)]
+    last_modified: Option<DateTime<Local>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+#[derive(Deserialize)]
 struct Character {
+    id: u64,
+    name: String,
+    gender: Name,
+    faction: Name,
+    race: Name,
+    character_class: Name,
+    active_spec: Name,
+    realm: Name,
+    level: u32,
+    achievement_points: u32,
     last_login_timestamp: i64,
+    average_item_level: u32,
+    equipped_item_level: u32,
+}
+
+impl Character {
+    fn last_login_local(&self) -> DateTime<Local> {
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        Local.timestamp(
+            self.last_login_timestamp / 1000,
+            ((self.last_login_timestamp % 1000) * 1000) as u32,
+        )
+    }
+
+    fn last_login_utc(&self) -> DateTime<Utc> {
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        Utc.timestamp(
+            self.last_login_timestamp / 1000,
+            ((self.last_login_timestamp % 1000) * 1000) as u32,
+        )
+    }
 }
 
 // Get access token from global state or Blizzard API if token missing/expired
@@ -51,6 +96,57 @@ async fn get_access_token(ctx: &Context) -> Result<String, reqwest::Error> {
     } else {
         // Otherwise return existing saved token
         Ok(wow_config.auth.unwrap().access_token)
+    }
+}
+
+async fn get_character(
+    realm_name: &str,
+    character_name: &str,
+    access_token: &str,
+) -> Result<Character, reqwest::Error> {
+    let client = reqwest::Client::new();
+
+    // Get character last login time (and check if they exist)
+    let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token)).unwrap())
+        .send().await?;
+    match resp.error_for_status() {
+        Ok(resp) => Ok(resp.json::<Character>().await?),
+        Err(e) => Err(e),
+    }
+}
+
+async fn get_character_media(
+    realm_name: &str,
+    character_name: &str,
+    access_token: &str,
+) -> Result<CharacterMedia, reqwest::Error> {
+    let client = reqwest::Client::new();
+
+    // Get JSON info of character's appearance and last modified time of images
+    let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/character-media?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token)).unwrap())
+        .send().await?;
+    match resp.error_for_status() {
+        Ok(resp) => {
+            let last_modified: Option<DateTime<Local>> = match &resp.headers().get("last-modified")
+            {
+                Some(lm) => match lm.to_str() {
+                    Ok(val) => {
+                        if let Ok(last_modified) = DateTime::parse_from_rfc2822(&val) {
+                            Some(last_modified.with_timezone(&Local))
+                        } else {
+                            println!("Unable to parse last-modified: {}", val);
+                            None
+                        }
+                    }
+                    Err(_) => None,
+                },
+                None => None,
+            };
+            let mut media = resp.json::<CharacterMedia>().await?;
+            media.last_modified = last_modified;
+            Ok(media)
+        }
+        Err(e) => Err(e),
     }
 }
 
@@ -96,58 +192,31 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let access_token = get_access_token(ctx).await?;
 
     let date_format = "%a, %b %-d %Y at %-I:%M%P";
-    let client = reqwest::Client::new();
 
     // Get character last login time (and check if they exist)
-    let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}?namespace=profile-us&locale=en_US&access_token={}", realm, character, access_token)).unwrap())
-        .send().await;
-    let last_login: String = match resp {
-        Ok(resp) => {
-            if resp.status() == StatusCode::NOT_FOUND {
-                msg.channel_id
-                    .say(
-                        &ctx.http,
-                        format!("Unable to find {} on {}", character, realm),
-                    )
-                    .await?;
-                return Ok(());
-            } else {
-                let c = resp.json::<Character>().await?;
-                #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-                let last_login_date = Local.timestamp(
-                    c.last_login_timestamp / 1000,
-                    ((c.last_login_timestamp % 1000) * 1000) as u32,
-                );
-                format!(
-                    "Player last seen on {}",
-                    last_login_date.format(date_format)
+    let last_login: String = match get_character(&realm, &character, &access_token).await {
+        Ok(c) => format!(
+            "Player last seen on {}",
+            c.last_login_local().format(date_format)
+        ),
+        Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    format!("Unable to find {} on {}", character, realm),
                 )
-            }
+                .await?;
+            return Ok(());
         }
         Err(e) => return Err(CommandError::from(e)),
     };
 
     // Get JSON info of character's appearance
-    let resp  = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/character-media?namespace=profile-us&locale=en_US&access_token={}", realm, character, access_token)).unwrap())
-        .send().await?;
-    let last_modified: Option<String> = match &resp.headers().get("last-modified") {
-        Some(lm) => match lm.to_str() {
-            Ok(val) => {
-                if let Ok(last_modified) = DateTime::parse_from_rfc2822(&val) {
-                    Some(format!(
-                        "Image updated on {}",
-                        last_modified.with_timezone(&Local).format(date_format)
-                    ))
-                } else {
-                    println!("Unable to parse last-modified: {}", val);
-                    None
-                }
-            }
-            Err(_) => None,
-        },
+    let media = get_character_media(&realm, &character, &access_token).await?;
+    let last_modified: Option<String> = match media.last_modified {
+        Some(lm) => Some(format!("Image updated on {}", lm.format(date_format))),
         None => None,
     };
-    let media = resp.json::<CharacterMedia>().await?;
 
     let msg_content = if let Some(last_modified) = last_modified {
         format!("{}\n{}", last_modified, last_login)
@@ -260,6 +329,89 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 filename: format!("{}.png", arg),
             });
             m.content(msg_content);
+            m
+        })
+        .await?;
+
+    Ok(())
+}
+
+// Takes in the arg `<character>-<realm>` and replies with an embed containing WoW character info
+#[command]
+#[aliases("char")]
+pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    // Parse out character and realm names from single string arg `<character>-<realm>`
+    let mut arg = args.rest().to_string();
+    arg.make_ascii_lowercase();
+    let char_realm: Vec<&str> = arg.splitn(2, '-').collect();
+    if char_realm.len() != 2 {
+        msg.channel_id
+            .say(&ctx.http, "`Usage: /wow [drip|mog] name-realm`")
+            .await?;
+        return Ok(());
+    }
+    let character_name = char_realm[0].trim();
+    let realm_name = char_realm[1].trim().replace(" ", "-").replace("'", "");
+
+    let access_token = get_access_token(ctx).await?;
+
+    let character: Character =
+        match get_character(&realm_name, &character_name, &access_token).await {
+            Ok(c) => c,
+            Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        format!("Unable to find {} on {}", character_name, realm_name),
+                    )
+                    .await?;
+                return Ok(());
+            }
+            Err(e) => return Err(CommandError::from(e)),
+        };
+
+    let avatar_url: Option<String> =
+        match get_character_media(&realm_name, &character_name, &access_token).await {
+            Ok(media) => media.assets.and_then(|assets| {
+                assets.iter().find_map(|a| {
+                    if a.key == "avatar" {
+                        Some(a.value.clone())
+                    } else {
+                        None
+                    }
+                })
+            }),
+            Err(e) => {
+                println!("Error getting character media: {}", e);
+                None
+            }
+        };
+
+    msg.channel_id
+        .send_message(&ctx.http, |m| {
+            m.embed(|e| {
+                e.title(format!("{}-{}", character.name, character.realm))
+                    .timestamp(character.last_login_utc().to_rfc3339())
+                    .description(format!(
+                        "Level {} {} {} {}",
+                        character.level,
+                        character.race,
+                        character.active_spec,
+                        character.character_class
+                    ))
+                    .field(
+                        "ILVL",
+                        format!(
+                            "{}/{}",
+                            character.equipped_item_level, character.average_item_level
+                        ),
+                        true,
+                    );
+                if let Some(avatar_url) = avatar_url {
+                    e.thumbnail(avatar_url);
+                }
+                e
+            });
             m
         })
         .await?;
