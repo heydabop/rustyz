@@ -120,6 +120,7 @@ struct CharacterStats {
     agility: Stat,
     intellect: Stat,
     stamina: Stat,
+    armor: Stat,
     melee_crit: Rating,
     melee_haste: Rating,
     ranged_crit: Rating,
@@ -529,10 +530,13 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
                     )
                     .field("Health", &stats.health, true)
                     .field(&stats.power_type, &stats.power, true)
+                    .field("\u{200B}", "\u{200B}", false)
                     .field("Strength", &stats.strength, true)
                     .field("Agility", &stats.agility, true)
                     .field("Intellect", &stats.intellect, true)
                     .field("Stamina", &stats.stamina, true)
+                    .field("Armor", &stats.armor, true)
+                    .field("\u{200B}", "\u{200B}", false)
                     .field("Crit", format!("{:.2}%", &stats.crit()), true)
                     .field("Haste", format!("{:.2}%", &stats.haste()), true)
                     .field("Mastery", &stats.mastery, true)
