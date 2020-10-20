@@ -85,6 +85,11 @@ impl fmt::Display for IdName {
 }
 
 #[derive(Deserialize)]
+struct DisplayString {
+    display_string: String,
+}
+
+#[derive(Deserialize)]
 struct CharacterMedia {
     assets: Option<Vec<KeyValue>>,
     render_url: Option<String>,
@@ -129,6 +134,11 @@ struct CharacterStats {
     spell_haste: Rating,
     mastery: Rating,
     versatility_damage_done_bonus: f32,
+}
+
+#[derive(Deserialize)]
+struct CharacterTitles {
+    active_title: Option<DisplayString>,
 }
 
 impl CharacterStats {
@@ -242,11 +252,25 @@ async fn get_character_statistics(
 ) -> Result<CharacterStats, reqwest::Error> {
     let client = reqwest::Client::new();
 
-    // Get JSON info of character's appearance and last modified time of images
     let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/statistics?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token)).unwrap())
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => Ok(resp.json::<CharacterStats>().await?),
+        Err(e) => Err(e),
+    }
+}
+
+async fn get_character_titles(
+    realm_name: &str,
+    character_name: &str,
+    access_token: &str,
+) -> Result<CharacterTitles, reqwest::Error> {
+    let client = reqwest::Client::new();
+
+    let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/titles?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token)).unwrap())
+        .send().await?;
+    match resp.error_for_status() {
+        Ok(resp) => Ok(resp.json::<CharacterTitles>().await?),
         Err(e) => Err(e),
     }
 }
@@ -502,11 +526,19 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
 
     let stats: CharacterStats =
         get_character_statistics(&realm_name, &character_name, &access_token).await?;
+    let titles: CharacterTitles =
+        get_character_titles(&realm_name, &character_name, &access_token).await?;
+
+    let titled_name = titles
+        .active_title
+        .map_or(character.name.clone(), |active| {
+            active.display_string.replace("{name}", &character.name)
+        });
 
     msg.channel_id
         .send_message(&ctx.http, |m| {
             m.embed(|e| {
-                e.title(format!("{}-{}", character.name, character.realm))
+                e.title(titled_name)
                     .timestamp(character.last_login_utc().to_rfc3339())
                     .description(format!(
                         "Level {} {} {} {}",
