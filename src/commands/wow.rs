@@ -324,7 +324,10 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             "Player last seen on {}",
             c.last_login_local().format(date_format)
         ),
-        Err(e) if e.status() == Some(StatusCode::NOT_FOUND) || e.status() == Some(StatusCode::FORBIDDEN) => {
+        Err(e)
+            if e.status() == Some(StatusCode::NOT_FOUND)
+                || e.status() == Some(StatusCode::FORBIDDEN) =>
+        {
             msg.channel_id
                 .say(
                     &ctx.http,
@@ -495,7 +498,10 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
     let character: Character =
         match get_character(&realm_name, &character_name, &access_token).await {
             Ok(c) => c,
-            Err(e) if e.status() == Some(StatusCode::NOT_FOUND) || e.status() == Some(StatusCode::FORBIDDEN) => {
+            Err(e)
+                if e.status() == Some(StatusCode::NOT_FOUND)
+                    || e.status() == Some(StatusCode::FORBIDDEN) =>
+            {
                 msg.channel_id
                     .say(
                         &ctx.http,

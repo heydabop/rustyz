@@ -1,10 +1,13 @@
+owner_id = 0 # ID of user that owns the bot
+
 [discord]
-bot_token = ""
-user_id = 0
+bot_token = "" # Bot token from Discord dev console (either "<token>" or "Bot <token>")
+user_id = 0 # Bot's own user ID
 
 [psql]
-url = "postgresql://<user>[:<password>]@<host>[:<port>]/<database>[?sslmode=<ssl-mode>[&sslcrootcert=<path>]]"
+url = "postgresql://<user>[:<password>]@<host>[:<port>]/<database>[?sslmode=<ssl-mode>[&sslcrootcert=<path>]]" # PSQL db connection url
 
 [wow]
+# Auth info from Blizzard dev console
 client_id = ""
 client_secret = ""

@@ -24,6 +24,12 @@ impl TypeMapKey for DB {
     type Value = Pool<Postgres>;
 }
 
+struct OwnerId;
+
+impl TypeMapKey for OwnerId {
+    type Value = u64;
+}
+
 #[derive(Deserialize)]
 struct DiscordConfig {
     bot_token: String,
@@ -54,6 +60,7 @@ impl TypeMapKey for WowConfig {
 
 #[derive(Deserialize)]
 struct Config {
+    owner_id: u64,
     discord: DiscordConfig,
     psql: PsqlConfig,
     wow: WowConfig,
@@ -95,13 +102,31 @@ async fn after_log_error(
     error: Result<(), CommandError>,
 ) {
     if let Err(why) = error {
-        println!(
+        let error_message = format!(
             "Error in {}: {:?}\n\tMessage: {}",
             cmd_name, why, msg.content
         );
+        println!("{}", error_message);
         if let Err(e) = msg.channel_id.say(&ctx.http, "Something broke").await {
             println!("Error sending error reply: {}", e);
         };
+        let owner_id: u64 = {
+            let data = ctx.data.read().await;
+            *(data.get::<OwnerId>().unwrap())
+        };
+        if let Some(owner) = ctx.cache.user(owner_id).await {
+            if let Err(e) = owner
+                .direct_message(&ctx.http, |m| {
+                    m.content(error_message);
+                    m
+                })
+                .await
+            {
+                println!("Error sending error DM: {}", e);
+            }
+        } else {
+            println!("Unable to find owner")
+        }
     }
 }
 
@@ -132,6 +157,7 @@ async fn main() {
     let mut client = Client::new(config.discord.bot_token)
         .type_map_insert::<DB>(pool)
         .type_map_insert::<WowConfig>(config.wow)
+        .type_map_insert::<OwnerId>(config.owner_id)
         .event_handler(Handler)
         .framework(framework)
         .await
