@@ -85,6 +85,19 @@ impl fmt::Display for IdName {
 }
 
 #[derive(Deserialize)]
+struct TypeName {
+    #[serde(rename = "type")]
+    t: String,
+    name: String,
+}
+
+impl fmt::Display for TypeName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+#[derive(Deserialize)]
 struct DisplayString {
     display_string: String,
 }
@@ -102,12 +115,13 @@ struct CharacterMedia {
 struct Character {
     id: u64,
     name: String,
-    gender: Name,
+    gender: TypeName,
     faction: Name,
-    race: Name,
+    race: IdName,
     character_class: IdName,
     active_spec: Name,
     realm: Name,
+    guild: Option<Name>,
     level: u32,
     achievement_points: u32,
     last_login_timestamp: i64,
@@ -214,11 +228,23 @@ async fn get_character_media(
     realm_name: &str,
     character_name: &str,
     access_token: &str,
+    race_id: Option<u32>,
+    gender_type: Option<&str>,
 ) -> Result<CharacterMedia, reqwest::Error> {
     let client = reqwest::Client::new();
 
+    let alt_avatar = if race_id.is_some() && gender_type.is_some() {
+        format!(
+            "&alt=/shadow/avatar/{}-{}.jpg",
+            race_id.unwrap(),
+            if gender_type.unwrap() == "MALE" { 0 } else { 1 }
+        )
+    } else {
+        String::from("")
+    };
+
     // Get JSON info of character's appearance and last modified time of images
-    let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/character-media?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token)).unwrap())
+    let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/character-media?namespace=profile-us&locale=en_US&access_token={}{}", realm_name, character_name, access_token, alt_avatar)).unwrap())
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => {
@@ -340,19 +366,20 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     };
 
     // Get JSON info of character's appearance
-    let media: CharacterMedia = match get_character_media(&realm, &character, &access_token).await {
-        Ok(m) => m,
-        Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
-            msg.channel_id
-                .say(
-                    &ctx.http,
-                    format!("Unable to find images for {} on {}", character, realm),
-                )
-                .await?;
-            return Ok(());
-        }
-        Err(e) => return Err(CommandError::from(e)),
-    };
+    let media: CharacterMedia =
+        match get_character_media(&realm, &character, &access_token, None, None).await {
+            Ok(m) => m,
+            Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        format!("Unable to find images for {} on {}", character, realm),
+                    )
+                    .await?;
+                return Ok(());
+            }
+            Err(e) => return Err(CommandError::from(e)),
+        };
     let last_modified: Option<String> = match media.last_modified {
         Some(lm) => Some(format!("Image updated on {}", lm.format(date_format))),
         None => None,
@@ -513,22 +540,29 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
             Err(e) => return Err(CommandError::from(e)),
         };
 
-    let avatar_url: Option<String> =
-        match get_character_media(&realm_name, &character_name, &access_token).await {
-            Ok(media) => media.assets.and_then(|assets| {
-                assets.iter().find_map(|a| {
-                    if a.key == "avatar" {
-                        Some(a.value.clone())
-                    } else {
-                        None
-                    }
-                })
-            }),
-            Err(e) => {
-                println!("Error getting character media: {}", e);
-                None
-            }
-        };
+    let avatar_url: Option<String> = match get_character_media(
+        &realm_name,
+        &character_name,
+        &access_token,
+        Some(character.race.id),
+        Some(&character.gender.t),
+    )
+    .await
+    {
+        Ok(media) => media.assets.and_then(|assets| {
+            assets.iter().find_map(|a| {
+                if a.key == "avatar" {
+                    Some(a.value.clone())
+                } else {
+                    None
+                }
+            })
+        }),
+        Err(e) => {
+            println!("Error getting character media: {}", e);
+            None
+        }
+    };
 
     let stats: CharacterStats =
         get_character_statistics(&realm_name, &character_name, &access_token).await?;
@@ -541,10 +575,16 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
             active.display_string.replace("{name}", &character.name)
         });
 
+    let guild_name = if let Some(guild) = &character.guild {
+        format!("\n\u{276e}{}\u{276f}", guild.name)
+    } else {
+        String::from("")
+    };
+
     msg.channel_id
         .send_message(&ctx.http, |m| {
             m.embed(|e| {
-                e.title(titled_name)
+                e.title(format!("{}{}", titled_name, guild_name))
                     .timestamp(character.last_login_utc().to_rfc3339())
                     .description(format!(
                         "Level {} {} {} {}",
