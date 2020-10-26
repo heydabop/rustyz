@@ -4,7 +4,10 @@
 mod commands;
 mod util;
 
-use commands::{ping::PING_COMMAND, top::TOP_COMMAND, wow::CHARACTER_COMMAND, wow::MOG_COMMAND};
+use commands::{
+    ping::PING_COMMAND, top::TOP_COMMAND, wow::CHARACTER_COMMAND, wow::MOG_COMMAND,
+    wow::SEARCH_COMMAND,
+};
 use serde::Deserialize;
 use serenity::async_trait;
 use serenity::client::{Client, Context, EventHandler};
@@ -72,7 +75,7 @@ struct General;
 
 #[group]
 #[prefix = "wow"]
-#[commands(mog, character)]
+#[commands(character, search, mog)]
 struct Wow;
 
 struct Handler;

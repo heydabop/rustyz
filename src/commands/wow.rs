@@ -7,7 +7,7 @@ use serenity::client::Context;
 use serenity::framework::standard::{macros::command, Args, CommandError, CommandResult};
 use serenity::http::AttachmentType;
 use serenity::model::channel::Message;
-use serenity::utils::Colour;
+use serenity::utils::{Colour, MessageBuilder};
 use std::borrow::Cow;
 use std::fmt;
 use std::time::{Duration, SystemTime};
@@ -631,6 +631,68 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
             m
         })
         .await?;
+
+    Ok(())
+}
+
+// Takes in the arg `<character>` and replies with a list of matching character names and their realms
+#[command]
+pub async fn search(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let mut name = args.rest().to_string();
+    name.make_ascii_lowercase();
+
+    let builder = reqwest::Client::builder()
+        .gzip(true)
+        .brotli(true)
+        .build()
+        .unwrap()
+        .request(
+            reqwest::Method::GET,
+            &format!("https://worldofwarcraft.com/en-us/search?q={}", name),
+        )
+        .header("Host", "worldofwarcraft.com")
+        .header(
+            "User-Agent",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:83.0) Gecko/20100101 Firefox/83.0",
+        )
+        .header(
+            "Accept",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        )
+        .header("Accept-Language", "en-US,en;q=0.5")
+        .header("Accept-Encoding", "gzip, br")
+        .header("Referer", "https://worldofwarcraft.com/en-us/")
+        .header("Connection", "keep-alive")
+        .header("Upgrade-Insecure-Requests", "1")
+        .header("Pragma", "no-cache")
+        .header("Cache-Control", "no-cache");
+    let char_regex = regex::Regex::new(r#"href="/en-us/character/us/(\w+)/(\w+)""#).unwrap();
+
+    let html = match builder.send().await {
+        Ok(r) => match r.text().await {
+            Ok(t) => t,
+            Err(e) => {
+                return Err(CommandError::from(e));
+            }
+        },
+        Err(e) => {
+            return Err(CommandError::from(e));
+        }
+    };
+
+    let mut content = MessageBuilder::new();
+
+    for caps in char_regex.captures_iter(&html) {
+        content.push(format!(
+            "{}-{}\n",
+            caps.get(2).unwrap().as_str(),
+            caps.get(1).unwrap().as_str()
+        ));
+    }
+
+    content.build();
+
+    msg.channel_id.say(&ctx.http, content).await?;
 
     Ok(())
 }
