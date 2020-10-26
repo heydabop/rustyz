@@ -648,7 +648,10 @@ pub async fn search(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .unwrap()
         .request(
             reqwest::Method::GET,
-            &format!("https://worldofwarcraft.com/en-us/search?q={}", name),
+            &format!(
+                "https://worldofwarcraft.com/en-us/search/character?q={}",
+                name
+            ),
         )
         .header("Host", "worldofwarcraft.com")
         .header(
@@ -666,7 +669,7 @@ pub async fn search(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .header("Upgrade-Insecure-Requests", "1")
         .header("Pragma", "no-cache")
         .header("Cache-Control", "no-cache");
-    let char_regex = regex::Regex::new(r#"href="/en-us/character/us/(\w+)/(\w+)""#).unwrap();
+    let char_regex = regex::Regex::new(r#"href="/en-us/character/us/([\w-]+)/(\w+)""#).unwrap();
 
     let html = match builder.send().await {
         Ok(r) => match r.text().await {
