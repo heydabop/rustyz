@@ -187,6 +187,41 @@ impl Character {
     }
 }
 
+#[derive(Deserialize)]
+struct StatusType {
+    #[serde(rename = "type")]
+    t: String,
+}
+
+#[derive(Deserialize)]
+struct Localized {
+    #[serde(rename = "en_US")]
+    en_us: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Realm {
+    name: Localized,
+    slug: String,
+}
+
+#[derive(Deserialize)]
+struct SearchData {
+    has_queue: bool,
+    realms: Vec<Realm>,
+    status: StatusType,
+}
+
+#[derive(Deserialize)]
+struct SearchResult {
+    data: SearchData,
+}
+
+#[derive(Deserialize)]
+struct Search {
+    results: Vec<SearchResult>,
+}
+
 // Get access token from global state or Blizzard API if token missing/expired
 async fn get_access_token(ctx: &Context) -> Result<String, reqwest::Error> {
     let mut wow_config = {
@@ -694,6 +729,59 @@ pub async fn search(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     }
 
     content.build();
+
+    msg.channel_id.say(&ctx.http, content).await?;
+
+    Ok(())
+}
+
+#[command]
+pub async fn realm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    // Parse out character and realm names from single string arg `<character>-<realm>`
+    let mut arg = args.rest().to_string();
+    arg.make_ascii_lowercase();
+    let realm_slug = arg.trim().replace(" ", "-").replace("'", "");
+
+    let access_token = get_access_token(ctx).await?;
+
+    let client = reqwest::Client::new();
+
+    let search: Search = client.get(Url::parse(&format!("https://us.api.blizzard.com/data/wow/search/connected-realm?namespace=dynamic-us&locale=en_US&realms.slug={}&orderby=id&_page=1&access_token={}", realm_slug, access_token)).unwrap())
+        .send().await?.json().await?;
+
+    if search.results.is_empty() || search.results[0].data.realms.is_empty() {
+        msg.channel_id
+            .say(&ctx.http, format!("Unable to find {}", arg))
+            .await?;
+        return Ok(());
+    }
+
+    let realm = if let Some(r) = search.results[0]
+        .data
+        .realms
+        .iter()
+        .find(|&r| r.slug == realm_slug)
+    {
+        r
+    } else {
+        msg.channel_id
+            .say(&ctx.http, format!("Unable to find {}", arg))
+            .await?;
+        return Ok(());
+    };
+
+    let realm_name = realm.name.en_us.as_ref().or(Some(&arg)).unwrap();
+    let realm_data = &search.results[0].data;
+
+    let content = if realm_data.status.t == "UP" {
+        if realm_data.has_queue {
+            format!("{} is online but has a queue", realm_name)
+        } else {
+            format!("{} is online and has no queue", realm_name)
+        }
+    } else {
+        format!("{} is offline", realm_name)
+    };
 
     msg.channel_id.say(&ctx.http, content).await?;
 

@@ -6,7 +6,7 @@ mod util;
 
 use commands::{
     ping::PING_COMMAND, top::TOP_COMMAND, wow::CHARACTER_COMMAND, wow::MOG_COMMAND,
-    wow::SEARCH_COMMAND,
+    wow::REALM_COMMAND, wow::SEARCH_COMMAND,
 };
 use serde::Deserialize;
 use serenity::async_trait;
@@ -75,7 +75,7 @@ struct General;
 
 #[group]
 #[prefix = "wow"]
-#[commands(character, search, mog)]
+#[commands(character, realm, search, mog)]
 struct Wow;
 
 struct Handler;
