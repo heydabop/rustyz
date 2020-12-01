@@ -103,6 +103,17 @@ struct DisplayString {
 }
 
 #[derive(Deserialize)]
+struct Covenant {
+    name: String,
+}
+
+#[derive(Deserialize)]
+struct CovenantProgress {
+    chosen_covenant: Covenant,
+    renown_level: u32,
+}
+
+#[derive(Deserialize)]
 struct CharacterMedia {
     assets: Option<Vec<KeyValue>>,
     render_url: Option<String>,
@@ -127,6 +138,7 @@ struct Character {
     last_login_timestamp: i64,
     average_item_level: u32,
     equipped_item_level: u32,
+    covenant_progress: Option<CovenantProgress>,
 }
 
 #[allow(dead_code)]
@@ -616,17 +628,24 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
         String::from("")
     };
 
+    let covenant_info = if let Some(covenant) = &character.covenant_progress {
+        format!("\n{} Rank {}", covenant.chosen_covenant.name, covenant.renown_level)
+    } else {
+        String::from("")
+    };
+
     msg.channel_id
         .send_message(&ctx.http, |m| {
             m.embed(|e| {
                 e.title(format!("{}{}", titled_name, guild_name))
                     .timestamp(character.last_login_utc().to_rfc3339())
                     .description(format!(
-                        "Level {} {} {} {}",
+                        "Level {} {} {} {}{}",
                         character.level,
                         character.race,
                         character.active_spec,
-                        character.character_class
+                        character.character_class,
+                        covenant_info
                     ))
                     .url(format!(
                         "https://worldofwarcraft.com/en-us/character/us/{}/{}/",
