@@ -599,7 +599,14 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
         Ok(media) => media.assets.and_then(|assets| {
             assets.iter().find_map(|a| {
                 if a.key == "avatar" {
-                    Some(a.value.clone())
+                    let seconds = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+                        Ok(t) => t.as_secs(),
+                        Err(_) => {
+                            println!("WARN: SystemTime before UNIX_EPOCH");
+                            0
+                        },
+                    };
+                    Some(a.value.clone() + &format!("?{}", seconds))
                 } else {
                     None
                 }
