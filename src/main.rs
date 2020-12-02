@@ -157,7 +157,7 @@ async fn main() {
         .group(&WOW_GROUP)
         .before(before_typing)
         .after(after_log_error);
-    let mut client = Client::new(config.discord.bot_token)
+    let mut client = Client::builder(config.discord.bot_token)
         .type_map_insert::<DB>(pool)
         .type_map_insert::<WowConfig>(config.wow)
         .type_map_insert::<OwnerId>(config.owner_id)
