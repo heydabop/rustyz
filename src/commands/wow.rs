@@ -587,7 +587,7 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
             Err(e) => return Err(CommandError::from(e)),
         };
 
-    let avatar_url: Option<String> = match get_character_media(
+    let inset_url: Option<String> = match get_character_media(
         &realm_name,
         &character_name,
         &access_token,
@@ -598,7 +598,7 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
     {
         Ok(media) => media.assets.and_then(|assets| {
             assets.iter().find_map(|a| {
-                if a.key == "avatar" {
+                if a.key == "inset" {
                     let seconds = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
                         Ok(t) => t.as_secs(),
                         Err(_) => {
@@ -684,8 +684,8 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
                         format!("{:.2}%", &stats.versatility_damage_done_bonus),
                         true,
                     );
-                if let Some(avatar_url) = avatar_url {
-                    e.thumbnail(avatar_url);
+                if let Some(inset_url) = inset_url {
+                    e.image(inset_url);
                 }
                 e
             });
