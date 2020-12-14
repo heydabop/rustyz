@@ -130,7 +130,7 @@ struct Character {
     faction: Name,
     race: IdName,
     character_class: IdName,
-    active_spec: Name,
+    active_spec: Option<Name>,
     realm: Name,
     guild: Option<Name>,
     level: u32,
@@ -380,7 +380,7 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let char_realm: Vec<&str> = arg.splitn(2, '-').collect();
     if char_realm.len() != 2 {
         msg.channel_id
-            .say(&ctx.http, "`Usage: /wow [drip|mog] name-realm`")
+            .say(&ctx.http, "`Usage: !wow [drip|mog] name-realm`")
             .await?;
         return Ok(());
     }
@@ -560,7 +560,7 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
     let char_realm: Vec<&str> = arg.splitn(2, '-').collect();
     if char_realm.len() != 2 {
         msg.channel_id
-            .say(&ctx.http, "`Usage: /wow [drip|mog] name-realm`")
+            .say(&ctx.http, "`Usage: !wow char name-realm`")
             .await?;
         return Ok(());
     }
@@ -641,16 +641,22 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
         String::from("")
     };
 
+    let active_spec = if let Some(spec) = &character.active_spec {
+        format!(" {}", spec)
+    }else {
+        String::from("")
+    };
+
     msg.channel_id
         .send_message(&ctx.http, |m| {
             m.embed(|e| {
                 e.title(format!("{}{}", titled_name, guild_name))
                     .timestamp(character.last_login_utc().to_rfc3339())
                     .description(format!(
-                        "Level {} {} {} {}{}",
+                        "Level {} {}{} {}{}",
                         character.level,
                         character.race,
-                        character.active_spec,
+                        active_spec,
                         character.character_class,
                         covenant_info
                     ))
