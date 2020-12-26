@@ -100,30 +100,24 @@ pub async fn raiderio(ctx: &Context, msg: &Message, args: Args) -> CommandResult
     let realm = char_realm[1].trim().replace(" ", "-").replace("'", "");
 
     let client = reqwest::Client::new();
-    let dungeons = match client.get(Url::parse("https://raider.io/api/v1/mythic-plus/static-data?expansion_id=8").unwrap()).send().await?.error_for_status() {
+    let dungeons = match client
+        .get(Url::parse("https://raider.io/api/v1/mythic-plus/static-data?expansion_id=8").unwrap())
+        .send()
+        .await?
+        .error_for_status()
+    {
         Ok(resp) => resp.json::<StaticData>().await?.dungeons,
-        Err(e) => {
-            if e.status() == Some(StatusCode::NOT_FOUND) {
-                msg.channel_id
-                    .say(
-                        &ctx.http,
-                        format!("Unable to find {} on {}", character, realm),
-                    )
-                    .await?;
-                return Ok(());
-            }
-            return Err(CommandError::from(e));
-        }
+        Err(e) => return Err(CommandError::from(e)),
     };
 
     let profile = match client.get(Url::parse(&format!("https://raider.io/api/v1/characters/profile?region=us&realm={}&name={}&fields=raid_progression%2Cmythic_plus_scores_by_season%3Acurrent%2Cmythic_plus_best_runs%3Aall%2Cmythic_plus_highest_level_runs%2Cmythic_plus_recent_runs", realm, character)).unwrap()).send().await?.error_for_status() {
         Ok(resp) => resp.json::<CharacterProfile>().await?,
         Err(e) => {
-            if e.status() == Some(StatusCode::NOT_FOUND) {
+            if e.status() == Some(StatusCode::NOT_FOUND) || e.status() == Some(StatusCode::BAD_REQUEST) {
                 msg.channel_id
                     .say(
                         &ctx.http,
-                        format!("Unable to find {} on {}", character, realm),
+                        format!("Unable to find raiderio profile for {}-{}", character, realm),
                     )
                     .await?;
                 return Ok(());
@@ -161,14 +155,14 @@ pub async fn raiderio(ctx: &Context, msg: &Message, args: Args) -> CommandResult
     for (short_name, run) in best_runs_by_dungeon {
         if let Some(run) = run {
             sorted_best_runs.push(format!(
-                "{:width$}: {}{}",
-                short_name, run.mythic_level, PLUSSES[run.num_keystone_upgrades as usize], width = longest_name
+                "`{:width$}` {}{}",
+                short_name,
+                run.mythic_level,
+                PLUSSES[run.num_keystone_upgrades as usize],
+                width = longest_name
             ));
         } else {
-            sorted_best_runs.push(format!(
-                "{:width$}: --",
-                short_name, width = longest_name
-            ));
+            sorted_best_runs.push(format!("`{:width$}` --", short_name, width = longest_name));
         }
     }
     sorted_best_runs.sort();
@@ -198,7 +192,7 @@ pub async fn raiderio(ctx: &Context, msg: &Message, args: Args) -> CommandResult
 }
 
 fn format_runs(runs: &[MythicPlusRun], count: usize) -> String {
-    let mut s = String::with_capacity(5*count);
+    let mut s = String::with_capacity(5 * count);
     for run in runs.iter().take(count) {
         s.push_str(&format!(
             "{} {}{}\n",
