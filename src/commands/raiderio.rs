@@ -100,24 +100,33 @@ pub async fn raiderio(ctx: &Context, msg: &Message, args: Args) -> CommandResult
     let realm = char_realm[1].trim().replace(" ", "-").replace("'", "");
 
     let client = reqwest::Client::new();
-    let dungeons = match client
+    let dungeons = client
         .get(Url::parse("https://raider.io/api/v1/mythic-plus/static-data?expansion_id=8").unwrap())
         .send()
         .await?
-        .error_for_status()
-    {
-        Ok(resp) => resp.json::<StaticData>().await?.dungeons,
-        Err(e) => return Err(CommandError::from(e)),
-    };
+        .json::<StaticData>()
+        .await?
+        .dungeons;
 
     let profile = match client.get(Url::parse(&format!("https://raider.io/api/v1/characters/profile?region=us&realm={}&name={}&fields=raid_progression%2Cmythic_plus_scores_by_season%3Acurrent%2Cmythic_plus_best_runs%3Aall%2Cmythic_plus_highest_level_runs%2Cmythic_plus_recent_runs", realm, character)).unwrap()).send().await?.error_for_status() {
-        Ok(resp) => resp.json::<CharacterProfile>().await?,
+        Ok(resp) => if let Ok(profile) = resp.json::<CharacterProfile>().await {
+            profile
+        } else {
+            // assume raider.io is giving us a 400 response as a json error under a 200 http response
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    format!("Unable to find raiderio profile for {} on {}", character, realm),
+                )
+                .await?;
+            return Ok(());
+        }
         Err(e) => {
             if e.status() == Some(StatusCode::NOT_FOUND) || e.status() == Some(StatusCode::BAD_REQUEST) {
                 msg.channel_id
                     .say(
                         &ctx.http,
-                        format!("Unable to find raiderio profile for {}-{}", character, realm),
+                        format!("Unable to find raiderio profile for {} on {}", character, realm),
                     )
                     .await?;
                 return Ok(());
