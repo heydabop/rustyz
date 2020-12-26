@@ -599,13 +599,13 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
         Ok(media) => media.assets.and_then(|assets| {
             assets.iter().find_map(|a| {
                 if a.key == "inset" {
-                    let seconds = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-                        Ok(t) => t.as_secs(),
-                        Err(_) => {
+                    let seconds =
+                        if let Ok(t) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+                            t.as_secs()
+                        } else {
                             println!("WARN: SystemTime before UNIX_EPOCH");
                             0
-                        },
-                    };
+                        };
                     Some(a.value.clone() + &format!("?{}", seconds))
                 } else {
                     None
@@ -636,14 +636,17 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
     };
 
     let covenant_info = if let Some(covenant) = &character.covenant_progress {
-        format!("\n{} Rank {}", covenant.chosen_covenant.name, covenant.renown_level)
+        format!(
+            "\n{} Rank {}",
+            covenant.chosen_covenant.name, covenant.renown_level
+        )
     } else {
         String::from("")
     };
 
     let active_spec = if let Some(spec) = &character.active_spec {
         format!(" {}", spec)
-    }else {
+    } else {
         String::from("")
     };
 
