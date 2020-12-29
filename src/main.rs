@@ -5,8 +5,9 @@ mod commands;
 mod util;
 
 use commands::{
-    affixes::AFFIXES_COMMAND, ping::PING_COMMAND, raiderio::RAIDERIO_COMMAND, top::TOP_COMMAND,
-    wow::CHARACTER_COMMAND, wow::MOG_COMMAND, wow::REALM_COMMAND, wow::SEARCH_COMMAND,
+    affixes::AFFIXES_COMMAND, ping::PING_COMMAND, raiderio::RAIDERIO_COMMAND,
+    source::SOURCE_COMMAND, top::TOP_COMMAND, wow::CHARACTER_COMMAND, wow::MOG_COMMAND,
+    wow::REALM_COMMAND, wow::SEARCH_COMMAND,
 };
 use serde::Deserialize;
 use serenity::async_trait;
@@ -70,7 +71,7 @@ struct Config {
 }
 
 #[group]
-#[commands(affixes, ping, top, raiderio)]
+#[commands(affixes, ping, source, top, raiderio)]
 struct General;
 
 #[group]
