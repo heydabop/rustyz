@@ -13,13 +13,15 @@ use serde::Deserialize;
 use serenity::async_trait;
 use serenity::client::{Client, Context, EventHandler};
 use serenity::framework::standard::{
-    macros::{group, hook},
-    CommandError, StandardFramework,
+    help_commands,
+    macros::{group, help, hook},
+    Args, CommandError, CommandGroup, CommandResult, HelpOptions, StandardFramework,
 };
 use serenity::model::{channel::Message, gateway::Ready, id::UserId};
 use serenity::prelude::*;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};
+use std::collections::HashSet;
 use std::time::SystemTime;
 
 struct DB;
@@ -134,6 +136,20 @@ async fn after_log_error(
     }
 }
 
+#[help]
+#[strikethrough_commands_tip_in_guild("")]
+async fn default_help(
+    context: &Context,
+    msg: &Message,
+    args: Args,
+    help_options: &'static HelpOptions,
+    groups: &[&'static CommandGroup],
+    owners: HashSet<UserId>,
+) -> CommandResult {
+    let _ = help_commands::plain(context, msg, args, help_options, groups, owners).await;
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() {
     let config: Config =
@@ -156,6 +172,7 @@ async fn main() {
         })
         .group(&GENERAL_GROUP)
         .group(&WOW_GROUP)
+        .help(&DEFAULT_HELP)
         .before(before_typing)
         .after(after_log_error);
     let mut client = Client::builder(config.discord.bot_token)
