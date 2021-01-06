@@ -58,6 +58,16 @@ pub async fn tarkov(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     }
     let item = &items[0];
 
+    let trader_price = if item.trader_price_currency == "$" {
+        format!("${}", item.trader_price.to_formatted_string(&Locale::en))
+    } else {
+        format!(
+            "{} {}",
+            item.trader_price.to_formatted_string(&Locale::en),
+            item.trader_price_currency
+        )
+    };
+
     msg.channel_id
         .send_message(&ctx.http, |m| {
             m.embed(|e| {
@@ -105,15 +115,7 @@ pub async fn tarkov(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                         true,
                     )
                     .field("\u{200B}", "\u{200B}", false)
-                    .field(
-                        &item.trader_name,
-                        format!(
-                            "{} {}",
-                            item.trader_price.to_formatted_string(&Locale::en),
-                            item.trader_price_currency
-                        ),
-                        false,
-                    )
+                    .field(&item.trader_name, trader_price, false)
                     .thumbnail(&item.icon)
             })
         })
