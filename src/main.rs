@@ -6,8 +6,8 @@ mod util;
 
 use commands::{
     affixes::AFFIXES_COMMAND, ping::PING_COMMAND, raiderio::RAIDERIO_COMMAND,
-    source::SOURCE_COMMAND, top::TOP_COMMAND, wow::CHARACTER_COMMAND, wow::MOG_COMMAND,
-    wow::REALM_COMMAND, wow::SEARCH_COMMAND,
+    source::SOURCE_COMMAND, tarkov::TARKOV_COMMAND, top::TOP_COMMAND, wow::CHARACTER_COMMAND,
+    wow::MOG_COMMAND, wow::REALM_COMMAND, wow::SEARCH_COMMAND,
 };
 use serde::Deserialize;
 use serenity::async_trait;
@@ -60,6 +60,15 @@ struct WowConfig {
     auth: Option<WowAuth>, // not populated by config.toml, populated by first request to wow API
 }
 
+#[derive(Deserialize)]
+struct TarkovMarketConfig {
+    api_key: String,
+}
+
+impl TypeMapKey for TarkovMarketConfig {
+    type Value = TarkovMarketConfig;
+}
+
 impl TypeMapKey for WowConfig {
     type Value = WowConfig;
 }
@@ -69,11 +78,12 @@ struct Config {
     owner_id: u64,
     discord: DiscordConfig,
     psql: PsqlConfig,
+    tarkov_market: TarkovMarketConfig,
     wow: WowConfig,
 }
 
 #[group]
-#[commands(affixes, ping, source, top, raiderio)]
+#[commands(affixes, ping, source, tarkov, top, raiderio)]
 struct General;
 
 #[group]
@@ -177,6 +187,7 @@ async fn main() {
         .after(after_log_error);
     let mut client = Client::builder(config.discord.bot_token)
         .type_map_insert::<DB>(pool)
+        .type_map_insert::<TarkovMarketConfig>(config.tarkov_market)
         .type_map_insert::<WowConfig>(config.wow)
         .type_map_insert::<OwnerId>(config.owner_id)
         .event_handler(Handler)

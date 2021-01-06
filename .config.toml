@@ -7,6 +7,9 @@ user_id = 0 # Bot's own user ID
 [psql]
 url = "postgresql://<user>[:<password>]@<host>[:<port>]/<database>[?sslmode=<ssl-mode>[&sslcrootcert=<path>]]" # PSQL db connection url
 
+[tarkov_market]
+api_key = ""
+
 [wow]
 # Auth info from Blizzard dev console
 client_id = ""
