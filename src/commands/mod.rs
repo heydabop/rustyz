@@ -1,4 +1,5 @@
 pub mod affixes;
+pub mod karma;
 pub mod ping;
 pub mod raiderio;
 pub mod source;
