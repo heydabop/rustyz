@@ -5,4 +5,5 @@ pub mod raiderio;
 pub mod source;
 pub mod tarkov;
 pub mod top;
+pub mod whois;
 pub mod wow;
