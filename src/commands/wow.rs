@@ -472,7 +472,7 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .bytes()
         .await?;
     let mut image =
-        image::load_from_memory_with_format(&image_bytes, ImageFormat::Png)?.into_rgba();
+        image::load_from_memory_with_format(&image_bytes, ImageFormat::Png)?.into_rgba8();
     let (width, height) = image.dimensions();
 
     // Find boundaries of image content

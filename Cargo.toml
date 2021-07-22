@@ -8,13 +8,13 @@ edition = "2018"
 
 [dependencies]
 chrono = "0.4.19"
-image = "0.23.10"
+image = "0.23.14"
 num-format = "0.4.0"
 num-traits = "0.2"
-regex = "1"
-reqwest = { version = "0.10", features = ["brotli", "gzip", "json"] }
+regex = "1.5"
+reqwest = { version = "0.11", features = ["brotli", "gzip", "json"] }
 serde = { version = "1.0", features = ["derive"] }
-serenity = "0.9.3"
-sqlx = { version = "0.4.0-beta.1", default-features = false, features = [ "decimal", "runtime-tokio", "macros", "postgres" ] }
-tokio = { version = "0.2", features = ["macros"] }
+serenity = "0.10"
+sqlx = { version = "0.5", default-features = false, features = [ "decimal", "runtime-tokio-rustls", "macros", "postgres" ] }
+tokio = { version = "1.8.0", features = ["macros"] }
 toml = "0.5"
