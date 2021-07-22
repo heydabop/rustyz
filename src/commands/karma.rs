@@ -1,5 +1,5 @@
 use crate::util;
-use crate::DB;
+use crate::OldDB;
 use serenity::client::Context;
 use serenity::framework::standard::{macros::command, Args, CommandError, CommandResult};
 use serenity::model::channel::Message;
@@ -20,7 +20,7 @@ pub async fn karma(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
 
     let rows = {
         let data = ctx.data.read().await;
-        let db = data.get::<DB>().unwrap();
+        let db = data.get::<OldDB>().unwrap();
         sqlx::query(
             r#"
 SELECT user_id, karma

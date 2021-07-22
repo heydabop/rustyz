@@ -24,6 +24,12 @@ use sqlx::{Pool, Postgres};
 use std::collections::HashSet;
 use std::time::SystemTime;
 
+struct OldDB;
+
+impl TypeMapKey for OldDB {
+    type Value = Pool<Postgres>;
+}
+
 struct DB;
 
 impl TypeMapKey for DB {
@@ -44,6 +50,7 @@ struct DiscordConfig {
 
 #[derive(Deserialize)]
 struct PsqlConfig {
+    old_url: String,
     url: String,
 }
 
@@ -166,6 +173,12 @@ async fn main() {
         toml::from_str(&std::fs::read_to_string("config.toml").expect("Error loading config.toml"))
             .expect("Error parsing config.toml");
 
+    let old_pool = PgPoolOptions::new()
+        .max_connections(4)
+        .connect(config.psql.old_url.as_str())
+        .await
+        .expect("Error connecting to old PSQL database");
+
     let pool = PgPoolOptions::new()
         .max_connections(4)
         .connect(config.psql.url.as_str())
@@ -186,6 +199,7 @@ async fn main() {
         .before(before_typing)
         .after(after_log_error);
     let mut client = Client::builder(config.discord.bot_token)
+        .type_map_insert::<OldDB>(old_pool)
         .type_map_insert::<DB>(pool)
         .type_map_insert::<TarkovMarketConfig>(config.tarkov_market)
         .type_map_insert::<WowConfig>(config.wow)

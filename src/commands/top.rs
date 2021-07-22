@@ -1,5 +1,5 @@
 use crate::util;
-use crate::DB;
+use crate::OldDB;
 use num_traits::cast::ToPrimitive;
 use serenity::client::Context;
 use serenity::framework::standard::{macros::command, Args, CommandResult};
@@ -17,7 +17,7 @@ pub async fn top(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
 
     let rows = {
         let data = ctx.data.read().await;
-        let db = data.get::<DB>().unwrap();
+        let db = data.get::<OldDB>().unwrap();
         sqlx::query(
             r#"
 SELECT author_id, count(author_id) AS num_messages
