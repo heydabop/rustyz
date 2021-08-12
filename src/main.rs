@@ -11,17 +11,23 @@ use commands::{
 };
 use serde::Deserialize;
 use serenity::async_trait;
-use serenity::client::{Client, Context, EventHandler};
+use serenity::client::{bridge::gateway::GatewayIntents, Client, Context, EventHandler};
 use serenity::framework::standard::{
     help_commands,
     macros::{group, help, hook},
     Args, CommandError, CommandGroup, CommandResult, HelpOptions, StandardFramework,
 };
-use serenity::model::{channel::Message, gateway::Ready, id::UserId};
+use serenity::model::{
+    channel::Message,
+    event::PresenceUpdateEvent,
+    gateway::{ActivityType, Ready},
+    id::UserId,
+    user::OnlineStatus,
+};
 use serenity::prelude::*;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
 
 struct OldDB;
@@ -40,6 +46,17 @@ struct OwnerId;
 
 impl TypeMapKey for OwnerId {
     type Value = u64;
+}
+
+struct UserPresence {
+    status: OnlineStatus,
+    game_name: Option<String>,
+}
+
+struct LastUserPresence;
+
+impl TypeMapKey for LastUserPresence {
+    type Value = HashMap<UserId, UserPresence>;
 }
 
 #[derive(Deserialize)]
@@ -104,6 +121,53 @@ struct Handler;
 impl EventHandler for Handler {
     async fn ready(&self, _: Context, ready: Ready) {
         println!("Bot {} is successfully connected.", ready.user.name);
+    }
+
+    async fn presence_update(&self, ctx: Context, update: PresenceUpdateEvent) {
+        let presence = update.presence;
+        let game_name = presence.activities.iter().find_map(|a| {
+            if a.kind == ActivityType::Playing {
+                Some(a.name.clone())
+            } else {
+                None
+            }
+        });
+
+        {
+            let data = ctx.data.read().await;
+            if let Some(last_presence) = data
+                .get::<LastUserPresence>()
+                .unwrap()
+                .get(&presence.user_id)
+            {
+                if last_presence.status == presence.status && last_presence.game_name == game_name {
+                    return;
+                }
+            }
+        }
+
+        let mut data = ctx.data.write().await;
+        let db = data.get::<DB>().unwrap();
+        #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
+            r#"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)"#,
+        )
+        .bind(*presence.user_id.as_u64() as i64)
+            .bind(presence.status.name())
+            .bind(&game_name)
+            .execute(&*db)
+            .await
+        {
+            println!("Error saving user_presence: {}", e);
+            return;
+        }
+        let last_presence_map = data.get_mut::<LastUserPresence>().unwrap();
+        last_presence_map.insert(
+            presence.user_id,
+            UserPresence {
+                status: presence.status,
+                game_name,
+            },
+        );
     }
 }
 
@@ -204,7 +268,14 @@ async fn main() {
         .type_map_insert::<TarkovMarketConfig>(config.tarkov_market)
         .type_map_insert::<WowConfig>(config.wow)
         .type_map_insert::<OwnerId>(config.owner_id)
+        .type_map_insert::<LastUserPresence>(HashMap::new())
         .event_handler(Handler)
+        .intents(
+            GatewayIntents::GUILD_MEMBERS
+                | GatewayIntents::GUILD_PRESENCES
+                | GatewayIntents::GUILD_MESSAGES
+                | GatewayIntents::DIRECT_MESSAGES,
+        )
         .framework(framework)
         .await
         .expect("Error creating Discord client");
