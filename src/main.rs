@@ -126,6 +126,24 @@ impl EventHandler for Handler {
 
     async fn presence_update(&self, ctx: Context, update: PresenceUpdateEvent) {
         let presence = update.presence;
+        let user_id = presence.user_id;
+        if match presence.user {
+            Some(user) => user.bot,
+            None => match ctx.cache.user(user_id).await {
+                Some(user) => user.bot,
+                None => {
+                    if let Ok(user) = ctx.http.get_user(user_id.0).await {
+                        user.bot
+                    } else {
+                        println!("Unable to determine if user {} is bot", user_id);
+                        false
+                    }
+                }
+            },
+        } {
+            // ignore updates from bots
+            return;
+        }
         let game_name = presence.activities.iter().find_map(|a| {
             if a.kind == ActivityType::Playing {
                 Some(a.name.clone())
@@ -136,11 +154,7 @@ impl EventHandler for Handler {
 
         {
             let data = ctx.data.read().await;
-            if let Some(last_presence) = data
-                .get::<LastUserPresence>()
-                .unwrap()
-                .get(&presence.user_id)
-            {
+            if let Some(last_presence) = data.get::<LastUserPresence>().unwrap().get(&user_id) {
                 if last_presence.status == presence.status && last_presence.game_name == game_name {
                     return;
                 }
@@ -152,7 +166,7 @@ impl EventHandler for Handler {
         #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
             r#"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)"#,
         )
-        .bind(*presence.user_id.as_u64() as i64)
+        .bind(user_id.0 as i64)
             .bind(presence.status.name())
             .bind(&game_name)
             .execute(&*db)
@@ -163,7 +177,7 @@ impl EventHandler for Handler {
         }
         let last_presence_map = data.get_mut::<LastUserPresence>().unwrap();
         last_presence_map.insert(
-            presence.user_id,
+            user_id,
             UserPresence {
                 status: presence.status,
                 game_name,
