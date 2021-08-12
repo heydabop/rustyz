@@ -5,9 +5,10 @@ mod commands;
 mod util;
 
 use commands::{
-    affixes::AFFIXES_COMMAND, karma::KARMA_COMMAND, ping::PING_COMMAND, raiderio::RAIDERIO_COMMAND,
-    source::SOURCE_COMMAND, tarkov::TARKOV_COMMAND, top::TOP_COMMAND, whois::WHOIS_COMMAND,
-    wow::CHARACTER_COMMAND, wow::MOG_COMMAND, wow::REALM_COMMAND, wow::SEARCH_COMMAND,
+    affixes::AFFIXES_COMMAND, karma::KARMA_COMMAND, ping::PING_COMMAND, playtime::PLAYTIME_COMMAND,
+    raiderio::RAIDERIO_COMMAND, source::SOURCE_COMMAND, tarkov::TARKOV_COMMAND, top::TOP_COMMAND,
+    whois::WHOIS_COMMAND, wow::CHARACTER_COMMAND, wow::MOG_COMMAND, wow::REALM_COMMAND,
+    wow::SEARCH_COMMAND,
 };
 use serde::Deserialize;
 use serenity::async_trait;
@@ -107,7 +108,7 @@ struct Config {
 }
 
 #[group]
-#[commands(affixes, karma, ping, source, tarkov, top, raiderio, whois)]
+#[commands(affixes, karma, ping, playtime, source, tarkov, top, raiderio, whois)]
 struct General;
 
 #[group]

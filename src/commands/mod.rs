@@ -1,6 +1,7 @@
 pub mod affixes;
 pub mod karma;
 pub mod ping;
+pub mod playtime;
 pub mod raiderio;
 pub mod source;
 pub mod tarkov;
