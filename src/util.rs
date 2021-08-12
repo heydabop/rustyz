@@ -11,7 +11,7 @@ use std::sync::Arc;
 // Returns a mapping of user IDs to nicknames or usernames (if no nick in guild)
 // Panics on an http error or if msg wasn't sent in a GuildChannel
 pub async fn collect_usernames(ctx: &Context, msg: &Message) -> HashMap<u64, String> {
-    let channel = match msg.channel(&ctx.cache).await {
+    let guild = match msg.channel(&ctx.cache).await {
         Some(channel) => channel,
         None => ctx.http.get_channel(msg.channel_id.0).await.unwrap(),
     }
@@ -19,7 +19,15 @@ pub async fn collect_usernames(ctx: &Context, msg: &Message) -> HashMap<u64, Str
     .unwrap();
 
     let mut usernames: HashMap<u64, String> = HashMap::new();
-    for member in channel.members(&ctx.cache).await.unwrap() {
+    let members = match guild.members(&ctx.cache).await {
+        Ok(members) => members,
+        Err(_) => ctx
+            .http
+            .get_guild_members(guild.id.0, None, None)
+            .await
+            .unwrap(),
+    };
+    for member in members {
         let username = match member.nick {
             Some(nick) => nick,
             None => member.user.name,
