@@ -1,3 +1,4 @@
+use crate::util;
 use crate::DB;
 use chrono::{prelude::*, Duration};
 use serenity::client::Context;
@@ -5,6 +6,7 @@ use serenity::framework::standard::{macros::command, Args, CommandResult};
 use serenity::model::channel::Message;
 use sqlx::Row;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 struct GameDate {
     date: DateTime<FixedOffset>,
@@ -17,26 +19,71 @@ struct GameTime {
 }
 
 // Replies to msg with the cumulative playtime of all users in the guild
+// Takes a single optional argument of a username to get playtime specifically for
 #[command]
 #[only_in(guilds)]
-pub async fn playtime(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    // get list of user IDs in channel
-    let guild = match msg.channel(&ctx.cache).await {
-        Some(channel) => channel,
-        None => ctx.http.get_channel(msg.channel_id.0).await.unwrap(),
-    }
-    .guild()
-    .unwrap();
-    let members = match guild.members(&ctx.cache).await {
-        Ok(members) => members,
-        Err(_) => ctx
-            .http
-            .get_guild_members(guild.id.0, None, None)
-            .await
-            .unwrap(),
-    };
+pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let mut username: Option<String> = None;
     #[allow(clippy::cast_possible_wrap)]
-    let user_ids: Vec<i64> = members.iter().map(|m| *m.user.id.as_u64() as i64).collect();
+    let user_ids: Vec<i64> = if args.is_empty() {
+        // get list of user IDs in channel
+        let guild = match msg.channel(&ctx.cache).await {
+            Some(channel) => channel,
+            None => ctx.http.get_channel(msg.channel_id.0).await.unwrap(),
+        }
+        .guild()
+        .unwrap();
+        let members = match guild.members(&ctx.cache).await {
+            Ok(members) => members,
+            Err(_) => ctx
+                .http
+                .get_guild_members(guild.id.0, None, None)
+                .await
+                .unwrap(),
+        };
+        members.iter().map(|m| *m.user.id.as_u64() as i64).collect()
+    } else {
+        let search = args.rest();
+
+        let mention_regex = regex::Regex::new(r#"^\s*<@!?(\d+?)>\s*$"#).unwrap();
+        if let Some(captures) = mention_regex.captures(&search) {
+            let user_id = if let Ok(user_id) = u64::from_str(captures.get(1).unwrap().as_str()) {
+                user_id
+            } else {
+                msg.channel_id
+                    .say(&ctx.http, "```Invalid mention```")
+                    .await?;
+                return Ok(());
+            };
+            if let Some(guild) = ctx.cache.guild(msg.guild_id.unwrap()).await {
+                if let Ok(member) = guild.member(ctx, user_id).await {
+                    username = member.nick
+                }
+            }
+            if username.is_none() {
+                let members = util::collect_members(ctx, msg).await;
+                username = match members.get(&user_id) {
+                    Some(member) => match &member.nick {
+                        Some(nick) => Some(nick.clone()),
+                        None => Some(member.user.name.clone()),
+                    },
+                    None => match ctx.cache.user(user_id).await {
+                        Some(user) => Some(user.name),
+                        None => Some(ctx.http.get_user(user_id).await.unwrap().name),
+                    },
+                };
+            }
+            vec![user_id as i64]
+        } else if let Some(user) = util::search_user_id_by_name(ctx, msg, search).await {
+            username = Some(user.1);
+            vec![user.0 as i64]
+        } else {
+            msg.channel_id
+                .say(&ctx.http, "```Unable to find user```")
+                .await?;
+            return Ok(());
+        }
+    };
 
     // get all rows with a user id in the channel
     let rows = {
@@ -45,6 +92,19 @@ pub async fn playtime(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
         sqlx::query(r#"SELECT create_date, user_id, game_name FROM user_presence WHERE user_id = any($1) order by id"#).bind(user_ids).fetch_all(&*db).await?
     };
     if rows.is_empty() {
+        msg.channel_id
+            .say(
+                &ctx.http,
+                format!(
+                    "```No recorded playtime{}```",
+                    if let Some(username) = username {
+                        format!(" for {}", username)
+                    } else {
+                        String::new()
+                    }
+                ),
+            )
+            .await?;
         return Ok(());
     }
 
@@ -110,6 +170,24 @@ pub async fn playtime(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
             game: game.clone(),
         })
         .collect();
+
+    if gametimes.is_empty() {
+        msg.channel_id
+            .say(
+                &ctx.http,
+                format!(
+                    "```No recorded playtime{}```",
+                    if let Some(username) = username {
+                        format!(" for {}", username)
+                    } else {
+                        String::new()
+                    }
+                ),
+            )
+            .await?;
+        return Ok(());
+    }
+
     gametimes.sort_by(|a, b| b.time.cmp(&a.time));
     gametimes.truncate(10); // only show top 10
     let longest_game_name = gametimes.iter().map(|g| g.game.len()).max().unwrap(); // get longest game name so we can pad shorter game names and lineup times
@@ -129,7 +207,12 @@ pub async fn playtime(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
         .say(
             &ctx.http,
             format!(
-                "```Since {}\n{}```",
+                "```{} {}\n{}```",
+                if let Some(username) = username {
+                    format!("{} since", username)
+                } else {
+                    String::from("Since")
+                },
                 first_time.format("%b %d, %Y"),
                 lines.concat()
             ),

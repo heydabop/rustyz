@@ -15,7 +15,7 @@ pub async fn karma(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
     } else {
         return Err(CommandError::from("Unable to get guild ID of message"));
     };
-    let usernames = util::collect_usernames(ctx, msg).await;
+    let members = util::collect_members(ctx, msg).await;
     let limit: u32 = args.single().unwrap_or(5).min(100);
 
     let rows = {
@@ -40,7 +40,7 @@ LIMIT $2"#,
     for row in &rows {
         let user_id = row.get::<String, _>(0).parse::<u64>().unwrap();
         let karma: i32 = row.get(1);
-        let username = util::get_username(&ctx.http, &usernames, user_id).await;
+        let username = util::get_username(&ctx.http, &members, user_id).await;
         lines.push(format!("{} \u{2014} {}\n", username, karma));
     }
 

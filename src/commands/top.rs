@@ -12,7 +12,7 @@ use sqlx::Row;
 #[command]
 #[only_in(guilds)]
 pub async fn top(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let usernames = util::collect_usernames(ctx, msg).await;
+    let members = util::collect_members(ctx, msg).await;
     let limit: u32 = args.single().unwrap_or(5).min(100);
 
     let rows = {
@@ -39,7 +39,7 @@ LIMIT $2"#,
     for row in &rows {
         let user_id = row.get::<Decimal, _>(0).to_u64().unwrap();
         let num_messages: i64 = row.get(1);
-        let username = util::get_username(&ctx.http, &usernames, user_id).await;
+        let username = util::get_username(&ctx.http, &members, user_id).await;
         lines.push(format!("{} \u{2014} {}\n", username, num_messages));
     }
 
