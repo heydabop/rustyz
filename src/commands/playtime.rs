@@ -213,7 +213,7 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
                 } else {
                     String::from("Since")
                 },
-                first_time.format("%b %d, %Y"),
+                first_time.with_timezone(now.offset()).format("%b %d, %Y"),
                 lines.concat()
             ),
         )
