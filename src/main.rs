@@ -202,18 +202,18 @@ async fn after_log_error(
             let data = ctx.data.read().await;
             *(data.get::<OwnerId>().unwrap())
         };
-        if let Some(owner) = ctx.cache.user(owner_id).await {
-            if let Err(e) = owner
-                .direct_message(&ctx.http, |m| {
-                    m.content(error_message);
-                    m
-                })
-                .await
-            {
-                println!("Error sending error DM: {}", e);
-            }
-        } else {
-            println!("Unable to find owner")
+        let owner = match ctx.cache.user(owner_id).await {
+            Some(owner) => owner,
+            None => ctx.http.get_user(owner_id).await.unwrap(),
+        };
+        if let Err(e) = owner
+            .direct_message(&ctx.http, |m| {
+                m.content(error_message);
+                m
+            })
+            .await
+        {
+            println!("Error sending error DM: {}", e);
         }
     }
 }
