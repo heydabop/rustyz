@@ -89,7 +89,7 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
     let rows = {
         let data = ctx.data.read().await;
         let db = data.get::<DB>().unwrap();
-        sqlx::query(r#"SELECT create_date, user_id, game_name FROM user_presence WHERE user_id = any($1) order by id"#).bind(user_ids).fetch_all(&*db).await?
+        sqlx::query(r#"SELECT create_date, user_id, game_name FROM user_presence WHERE user_id = any($1) order by create_date"#).bind(user_ids).fetch_all(&*db).await?
     };
     if rows.is_empty() {
         msg.channel_id

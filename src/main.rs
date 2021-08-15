@@ -146,7 +146,8 @@ impl EventHandler for Handler {
         }
         let game_name = presence.activities.iter().find_map(|a| {
             if a.kind == ActivityType::Playing {
-                Some(a.name.clone())
+                // clients reporting ® and ™ seems inconsistent, so the same game gets different names overtime
+                Some(a.name.replace(&['®', '™'][..], ""))
             } else {
                 None
             }
