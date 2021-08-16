@@ -275,11 +275,15 @@ async fn gen_playtime_message(
     }
 
     // convert HashMap to Vec so we can sort it by time in descending order
+    let mut total_time = Duration::seconds(0);
     let mut gametimes: Vec<GameTime> = gametimes
         .iter()
-        .map(|(game, time)| GameTime {
-            time: *time,
-            game: game.clone(),
+        .map(|(game, time)| {
+            total_time = total_time.checked_add(time).unwrap();
+            GameTime {
+                time: *time,
+                game: game.clone(),
+            }
         })
         .collect();
 
@@ -294,8 +298,12 @@ async fn gen_playtime_message(
         ));
     }
 
+    gametimes.push(GameTime {
+        time: total_time,
+        game: String::from("All Games"),
+    });
     gametimes.sort_by(|a, b| b.time.cmp(&a.time));
-    gametimes.truncate(10); // only show top 10
+    gametimes.truncate(11); // only show top 10 (plus total)
     let longest_game_name = gametimes.iter().map(|g| g.game.len()).max().unwrap(); // get longest game name so we can pad shorter game names and lineup times
 
     let mut lines = Vec::with_capacity(gametimes.len());
