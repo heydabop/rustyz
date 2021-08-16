@@ -1,6 +1,7 @@
 use crate::util;
 use crate::DB;
 use chrono::{prelude::*, Duration};
+use regex::{Match, Regex};
 use serenity::client::Context;
 use serenity::framework::standard::{macros::command, Args, CommandResult};
 use serenity::model::channel::Message;
@@ -19,10 +20,120 @@ struct GameTime {
 }
 
 // Replies to msg with the cumulative playtime of all users in the guild
-// Takes a single optional argument of a username to get playtime specifically for
+// Takes a single optional argument of a username to filter playtime for
 #[command]
 #[only_in(guilds)]
 pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let (user_ids, username): (Vec<i64>, Option<String>) =
+        match user_ids_and_name_from_args(ctx, msg, args.rest()).await? {
+            Some(u) => (u.0, u.1),
+            None => return Ok(()),
+        };
+
+    let message = gen_playtime_message(ctx, user_ids, username, None).await?;
+
+    msg.channel_id.say(&ctx.http, message).await?;
+
+    Ok(())
+}
+
+// Replies to msg with the cumulative playtime since the given time period of all users in the guild
+// Takes two arguments
+// First (required): human readable time duration (2 days, 1 hour, 3 months, etc)
+// Second (optional): username to filter playtime for
+#[command("recentplaytime")]
+#[only_in(guilds)]
+pub async fn recent_playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let args = args.rest();
+    let duration_regex = Regex::new(r#"(?i)(?:(?:(?:(\d+)\s+years?)|(?:(\d+)\s+months?)|(?:(\d+)\s+weeks?)|(?:(\d+)\s+days?)|(?:(\d+)\s+hours?)|(?:(\d+)\s+minutes?)|(?:(\d+)\s+seconds?))\s?)+(?:\s*(.*))?"#).unwrap();
+    let now = Local::now();
+    let now = now.with_timezone(now.offset());
+    let (start_date, mention): (DateTime<FixedOffset>, String) =
+        if let Some(captures) = duration_regex.captures(&args) {
+            let years = get_digit_from_match(captures.get(1));
+            let months = get_digit_from_match(captures.get(2));
+            let weeks = get_digit_from_match(captures.get(3));
+            let days = get_digit_from_match(captures.get(4));
+            let hours = get_digit_from_match(captures.get(5));
+            let minutes = get_digit_from_match(captures.get(6));
+            let seconds = get_digit_from_match(captures.get(7));
+            let since = now
+                - Duration::days(years * 365)
+                - Duration::days(months_to_days(now, months))
+                - Duration::days(weeks * 7)
+                - Duration::days(days)
+                - Duration::hours(hours)
+                - Duration::minutes(minutes)
+                - Duration::seconds(seconds);
+
+            let mention = match captures.get(8) {
+                Some(c) => c.as_str(),
+                None => "",
+            };
+
+            (since, String::from(mention))
+        } else {
+            msg.channel_id
+                .say(&ctx.http, "```Unable to parse time```")
+                .await?;
+            return Ok(());
+        };
+    let (user_ids, username) = match user_ids_and_name_from_args(ctx, msg, &mention).await? {
+        Some(u) => (u.0, u.1),
+        None => return Ok(()),
+    };
+
+    let message = gen_playtime_message(ctx, user_ids, username, Some(start_date)).await?;
+
+    msg.channel_id.say(&ctx.http, message).await?;
+
+    Ok(())
+}
+
+fn get_digit_from_match(mat: Option<Match>) -> i64 {
+    match mat {
+        None => 0,
+        Some(mat) => i64::from_str(mat.as_str()).unwrap(),
+    }
+}
+
+// takes months and turns it to days by counting the days of each month, supports + or - months
+fn months_to_days(now: DateTime<FixedOffset>, mut months: i64) -> i64 {
+    let mut end = now;
+    loop {
+        if months == 0 {
+            break (end - now).num_days();
+        }
+        end = end
+            .checked_add_signed(Duration::days(
+                NaiveDate::from_ymd(
+                    match end.month() {
+                        12 => end.year() + 1,
+                        _ => end.year(),
+                    },
+                    match end.month() {
+                        12 => 1,
+                        _ => end.month() + 1,
+                    },
+                    1,
+                )
+                .signed_duration_since(NaiveDate::from_ymd(end.year(), end.month(), 1))
+                .num_days(),
+            ))
+            .unwrap();
+        if months > 0 {
+            months -= 1;
+        } else {
+            months += 1;
+        }
+    }
+}
+
+async fn user_ids_and_name_from_args(
+    ctx: &Context,
+    msg: &Message,
+    args: &str,
+) -> CommandResult<Option<(Vec<i64>, Option<String>)>> {
     let mut username: Option<String> = None;
     #[allow(clippy::cast_possible_wrap)]
     let user_ids: Vec<i64> = if args.is_empty() {
@@ -43,17 +154,15 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
         };
         members.iter().map(|m| *m.user.id.as_u64() as i64).collect()
     } else {
-        let search = args.rest();
-
-        let mention_regex = regex::Regex::new(r#"^\s*<@!?(\d+?)>\s*$"#).unwrap();
-        if let Some(captures) = mention_regex.captures(&search) {
+        let mention_regex = Regex::new(r#"^\s*<@!?(\d+?)>\s*$"#).unwrap();
+        if let Some(captures) = mention_regex.captures(&args) {
             let user_id = if let Ok(user_id) = u64::from_str(captures.get(1).unwrap().as_str()) {
                 user_id
             } else {
                 msg.channel_id
                     .say(&ctx.http, "```Invalid mention```")
                     .await?;
-                return Ok(());
+                return Ok(None);
             };
             if let Some(guild) = ctx.cache.guild(msg.guild_id.unwrap()).await {
                 if let Ok(member) = guild.member(ctx, user_id).await {
@@ -74,38 +183,41 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
                 };
             }
             vec![user_id as i64]
-        } else if let Some(user) = util::search_user_id_by_name(ctx, msg, search).await {
+        } else if let Some(user) = util::search_user_id_by_name(ctx, msg, args).await {
             username = Some(user.1);
             vec![user.0 as i64]
         } else {
             msg.channel_id
                 .say(&ctx.http, "```Unable to find user```")
                 .await?;
-            return Ok(());
+            return Ok(None);
         }
     };
 
+    Ok(Some((user_ids, username)))
+}
+
+async fn gen_playtime_message(
+    ctx: &Context,
+    user_ids: Vec<i64>,
+    username: Option<String>,
+    start_date: Option<DateTime<FixedOffset>>,
+) -> CommandResult<String> {
     // get all rows with a user id in the channel
     let rows = {
         let data = ctx.data.read().await;
         let db = data.get::<DB>().unwrap();
-        sqlx::query(r#"SELECT create_date, user_id, game_name FROM user_presence WHERE user_id = any($1) order by create_date"#).bind(user_ids).fetch_all(&*db).await?
+        sqlx::query(r#"SELECT create_date, user_id, game_name FROM user_presence WHERE user_id = any($1) AND (create_date > $2) IS NOT FALSE ORDER BY create_date"#).bind(user_ids).bind(start_date).fetch_all(&*db).await?
     };
     if rows.is_empty() {
-        msg.channel_id
-            .say(
-                &ctx.http,
-                format!(
-                    "```No recorded playtime{}```",
-                    if let Some(username) = username {
-                        format!(" for {}", username)
-                    } else {
-                        String::new()
-                    }
-                ),
-            )
-            .await?;
-        return Ok(());
+        return Ok(format!(
+            "```No recorded playtime{}```",
+            if let Some(username) = username {
+                format!(" for {}", username)
+            } else {
+                String::new()
+            }
+        ));
     }
 
     let mut gametimes: HashMap<String, Duration> = HashMap::new(); // stores how long each game has been played
@@ -172,20 +284,14 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
         .collect();
 
     if gametimes.is_empty() {
-        msg.channel_id
-            .say(
-                &ctx.http,
-                format!(
-                    "```No recorded playtime{}```",
-                    if let Some(username) = username {
-                        format!(" for {}", username)
-                    } else {
-                        String::new()
-                    }
-                ),
-            )
-            .await?;
-        return Ok(());
+        return Ok(format!(
+            "```No recorded playtime{}```",
+            if let Some(username) = username {
+                format!(" for {}", username)
+            } else {
+                String::new()
+            }
+        ));
     }
 
     gametimes.sort_by(|a, b| b.time.cmp(&a.time));
@@ -195,7 +301,7 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
     let mut lines = Vec::with_capacity(gametimes.len());
     for gametime in &gametimes {
         lines.push(format!(
-            "{:width$} \u{2014} {}:{:02}\n",
+            "{:>width$} \u{2014} {}:{:02}\n",
             gametime.game,
             gametime.time.num_hours(),
             gametime.time.num_minutes() % 60,
@@ -203,21 +309,23 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
         ));
     }
 
-    msg.channel_id
-        .say(
-            &ctx.http,
-            format!(
-                "```{} {}\n{}```",
-                if let Some(username) = username {
-                    format!("{} since", username)
-                } else {
-                    String::from("Since")
-                },
-                first_time.with_timezone(now.offset()).format("%b %d, %Y"),
-                lines.concat()
-            ),
-        )
-        .await?;
+    let mut time_format_string = "%b %d, %Y";
+    if let Some(start_date) = start_date {
+        if (now - start_date).num_days() < 1 {
+            time_format_string = "%l:%M%p"
+        }
+    };
 
-    Ok(())
+    Ok(format!(
+        "```{} {}\n\n{}```",
+        if let Some(username) = username {
+            format!("{} since", username)
+        } else {
+            String::from("Since")
+        },
+        first_time
+            .with_timezone(now.offset())
+            .format(time_format_string),
+        lines.concat()
+    ))
 }
