@@ -176,10 +176,12 @@ async fn user_ids_and_name_from_args(
                         Some(nick) => Some(nick.clone()),
                         None => Some(member.user.name.clone()),
                     },
-                    None => match ctx.cache.user(user_id).await {
-                        Some(user) => Some(user.name),
-                        None => Some(ctx.http.get_user(user_id).await.unwrap().name),
-                    },
+                    None => {
+                        msg.channel_id
+                            .say(&ctx.http, "```Unable to find user```")
+                            .await?;
+                        return Ok(None);
+                    }
                 };
             }
             vec![user_id as i64]
