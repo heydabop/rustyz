@@ -275,7 +275,7 @@ async fn gen_playtime_message(
     }
 
     // convert HashMap to Vec so we can sort it by time in descending order
-    let mut total_time = Duration::seconds(0);
+    let mut total_time = Duration::zero();
     let mut gametimes: Vec<GameTime> = gametimes
         .iter()
         .map(|(game, time)| {
@@ -307,12 +307,12 @@ async fn gen_playtime_message(
     let longest_game_name = gametimes.iter().map(|g| g.game.len()).max().unwrap(); // get longest game name so we can pad shorter game names and lineup times
 
     let mut lines = Vec::with_capacity(gametimes.len());
+    #[allow(clippy::cast_precision_loss)]
     for gametime in &gametimes {
         lines.push(format!(
-            "{:>width$} \u{2014} {}:{:02}\n",
+            "{:>width$} \u{2014} {:.2}\n",
             gametime.game,
-            gametime.time.num_hours(),
-            gametime.time.num_minutes() % 60,
+            (gametime.time.num_seconds()) as f64 / 3600_f64,
             width = longest_game_name
         ));
     }
