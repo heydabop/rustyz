@@ -299,7 +299,7 @@ async fn get_character_media(
             {
                 Some(lm) => match lm.to_str() {
                     Ok(val) => {
-                        if let Ok(last_modified) = DateTime::parse_from_rfc2822(&val) {
+                        if let Ok(last_modified) = DateTime::parse_from_rfc2822(val) {
                             Some(last_modified.with_timezone(&Local))
                         } else {
                             println!("Unable to parse last-modified: {}", val);
@@ -392,7 +392,7 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let date_format = "%a, %b %-d %Y at %-I:%M%P";
 
     // Get character last login time (and check if they exist)
-    let last_login: String = match get_character(&realm, &character, &access_token).await {
+    let last_login: String = match get_character(&realm, character, &access_token).await {
         Ok(c) => format!(
             "Player last seen on {}",
             c.last_login_local().format(date_format)
@@ -414,7 +414,7 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     // Get JSON info of character's appearance
     let media: CharacterMedia =
-        match get_character_media(&realm, &character, &access_token, None, None).await {
+        match get_character_media(&realm, character, &access_token, None, None).await {
             Ok(m) => m,
             Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
                 msg.channel_id
@@ -427,10 +427,9 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             }
             Err(e) => return Err(CommandError::from(e)),
         };
-    let last_modified: Option<String> = match media.last_modified {
-        Some(lm) => Some(format!("Image updated on {}", lm.format(date_format))),
-        None => None,
-    };
+    let last_modified: Option<String> = media
+        .last_modified
+        .map(|lm| format!("Image updated on {}", lm.format(date_format)));
 
     let msg_content = if let Some(last_modified) = last_modified {
         format!("{}\n{}", last_modified, last_login)
@@ -569,27 +568,27 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
 
     let access_token = get_access_token(ctx).await?;
 
-    let character: Character =
-        match get_character(&realm_name, &character_name, &access_token).await {
-            Ok(c) => c,
-            Err(e)
-                if e.status() == Some(StatusCode::NOT_FOUND)
-                    || e.status() == Some(StatusCode::FORBIDDEN) =>
-            {
-                msg.channel_id
-                    .say(
-                        &ctx.http,
-                        format!("Unable to find {} on {}", character_name, realm_name),
-                    )
-                    .await?;
-                return Ok(());
-            }
-            Err(e) => return Err(CommandError::from(e)),
-        };
+    let character: Character = match get_character(&realm_name, character_name, &access_token).await
+    {
+        Ok(c) => c,
+        Err(e)
+            if e.status() == Some(StatusCode::NOT_FOUND)
+                || e.status() == Some(StatusCode::FORBIDDEN) =>
+        {
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    format!("Unable to find {} on {}", character_name, realm_name),
+                )
+                .await?;
+            return Ok(());
+        }
+        Err(e) => return Err(CommandError::from(e)),
+    };
 
     let inset_url: Option<String> = match get_character_media(
         &realm_name,
-        &character_name,
+        character_name,
         &access_token,
         Some(character.race.id),
         Some(&character.gender.t),
@@ -619,9 +618,9 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
     };
 
     let stats: CharacterStats =
-        get_character_statistics(&realm_name, &character_name, &access_token).await?;
+        get_character_statistics(&realm_name, character_name, &access_token).await?;
     let titles: CharacterTitles =
-        get_character_titles(&realm_name, &character_name, &access_token).await?;
+        get_character_titles(&realm_name, character_name, &access_token).await?;
 
     let titled_name = titles
         .active_title

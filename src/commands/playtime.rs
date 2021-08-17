@@ -49,7 +49,7 @@ pub async fn recent_playtime(ctx: &Context, msg: &Message, args: Args) -> Comman
     let now = Local::now();
     let now = now.with_timezone(now.offset());
     let (start_date, mention): (DateTime<FixedOffset>, String) =
-        if let Some(captures) = duration_regex.captures(&args) {
+        if let Some(captures) = duration_regex.captures(args) {
             let years = get_digit_from_match(captures.get(1));
             let months = get_digit_from_match(captures.get(2));
             let weeks = get_digit_from_match(captures.get(3));
@@ -155,7 +155,7 @@ async fn user_ids_and_name_from_args(
         members.iter().map(|m| *m.user.id.as_u64() as i64).collect()
     } else {
         let mention_regex = Regex::new(r#"^\s*<@!?(\d+?)>\s*$"#).unwrap();
-        if let Some(captures) = mention_regex.captures(&args) {
+        if let Some(captures) = mention_regex.captures(args) {
             let user_id = if let Ok(user_id) = u64::from_str(captures.get(1).unwrap().as_str()) {
                 user_id
             } else {
@@ -166,22 +166,21 @@ async fn user_ids_and_name_from_args(
             };
             if let Some(guild) = ctx.cache.guild(msg.guild_id.unwrap()).await {
                 if let Ok(member) = guild.member(ctx, user_id).await {
-                    username = member.nick
+                    username = member.nick;
                 }
             }
             if username.is_none() {
                 let members = util::collect_members(ctx, msg).await;
-                username = match members.get(&user_id) {
-                    Some(member) => match &member.nick {
+                username = if let Some(member) = members.get(&user_id) {
+                    match &member.nick {
                         Some(nick) => Some(nick.clone()),
                         None => Some(member.user.name.clone()),
-                    },
-                    None => {
-                        msg.channel_id
-                            .say(&ctx.http, "```Unable to find user```")
-                            .await?;
-                        return Ok(None);
                     }
+                } else {
+                    msg.channel_id
+                        .say(&ctx.http, "```Unable to find user```")
+                        .await?;
+                    return Ok(None);
                 };
             }
             vec![user_id as i64]
@@ -322,7 +321,7 @@ async fn gen_playtime_message(
     let mut time_format_string = "%b %d, %Y";
     if let Some(start_date) = start_date {
         if (now - start_date).num_days() < 1 {
-            time_format_string = "%l:%M%p"
+            time_format_string = "%l:%M%p";
         }
     };
 

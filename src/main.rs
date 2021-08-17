@@ -213,7 +213,7 @@ async fn before_typing(ctx: &Context, msg: &Message, _: &str) -> bool {
     let http = ctx.http.clone();
     let channel_id = msg.channel_id.0;
     tokio::spawn(async move {
-        let _ = http.broadcast_typing(channel_id).await;
+        let _typing = http.broadcast_typing(channel_id).await;
     });
     true
 }
@@ -264,7 +264,7 @@ async fn default_help(
     groups: &[&'static CommandGroup],
     owners: HashSet<UserId>,
 ) -> CommandResult {
-    let _ = help_commands::plain(context, msg, args, help_options, groups, owners).await;
+    let _help = help_commands::plain(context, msg, args, help_options, groups, owners).await;
     Ok(())
 }
 

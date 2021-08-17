@@ -97,14 +97,14 @@ fn cosine_similarity(a_str: &str, b_str: &str) -> f64 {
     let mut b_map: HashMap<u8, u32> = HashMap::new();
     for byte in a_str.as_bytes() {
         if let Some(count) = a_map.get_mut(byte) {
-            *count += 1
+            *count += 1;
         } else {
             a_map.insert(*byte, 1);
         }
     }
     for byte in b_str.as_bytes() {
         if let Some(count) = b_map.get_mut(byte) {
-            *count += 1
+            *count += 1;
         } else {
             b_map.insert(*byte, 1);
         }
