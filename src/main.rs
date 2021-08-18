@@ -7,6 +7,7 @@ mod util;
 
 use commands::{
     affixes::AFFIXES_COMMAND,
+    fortune::FORTUNE_COMMAND,
     karma::KARMA_COMMAND,
     ping::PING_COMMAND,
     playtime::{PLAYTIME_COMMAND, RECENT_PLAYTIME_COMMAND},
@@ -120,6 +121,7 @@ struct Config {
 #[group]
 #[commands(
     affixes,
+    fortune,
     karma,
     ping,
     playtime,

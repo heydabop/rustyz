@@ -1,4 +1,5 @@
 pub mod affixes;
+pub mod fortune;
 pub mod karma;
 pub mod ping;
 pub mod playtime;
