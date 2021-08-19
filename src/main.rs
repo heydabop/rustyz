@@ -118,6 +118,8 @@ struct Config {
     wow: WowConfig,
 }
 
+const FAST_COMMANDS: [&str; 3] = ["fortune", "ping", "source"];
+
 #[group]
 #[commands(
     affixes,
@@ -211,11 +213,15 @@ impl EventHandler for Handler {
 }
 
 #[hook]
-async fn before_typing(ctx: &Context, msg: &Message, _: &str) -> bool {
+async fn before_typing(ctx: &Context, msg: &Message, cmd: &str) -> bool {
+    if FAST_COMMANDS.contains(&cmd) {
+        // fast running commands dont need to broadcast typing
+        return true;
+    }
     let http = ctx.http.clone();
     let channel_id = msg.channel_id.0;
     tokio::spawn(async move {
-        let _typing = http.broadcast_typing(channel_id).await;
+        std::mem::drop(http.broadcast_typing(channel_id).await);
     });
     true
 }
