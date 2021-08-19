@@ -1,4 +1,5 @@
 use serenity::client::Context;
+use serenity::framework::standard::CommandResult;
 use serenity::http::client::Http;
 use serenity::model::{channel::Message, guild::Member};
 use std::collections::HashMap;
@@ -10,10 +11,10 @@ use std::sync::Arc;
 
 // Returns a mapping of user IDs to Members
 // Panics on an http error or if msg wasn't sent in a GuildChannel
-pub async fn collect_members(ctx: &Context, msg: &Message) -> HashMap<u64, Member> {
+pub async fn collect_members(ctx: &Context, msg: &Message) -> CommandResult<HashMap<u64, Member>> {
     let guild = match msg.channel(&ctx.cache).await {
         Some(channel) => channel,
-        None => ctx.http.get_channel(msg.channel_id.0).await.unwrap(),
+        None => ctx.http.get_channel(msg.channel_id.0).await?,
     }
     .guild()
     .unwrap();
@@ -21,17 +22,13 @@ pub async fn collect_members(ctx: &Context, msg: &Message) -> HashMap<u64, Membe
     let mut members_by_id: HashMap<u64, Member> = HashMap::new();
     let members = match guild.members(&ctx.cache).await {
         Ok(members) => members,
-        Err(_) => ctx
-            .http
-            .get_guild_members(guild.id.0, None, None)
-            .await
-            .unwrap(),
+        Err(_) => ctx.http.get_guild_members(guild.id.0, None, None).await?,
     };
     for member in members {
         members_by_id.insert(member.user.id.0, member);
     }
 
-    members_by_id
+    Ok(members_by_id)
 }
 
 // Looks up username/nickname for user_id in usernames, falling back to an http call if the user_id isn't present
@@ -56,9 +53,9 @@ pub async fn search_user_id_by_name(
     ctx: &Context,
     msg: &Message,
     search: &str,
-) -> Option<(u64, String)> {
+) -> CommandResult<Option<(u64, String)>> {
     let search = search.to_ascii_lowercase();
-    let members = collect_members(ctx, msg).await;
+    let members = collect_members(ctx, msg).await?;
     let mut similar_usernames: Vec<(u64, String)> = Vec::new();
     for (user_id, member) in members {
         if member.user.name.to_ascii_lowercase().contains(&search) {
@@ -70,10 +67,13 @@ pub async fn search_user_id_by_name(
         }
     }
     if similar_usernames.is_empty() {
-        return None;
+        return Ok(None);
     }
     if similar_usernames.len() == 1 {
-        return Some((similar_usernames[0].0, similar_usernames[0].1.clone()));
+        return Ok(Some((
+            similar_usernames[0].0,
+            similar_usernames[0].1.clone(),
+        )));
     }
 
     let mut best_username = String::new();
@@ -89,7 +89,7 @@ pub async fn search_user_id_by_name(
         }
     }
 
-    Some((best_user_id, best_username))
+    Ok(Some((best_user_id, best_username)))
 }
 
 fn cosine_similarity(a_str: &str, b_str: &str) -> f64 {

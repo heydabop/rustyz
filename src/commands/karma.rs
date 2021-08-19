@@ -15,7 +15,7 @@ pub async fn karma(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
     } else {
         return Err(CommandError::from("Unable to get guild ID of message"));
     };
-    let members = util::collect_members(ctx, msg).await;
+    let members = util::collect_members(ctx, msg).await?;
     let limit: u32 = args.single().unwrap_or(5).min(100);
 
     let rows = {

@@ -12,7 +12,7 @@ pub async fn whois(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
     } else {
         return Err(CommandError::from("Invalid user ID"));
     };
-    let members = util::collect_members(ctx, msg).await;
+    let members = util::collect_members(ctx, msg).await?;
 
     let username = util::get_username(&ctx.http, &members, user_id).await;
 

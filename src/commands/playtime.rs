@@ -170,7 +170,7 @@ async fn user_ids_and_name_from_args(
                 }
             }
             if username.is_none() {
-                let members = util::collect_members(ctx, msg).await;
+                let members = util::collect_members(ctx, msg).await?;
                 username = if let Some(member) = members.get(&user_id) {
                     match &member.nick {
                         Some(nick) => Some(nick.clone()),
@@ -184,7 +184,7 @@ async fn user_ids_and_name_from_args(
                 };
             }
             vec![user_id as i64]
-        } else if let Some(user) = util::search_user_id_by_name(ctx, msg, args).await {
+        } else if let Some(user) = util::search_user_id_by_name(ctx, msg, args).await? {
             username = Some(user.1);
             vec![user.0 as i64]
         } else {

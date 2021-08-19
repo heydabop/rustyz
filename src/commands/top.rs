@@ -12,7 +12,7 @@ use sqlx::Row;
 #[command]
 #[only_in(guilds)]
 pub async fn top(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let members = util::collect_members(ctx, msg).await;
+    let members = util::collect_members(ctx, msg).await?;
     let limit: u32 = args.single().unwrap_or(5).min(100);
 
     let rows = {
