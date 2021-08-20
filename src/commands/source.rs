@@ -4,8 +4,6 @@ use serenity::model::channel::Message;
 
 #[command]
 pub async fn source(ctx: &Context, msg: &Message) -> CommandResult {
-    msg.channel_id
-        .say(&ctx.http, "https://github.com/heydabop/rustyz")
-        .await?;
+    crate::util::record_say(ctx, msg, "https://github.com/heydabop/rustyz").await?;
     Ok(())
 }

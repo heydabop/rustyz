@@ -16,7 +16,7 @@ pub async fn whois(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
 
     let username = util::get_username(&ctx.http, &members, user_id).await;
 
-    msg.channel_id.say(&ctx.http, username).await?;
+    util::record_say(ctx, msg, username).await?;
 
     Ok(())
 }

@@ -4,7 +4,7 @@ use serenity::model::channel::Message;
 
 #[command]
 pub async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
-    msg.channel_id.say(&ctx.http, "pong").await?;
+    crate::util::record_say(ctx, msg, "pong").await?;
 
     Ok(())
 }

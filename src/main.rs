@@ -7,6 +7,7 @@ mod util;
 
 use commands::{
     affixes::AFFIXES_COMMAND,
+    delete::DELETE_COMMAND,
     fortune::FORTUNE_COMMAND,
     karma::KARMA_COMMAND,
     ping::PING_COMMAND,
@@ -33,13 +34,14 @@ use serenity::model::{
     channel::Message,
     event::PresenceUpdateEvent,
     gateway::{ActivityType, Ready},
-    id::UserId,
+    id::{ChannelId, MessageId, UserId},
     user::OnlineStatus,
 };
 use serenity::prelude::*;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::time::SystemTime;
 
 struct OldDB;
@@ -69,6 +71,13 @@ struct LastUserPresence;
 
 impl TypeMapKey for LastUserPresence {
     type Value = HashMap<UserId, UserPresence>;
+}
+
+struct LastCommandMessages;
+
+#[allow(clippy::type_complexity)]
+impl TypeMapKey for LastCommandMessages {
+    type Value = Arc<RwLock<HashMap<(ChannelId, UserId), [MessageId; 2]>>>;
 }
 
 #[derive(Deserialize)]
@@ -118,11 +127,12 @@ struct Config {
     wow: WowConfig,
 }
 
-const FAST_COMMANDS: [&str; 3] = ["fortune", "ping", "source"];
+const FAST_COMMANDS: [&str; 4] = ["delete", "fortune", "ping", "source"];
 
 #[group]
 #[commands(
     affixes,
+    delete,
     fortune,
     karma,
     ping,
@@ -239,7 +249,7 @@ async fn after_log_error(
             cmd_name, why, msg.content
         );
         println!("{}", error_message);
-        if let Err(e) = msg.channel_id.say(&ctx.http, "Something broke").await {
+        if let Err(e) = util::record_say(ctx, msg, "Something broke").await {
             println!("Error sending error reply: {}", e);
         };
         let owner_id: u64 = {
@@ -314,6 +324,7 @@ async fn main() {
         .type_map_insert::<WowConfig>(config.wow)
         .type_map_insert::<OwnerId>(config.owner_id)
         .type_map_insert::<LastUserPresence>(HashMap::new())
+        .type_map_insert::<LastCommandMessages>(Arc::new(RwLock::new(HashMap::new())))
         .event_handler(Handler)
         .intents(
             GatewayIntents::GUILD_MEMBERS

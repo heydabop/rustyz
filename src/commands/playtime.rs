@@ -32,7 +32,7 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
 
     let message = gen_playtime_message(ctx, user_ids, username, None).await?;
 
-    msg.channel_id.say(&ctx.http, message).await?;
+    util::record_say(ctx, msg, message).await?;
 
     Ok(())
 }
@@ -73,9 +73,7 @@ pub async fn recent_playtime(ctx: &Context, msg: &Message, args: Args) -> Comman
 
             (since, String::from(mention))
         } else {
-            msg.channel_id
-                .say(&ctx.http, "```Unable to parse time```")
-                .await?;
+            util::record_say(ctx, msg, "```Unable to parse time```").await?;
             return Ok(());
         };
     let (user_ids, username) = match user_ids_and_name_from_args(ctx, msg, &mention).await? {
@@ -85,7 +83,7 @@ pub async fn recent_playtime(ctx: &Context, msg: &Message, args: Args) -> Comman
 
     let message = gen_playtime_message(ctx, user_ids, username, Some(start_date)).await?;
 
-    msg.channel_id.say(&ctx.http, message).await?;
+    util::record_say(ctx, msg, message).await?;
 
     Ok(())
 }
@@ -159,9 +157,7 @@ async fn user_ids_and_name_from_args(
             let user_id = if let Ok(user_id) = u64::from_str(captures.get(1).unwrap().as_str()) {
                 user_id
             } else {
-                msg.channel_id
-                    .say(&ctx.http, "```Invalid mention```")
-                    .await?;
+                util::record_say(ctx, msg, "```Invalid mention```").await?;
                 return Ok(None);
             };
             if let Some(guild) = ctx.cache.guild(msg.guild_id.unwrap()).await {
@@ -177,9 +173,7 @@ async fn user_ids_and_name_from_args(
                         None => Some(member.user.name.clone()),
                     }
                 } else {
-                    msg.channel_id
-                        .say(&ctx.http, "```Unable to find user```")
-                        .await?;
+                    util::record_say(ctx, msg, "```Unable to find user```").await?;
                     return Ok(None);
                 };
             }
@@ -188,9 +182,7 @@ async fn user_ids_and_name_from_args(
             username = Some(user.1);
             vec![user.0 as i64]
         } else {
-            msg.channel_id
-                .say(&ctx.http, "```Unable to find user```")
-                .await?;
+            util::record_say(ctx, msg, "```Unable to find user```").await?;
             return Ok(None);
         }
     };

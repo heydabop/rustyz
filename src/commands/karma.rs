@@ -44,7 +44,7 @@ LIMIT $2"#,
         lines.push(format!("{} \u{2014} {}\n", username, karma));
     }
 
-    msg.channel_id.say(&ctx.http, lines.concat()).await?;
+    util::record_say(ctx, msg, lines.concat()).await?;
 
     Ok(())
 }

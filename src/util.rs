@@ -1,3 +1,4 @@
+use crate::LastCommandMessages;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
 use serenity::http::client::Http;
@@ -127,4 +128,28 @@ fn cosine_similarity(a_str: &str, b_str: &str) -> f64 {
     } else {
         dot_product / magnitude
     }
+}
+
+pub async fn record_say(
+    ctx: &Context,
+    msg: &Message,
+    content: impl std::fmt::Display,
+) -> serenity::Result<Message> {
+    let reply = msg.channel_id.say(&ctx.http, content).await?;
+
+    let last_messages = {
+        ctx.data
+            .read()
+            .await
+            .get::<LastCommandMessages>()
+            .unwrap()
+            .clone()
+    };
+
+    {
+        let mut last_messages = last_messages.write().await;
+        last_messages.insert((msg.channel_id, msg.author.id), [msg.id, reply.id]);
+    }
+
+    Ok(reply)
 }

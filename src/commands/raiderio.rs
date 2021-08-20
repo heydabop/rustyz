@@ -1,3 +1,4 @@
+use crate::util::record_say;
 use reqwest::{StatusCode, Url};
 use serde::Deserialize;
 use serenity::client::Context;
@@ -91,9 +92,7 @@ pub async fn raiderio(ctx: &Context, msg: &Message, args: Args) -> CommandResult
     arg.make_ascii_lowercase();
     let char_realm: Vec<&str> = arg.splitn(2, '-').collect();
     if char_realm.len() != 2 {
-        msg.channel_id
-            .say(&ctx.http, "`Usage: !raiderio name-realm`")
-            .await?;
+        record_say(ctx, msg, "`Usage: !raiderio name-realm`").await?;
         return Ok(());
     }
     let character = char_realm[0].trim();
@@ -113,19 +112,14 @@ pub async fn raiderio(ctx: &Context, msg: &Message, args: Args) -> CommandResult
             profile
         } else {
             // assume raider.io is giving us a 400 response as a json error under a 200 http response
-            msg.channel_id
-                .say(
-                    &ctx.http,
-                    format!("Unable to find raiderio profile for {} on {}", character, realm),
+            record_say(ctx, msg, format!("Unable to find raiderio profile for {} on {}", character, realm),
                 )
                 .await?;
             return Ok(());
         }
         Err(e) => {
             if e.status() == Some(StatusCode::NOT_FOUND) || e.status() == Some(StatusCode::BAD_REQUEST) {
-                msg.channel_id
-                    .say(
-                        &ctx.http,
+                record_say(ctx, msg,
                         format!("Unable to find raiderio profile for {} on {}", character, realm),
                     )
                     .await?;

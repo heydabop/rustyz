@@ -1,4 +1,5 @@
 pub mod affixes;
+pub mod delete;
 pub mod fortune;
 pub mod karma;
 pub mod ping;

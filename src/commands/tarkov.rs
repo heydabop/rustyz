@@ -53,7 +53,7 @@ pub async fn tarkov(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .await?;
 
     if items.is_empty() {
-        msg.channel_id.say(&ctx.http, "No items found").await?;
+        crate::util::record_say(ctx, msg, "No items found").await?;
         return Ok(());
     }
     let item = &items[0];

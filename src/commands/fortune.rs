@@ -7,11 +7,11 @@ use std::str;
 // Replies to msg with a fortune
 #[command]
 pub async fn fortune(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    msg.channel_id
-        .say(
-            &ctx.http,
-            str::from_utf8(&Command::new("fortune").arg("-as").output().unwrap().stdout).unwrap(),
-        )
-        .await?;
+    crate::util::record_say(
+        ctx,
+        msg,
+        str::from_utf8(&Command::new("fortune").arg("-as").output().unwrap().stdout).unwrap(),
+    )
+    .await?;
     Ok(())
 }

@@ -1,4 +1,4 @@
-use crate::{WowAuth, WowConfig};
+use crate::{util::record_say, WowAuth, WowConfig};
 use chrono::{DateTime, Local, TimeZone, Utc};
 use image::{imageops, png::PngEncoder, ColorType, ImageFormat};
 use reqwest::{StatusCode, Url};
@@ -379,9 +379,7 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     arg.make_ascii_lowercase();
     let char_realm: Vec<&str> = arg.splitn(2, '-').collect();
     if char_realm.len() != 2 {
-        msg.channel_id
-            .say(&ctx.http, "`Usage: !wow [drip|mog] name-realm`")
-            .await?;
+        record_say(ctx, msg, "`Usage: !wow [drip|mog] name-realm`").await?;
         return Ok(());
     }
     let character = char_realm[0].trim();
@@ -401,12 +399,12 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             if e.status() == Some(StatusCode::NOT_FOUND)
                 || e.status() == Some(StatusCode::FORBIDDEN) =>
         {
-            msg.channel_id
-                .say(
-                    &ctx.http,
-                    format!("Unable to find {} on {}", character, realm),
-                )
-                .await?;
+            record_say(
+                ctx,
+                msg,
+                format!("Unable to find {} on {}", character, realm),
+            )
+            .await?;
             return Ok(());
         }
         Err(e) => return Err(CommandError::from(e)),
@@ -417,12 +415,12 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         match get_character_media(&realm, character, &access_token, None, None).await {
             Ok(m) => m,
             Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
-                msg.channel_id
-                    .say(
-                        &ctx.http,
-                        format!("Unable to find images for {} on {}", character, realm),
-                    )
-                    .await?;
+                record_say(
+                    ctx,
+                    msg,
+                    format!("Unable to find images for {} on {}", character, realm),
+                )
+                .await?;
                 return Ok(());
             }
             Err(e) => return Err(CommandError::from(e)),
@@ -458,8 +456,8 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     }
     // If we didn't find a transparent-background PNG image, just send the URL for whatever image we do have (discord will convert it)
     if !found_raw {
-        msg.channel_id.say(&ctx.http, msg_content).await?;
-        msg.channel_id.say(&ctx.http, image_url.unwrap()).await?;
+        record_say(ctx, msg, msg_content).await?;
+        record_say(ctx, msg, image_url.unwrap()).await?;
         return Ok(());
     }
 
@@ -558,9 +556,7 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
     arg.make_ascii_lowercase();
     let char_realm: Vec<&str> = arg.splitn(2, '-').collect();
     if char_realm.len() != 2 {
-        msg.channel_id
-            .say(&ctx.http, "`Usage: !wow char name-realm`")
-            .await?;
+        record_say(ctx, msg, "`Usage: !wow char name-realm`").await?;
         return Ok(());
     }
     let character_name = char_realm[0].trim();
@@ -575,12 +571,12 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
             if e.status() == Some(StatusCode::NOT_FOUND)
                 || e.status() == Some(StatusCode::FORBIDDEN) =>
         {
-            msg.channel_id
-                .say(
-                    &ctx.http,
-                    format!("Unable to find {} on {}", character_name, realm_name),
-                )
-                .await?;
+            record_say(
+                ctx,
+                msg,
+                format!("Unable to find {} on {}", character_name, realm_name),
+            )
+            .await?;
             return Ok(());
         }
         Err(e) => return Err(CommandError::from(e)),
@@ -764,7 +760,7 @@ pub async fn search(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     content.build();
 
-    msg.channel_id.say(&ctx.http, content).await?;
+    record_say(ctx, msg, content).await?;
 
     Ok(())
 }
@@ -784,9 +780,7 @@ pub async fn realm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .send().await?.json().await?;
 
     if search.results.is_empty() || search.results[0].data.realms.is_empty() {
-        msg.channel_id
-            .say(&ctx.http, format!("Unable to find {}", arg))
-            .await?;
+        record_say(ctx, msg, format!("Unable to find {}", arg)).await?;
         return Ok(());
     }
 
@@ -798,9 +792,7 @@ pub async fn realm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     {
         r
     } else {
-        msg.channel_id
-            .say(&ctx.http, format!("Unable to find {}", arg))
-            .await?;
+        record_say(ctx, msg, format!("Unable to find {}", arg)).await?;
         return Ok(());
     };
 
@@ -817,7 +809,7 @@ pub async fn realm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         format!("{} is offline", realm_name)
     };
 
-    msg.channel_id.say(&ctx.http, content).await?;
+    record_say(ctx, msg, content).await?;
 
     Ok(())
 }
