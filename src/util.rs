@@ -2,7 +2,7 @@ use crate::LastCommandMessages;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
 use serenity::http::client::Http;
-use serenity::model::{channel::Message, guild::Member};
+use serenity::model::{channel::Message, guild::Member, id::MessageId};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -152,4 +152,24 @@ pub async fn record_say(
     }
 
     Ok(reply)
+}
+
+pub async fn record_sent_message(
+    ctx: &Context,
+    source_msg: &Message,
+    reply_id: MessageId,
+) {
+    let last_messages = {
+        ctx.data
+            .read()
+            .await
+            .get::<LastCommandMessages>()
+            .unwrap()
+            .clone()
+    };
+
+    {
+        let mut last_messages = last_messages.write().await;
+        last_messages.insert((source_msg.channel_id, source_msg.author.id), [source_msg.id, reply_id]);
+    }
 }

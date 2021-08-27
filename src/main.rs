@@ -11,7 +11,7 @@ use commands::{
     fortune::FORTUNE_COMMAND,
     karma::KARMA_COMMAND,
     ping::PING_COMMAND,
-    playtime::{PLAYTIME_COMMAND, RECENT_PLAYTIME_COMMAND},
+    playtime::{gen_playtime_message, PLAYTIME_COMMAND, RECENT_PLAYTIME_COMMAND},
     raiderio::RAIDERIO_COMMAND,
     source::SOURCE_COMMAND,
     tarkov::TARKOV_COMMAND,
@@ -23,6 +23,7 @@ use commands::{
     wow::SEARCH_COMMAND,
 };
 use serde::Deserialize;
+use serde_json::json;
 use serenity::async_trait;
 use serenity::client::{bridge::gateway::GatewayIntents, Client, Context, EventHandler};
 use serenity::framework::standard::{
@@ -34,12 +35,13 @@ use serenity::model::{
     channel::Message,
     event::PresenceUpdateEvent,
     gateway::{ActivityType, Ready},
+    interactions::Interaction,
     id::{ChannelId, MessageId, UserId},
     user::OnlineStatus,
 };
 use serenity::prelude::*;
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{Pool, Postgres};
+use sqlx::{Pool, Postgres, Row};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -82,6 +84,7 @@ impl TypeMapKey for LastCommandMessages {
 
 #[derive(Deserialize)]
 struct DiscordConfig {
+    application_id: u64,
     bot_token: String,
     user_id: u64,
 }
@@ -222,6 +225,53 @@ impl EventHandler for Handler {
             },
         );
     }
+
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        let interaction = match interaction.message_component() {
+            Some(c) => c,
+            None => return
+        };
+        let fields: Vec<&str> = interaction.data.custom_id.split(':').collect();
+        let command = fields[0];
+        if command != "playtime" {
+            return;
+        }
+        let prev_next = fields[1];
+        let button_id = fields[2].parse::<i64>().unwrap();
+        let row = {
+            let data = ctx.data.read().await;
+            let db = data.get::<DB>().unwrap();
+            match sqlx::query(r#"SELECT author_id, user_ids, username FROM playtime_button WHERE id = $1"#).bind(button_id).fetch_one(&*db).await {
+                Ok(row) => row,
+                Err(e) => {println!("{}", e);return;}
+            }
+        };
+        let author_id = row.get::<i64, _>(0);
+        if author_id != interaction.user.id.0 as i64 {
+            interaction.create_interaction_response(ctx, |r| {
+                r.interaction_response_data(|d| {
+                    d.content("Sorry, only the original command user can change the message");
+                    d
+                });
+                r
+            }).await;
+            return;
+        }
+        let user_ids = row.get::<Vec<i64>, _>(1);
+        let username = row.get::<Option<String>, _>(2);
+
+        let new_content = gen_playtime_message(&ctx, &user_ids, &username, None, 10).await.unwrap();
+        let edit_body = json!({ "content": new_content });
+
+        if let Err(e) = ctx.http.edit_message(interaction.channel_id.0, interaction.message.id().0, &edit_body).await {
+            println!("{}", e);
+            return;
+        }
+
+        if let Err(e) = interaction.create_interaction_response(ctx, |r| r).await {
+            println!("{}", e);
+        }
+    }
 }
 
 #[hook]
@@ -320,6 +370,7 @@ async fn main() {
         .before(before_typing)
         .after(after_log_error);
     let mut client = Client::builder(config.discord.bot_token)
+        .application_id(config.discord.application_id)
         .type_map_insert::<OldDB>(old_pool)
         .type_map_insert::<DB>(pool)
         .type_map_insert::<TarkovMarketConfig>(config.tarkov_market)

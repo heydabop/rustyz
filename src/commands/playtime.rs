@@ -5,6 +5,7 @@ use regex::{Match, Regex};
 use serenity::client::Context;
 use serenity::framework::standard::{macros::command, Args, CommandResult};
 use serenity::model::channel::Message;
+use serenity::model::interactions::message_component::ButtonStyle;
 use sqlx::Row;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -30,9 +31,35 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
             None => return Ok(()),
         };
 
-    let message = gen_playtime_message(ctx, user_ids, username, None).await?;
+    let content = gen_playtime_message(ctx, &user_ids, &username, None, 0).await?;
 
-    util::record_say(ctx, msg, message).await?;
+    let insert = {
+        let data = ctx.data.read().await;
+        let db = data.get::<DB>().unwrap();
+        sqlx::query(r#"INSERT INTO playtime_button(author_id, user_ids, username) VALUES ($1, $2, $3) RETURNING id"#).bind(msg.author.id.0 as i64).bind(user_ids).bind(username).fetch_one(&*db).await?
+    };
+    let button_id = insert.get::<i32, _>(0);
+
+    let reply = msg.channel_id.send_message(&ctx.http, |m| {
+        m.content(content);
+        m.components(|c| {
+            c.create_action_row(|a| {
+                a.create_button(|b| {
+                    b.custom_id(format!("playtime:prev:{}:0", button_id)).style(ButtonStyle::Primary).label("Prev 10").disabled(true);
+                    b
+                });
+                a.create_button(|b| {
+                    b.custom_id(format!("playtime:next:{}:0", button_id)).style(ButtonStyle::Primary).label("Next 10");
+                    b
+                });
+                a
+            });
+            c
+        });
+        m
+    }).await?;
+
+    util::record_sent_message(ctx, msg, reply.id).await;
 
     Ok(())
 }
@@ -81,7 +108,7 @@ pub async fn recent_playtime(ctx: &Context, msg: &Message, args: Args) -> Comman
         None => return Ok(()),
     };
 
-    let message = gen_playtime_message(ctx, user_ids, username, Some(start_date)).await?;
+    let message = gen_playtime_message(ctx, &user_ids, &username, Some(start_date), 0).await?;
 
     util::record_say(ctx, msg, message).await?;
 
@@ -190,11 +217,12 @@ async fn user_ids_and_name_from_args(
     Ok(Some((user_ids, username)))
 }
 
-async fn gen_playtime_message(
+pub async fn gen_playtime_message(
     ctx: &Context,
-    user_ids: Vec<i64>,
-    username: Option<String>,
+    user_ids: &[i64],
+    username: &Option<String>,
     start_date: Option<DateTime<FixedOffset>>,
+    offset: usize,
 ) -> CommandResult<String> {
     // get all rows with a user id in the channel
     let rows = {
@@ -296,7 +324,7 @@ async fn gen_playtime_message(
         game: String::from("All Games"),
     });
     gametimes.sort_by(|a, b| b.time.cmp(&a.time));
-    gametimes.truncate(11); // only show top 10 (plus total)
+    gametimes.truncate(offset+11); // only show top 10 (plus total)
     let longest_game_name = gametimes.iter().map(|g| g.game.len()).max().unwrap(); // get longest game name so we can pad shorter game names and lineup times
 
     let mut lines = Vec::with_capacity(gametimes.len());
