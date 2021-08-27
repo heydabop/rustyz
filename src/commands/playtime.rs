@@ -31,46 +31,7 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
             None => return Ok(()),
         };
 
-    let now = Local::now();
-    let now = now.with_timezone(now.offset());
-    let content = gen_playtime_message(ctx, &user_ids, &username, None, now, 0).await?;
-
-    #[allow(clippy::cast_possible_wrap)]
-    let insert = {
-        let data = ctx.data.read().await;
-        let db = data.get::<DB>().unwrap();
-        sqlx::query(r#"INSERT INTO playtime_button(author_id, user_ids, username, end_date, start_offset) VALUES ($1, $2, $3, $4, 0) RETURNING id"#).bind(msg.author.id.0 as i64).bind(user_ids).bind(username).bind(now).fetch_one(&*db).await?
-    };
-    let button_id = insert.get::<i32, _>(0);
-
-    let reply = msg
-        .channel_id
-        .send_message(&ctx.http, |m| {
-            m.content(content);
-            m.components(|c| {
-                c.create_action_row(|a| {
-                    a.create_button(|b| {
-                        b.custom_id(format!("playtime:prev:{}", button_id))
-                            .style(ButtonStyle::Primary)
-                            .label("Prev 10")
-                            .disabled(true);
-                        b
-                    });
-                    a.create_button(|b| {
-                        b.custom_id(format!("playtime:next:{}", button_id))
-                            .style(ButtonStyle::Primary)
-                            .label("Next 10");
-                        b
-                    });
-                    a
-                });
-                c
-            });
-            m
-        })
-        .await?;
-
-    util::record_sent_message(ctx, msg, reply.id).await;
+    send_message_with_buttons(ctx, msg, &user_ids, &username, None).await?;
 
     Ok(())
 }
@@ -119,11 +80,7 @@ pub async fn recent_playtime(ctx: &Context, msg: &Message, args: Args) -> Comman
         None => return Ok(()),
     };
 
-    let now = Local::now();
-    let now = now.with_timezone(now.offset());
-    let message = gen_playtime_message(ctx, &user_ids, &username, Some(start_date), now, 0).await?;
-
-    util::record_say(ctx, msg, message).await?;
+    send_message_with_buttons(ctx, msg, &user_ids, &username, Some(start_date)).await?;
 
     Ok(())
 }
@@ -371,4 +328,56 @@ pub async fn gen_playtime_message(
             .format(time_format_string),
         lines.concat()
     ))
+}
+
+async fn send_message_with_buttons(
+    ctx: &Context,
+    msg: &Message,
+    user_ids: &[i64],
+    username: &Option<String>,
+    start_date: Option<DateTime<FixedOffset>>,
+) -> CommandResult<()> {
+    let now = Local::now();
+    let now = now.with_timezone(now.offset());
+    let content = gen_playtime_message(ctx, user_ids, username, start_date, now, 0).await?;
+
+    #[allow(clippy::cast_possible_wrap)]
+    let insert = {
+        let data = ctx.data.read().await;
+        let db = data.get::<DB>().unwrap();
+        sqlx::query(r#"INSERT INTO playtime_button(author_id, user_ids, username, start_date, end_date, start_offset) VALUES ($1, $2, $3, $4, $5, 0) RETURNING id"#).bind(msg.author.id.0 as i64).bind(user_ids).bind(username).bind(start_date).bind(now).fetch_one(&*db).await?
+    };
+    let button_id = insert.get::<i32, _>(0);
+
+    let reply = msg
+        .channel_id
+        .send_message(&ctx.http, |m| {
+            m.content(&content);
+            m.components(|c| {
+                c.create_action_row(|a| {
+                    a.create_button(|b| {
+                        b.custom_id(format!("playtime:prev:{}", button_id))
+                            .style(ButtonStyle::Primary)
+                            .label("Prev 10")
+                            .disabled(true);
+                        b
+                    });
+                    a.create_button(|b| {
+                        b.custom_id(format!("playtime:next:{}", button_id))
+                            .style(ButtonStyle::Primary)
+                            .label("Next 10")
+                            .disabled(content.matches('\n').count() < 12);
+                        b
+                    });
+                    a
+                });
+                c
+            });
+            m
+        })
+        .await?;
+
+    util::record_sent_message(ctx, msg, reply.id).await;
+
+    Ok(())
 }

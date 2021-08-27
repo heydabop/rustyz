@@ -103,7 +103,7 @@ impl EventHandler for Handler {
         let row = {
             let data = ctx.data.read().await;
             let db = data.get::<model::DB>().unwrap();
-            match sqlx::query(r#"SELECT author_id, user_ids, username, end_date, start_offset FROM playtime_button WHERE id = $1"#).bind(button_id).fetch_one(&*db).await {
+            match sqlx::query(r#"SELECT author_id, user_ids, username, start_date, end_date, start_offset FROM playtime_button WHERE id = $1"#).bind(button_id).fetch_one(&*db).await {
                 Ok(row) => row,
                 Err(e) => {println!("{}", e);return;}
             }
@@ -130,8 +130,9 @@ impl EventHandler for Handler {
 
         let user_ids = row.get::<Vec<i64>, _>(1);
         let username = row.get::<Option<String>, _>(2);
-        let end_date = row.get::<DateTime<FixedOffset>, _>(3);
-        let mut offset = row.get::<i32, _>(4);
+        let start_date = row.get::<Option<DateTime<FixedOffset>>, _>(3);
+        let end_date = row.get::<DateTime<FixedOffset>, _>(4);
+        let mut offset = row.get::<i32, _>(5);
 
         if prev_next == "prev" {
             offset = (offset - 10).max(0);
@@ -143,7 +144,7 @@ impl EventHandler for Handler {
 
         #[allow(clippy::cast_sign_loss)]
         let new_content =
-            gen_playtime_message(&ctx, &user_ids, &username, None, end_date, offset as usize)
+            gen_playtime_message(&ctx, &user_ids, &username, start_date, end_date, offset as usize)
                 .await
                 .unwrap();
         let mut message = match interaction.message {
