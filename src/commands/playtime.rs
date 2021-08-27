@@ -35,6 +35,7 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
     let now = now.with_timezone(now.offset());
     let content = gen_playtime_message(ctx, &user_ids, &username, None, now, 0).await?;
 
+    #[allow(clippy::cast_possible_wrap)]
     let insert = {
         let data = ctx.data.read().await;
         let db = data.get::<DB>().unwrap();
@@ -42,24 +43,32 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
     };
     let button_id = insert.get::<i32, _>(0);
 
-    let reply = msg.channel_id.send_message(&ctx.http, |m| {
-        m.content(content);
-        m.components(|c| {
-            c.create_action_row(|a| {
-                a.create_button(|b| {
-                    b.custom_id(format!("playtime:prev:{}", button_id)).style(ButtonStyle::Primary).label("Prev 10").disabled(true);
-                    b
+    let reply = msg
+        .channel_id
+        .send_message(&ctx.http, |m| {
+            m.content(content);
+            m.components(|c| {
+                c.create_action_row(|a| {
+                    a.create_button(|b| {
+                        b.custom_id(format!("playtime:prev:{}", button_id))
+                            .style(ButtonStyle::Primary)
+                            .label("Prev 10")
+                            .disabled(true);
+                        b
+                    });
+                    a.create_button(|b| {
+                        b.custom_id(format!("playtime:next:{}", button_id))
+                            .style(ButtonStyle::Primary)
+                            .label("Next 10");
+                        b
+                    });
+                    a
                 });
-                a.create_button(|b| {
-                    b.custom_id(format!("playtime:next:{}", button_id)).style(ButtonStyle::Primary).label("Next 10");
-                    b
-                });
-                a
+                c
             });
-            c
-        });
-        m
-    }).await?;
+            m
+        })
+        .await?;
 
     util::record_sent_message(ctx, msg, reply.id).await;
 
@@ -328,8 +337,7 @@ pub async fn gen_playtime_message(
     });
     gametimes.sort_by(|a, b| b.time.cmp(&a.time));
     let min_offset = offset.max(0);
-    let max_offset = (offset+10).min(gametimes.len());
-    println!("{} {} {} {}", offset, gametimes.len(), min_offset, max_offset);
+    let max_offset = (offset + 10).min(gametimes.len());
     let gametimes = &gametimes[min_offset..max_offset];
     let longest_game_name = gametimes.iter().map(|g| g.game.len()).max().unwrap(); // get longest game name so we can pad shorter game names and lineup times
 

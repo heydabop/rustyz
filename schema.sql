@@ -127,7 +127,7 @@ ALTER TABLE ONLY public.user_presence
 -- Name: TABLE playtime_button; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT ON TABLE public.playtime_button TO rustyz;
+GRANT SELECT,INSERT,UPDATE ON TABLE public.playtime_button TO rustyz;
 
 
 --

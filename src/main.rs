@@ -35,8 +35,11 @@ use serenity::model::{
     channel::Message,
     event::PresenceUpdateEvent,
     gateway::{ActivityType, Ready},
-    interactions::{Interaction, message_component::{ButtonStyle, InteractionMessage}},
     id::{ChannelId, MessageId, UserId},
+    interactions::{
+        message_component::{ButtonStyle, InteractionMessage},
+        Interaction, InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
+    },
     user::OnlineStatus,
 };
 use serenity::prelude::*;
@@ -229,7 +232,7 @@ impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         let interaction = match interaction.message_component() {
             Some(c) => c,
-            None => return
+            None => return,
         };
         let fields: Vec<&str> = interaction.data.custom_id.split(':').collect();
         let command = fields[0];
@@ -247,57 +250,85 @@ impl EventHandler for Handler {
             }
         };
         let author_id = row.get::<i64, _>(0);
+
+        #[allow(clippy::cast_possible_wrap)]
         if author_id != interaction.user.id.0 as i64 {
-            interaction.create_interaction_response(ctx, |r| {
-                r.interaction_response_data(|d| {
-                    d.content("Sorry, only the original command user can change the message");
-                    d
-                });
-                r
-            }).await;
+            if let Err(e) = interaction
+                .create_interaction_response(ctx, |r| {
+                    r.interaction_response_data(|d| {
+                        d.flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL);
+                        d.content("Sorry, only the original command user can change the message");
+                        d
+                    });
+                    r
+                })
+                .await
+            {
+                println!("{}", e);
+            }
             return;
         }
+
         let user_ids = row.get::<Vec<i64>, _>(1);
         let username = row.get::<Option<String>, _>(2);
         let end_date = row.get::<DateTime<FixedOffset>, _>(3);
         let mut offset = row.get::<i32, _>(4);
 
         if prev_next == "prev" {
-            offset = (offset-10).max(0)
+            offset = (offset - 10).max(0);
         } else if prev_next == "next" {
             offset += 10;
         } else {
             return;
         }
 
-        let new_content = gen_playtime_message(&ctx, &user_ids, &username, None, end_date, offset as usize).await.unwrap();
+        #[allow(clippy::cast_sign_loss)]
+        let new_content =
+            gen_playtime_message(&ctx, &user_ids, &username, None, end_date, offset as usize)
+                .await
+                .unwrap();
         let mut message = match interaction.message {
             InteractionMessage::Regular(ref m) => m.clone(),
-            _ => return,
+            InteractionMessage::Ephemeral(_) => return,
         };
-        if let Err(e) = message.edit(&ctx, |m| {
-            m.content(&new_content);
-            m.components(|c| {
-                c.create_action_row(|a| {
-                    a.create_button(|b| {
-                        b.custom_id(format!("playtime:prev:{}", button_id)).style(ButtonStyle::Primary).label("Prev 10").disabled(offset < 1);
-                        b
+        if let Err(e) = message
+            .edit(&ctx, |m| {
+                m.content(&new_content);
+                m.components(|c| {
+                    c.create_action_row(|a| {
+                        a.create_button(|b| {
+                            b.custom_id(format!("playtime:prev:{}", button_id))
+                                .style(ButtonStyle::Primary)
+                                .label("Prev 10")
+                                .disabled(offset < 1);
+                            b
+                        });
+                        a.create_button(|b| {
+                            b.custom_id(format!("playtime:next:{}", button_id))
+                                .style(ButtonStyle::Primary)
+                                .label("Next 10")
+                                .disabled(new_content.matches('\n').count() < 12);
+                            b
+                        });
+                        a
                     });
-                    a.create_button(|b| {
-                        b.custom_id(format!("playtime:next:{}", button_id)).style(ButtonStyle::Primary).label("Next 10").disabled(new_content.matches('\n').count() < 12);
-                        b
-                    });
-                    a
+                    c
                 });
-                c
-            });
-            m
-        }).await {
+                m
+            })
+            .await
+        {
             println!("{}", e);
             return;
         }
 
-        if let Err(e) = interaction.create_interaction_response(&ctx, |r| r).await {
+        if let Err(e) = interaction
+            .create_interaction_response(&ctx, |r| {
+                r.kind(InteractionResponseType::UpdateMessage);
+                r
+            })
+            .await
+        {
             println!("{}", e);
             return;
         }
@@ -305,7 +336,13 @@ impl EventHandler for Handler {
         {
             let data = ctx.data.read().await;
             let db = data.get::<DB>().unwrap();
-            if let Err(e) = sqlx::query(r#"UPDATE playtime_button SET start_offset = $2 WHERE id = $1"#).bind(button_id).bind(offset).execute(&*db).await {
+            if let Err(e) =
+                sqlx::query(r#"UPDATE playtime_button SET start_offset = $2 WHERE id = $1"#)
+                    .bind(button_id)
+                    .bind(offset)
+                    .execute(&*db)
+                    .await
+            {
                 println!("{}", e);
             }
         }

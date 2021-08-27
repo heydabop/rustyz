@@ -154,11 +154,7 @@ pub async fn record_say(
     Ok(reply)
 }
 
-pub async fn record_sent_message(
-    ctx: &Context,
-    source_msg: &Message,
-    reply_id: MessageId,
-) {
+pub async fn record_sent_message(ctx: &Context, source_msg: &Message, reply_id: MessageId) {
     let last_messages = {
         ctx.data
             .read()
@@ -170,6 +166,9 @@ pub async fn record_sent_message(
 
     {
         let mut last_messages = last_messages.write().await;
-        last_messages.insert((source_msg.channel_id, source_msg.author.id), [source_msg.id, reply_id]);
+        last_messages.insert(
+            (source_msg.channel_id, source_msg.author.id),
+            [source_msg.id, reply_id],
+        );
     }
 }
