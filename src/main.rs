@@ -5,6 +5,7 @@
 mod commands;
 mod util;
 
+use chrono::prelude::*;
 use commands::{
     affixes::AFFIXES_COMMAND,
     delete::DELETE_COMMAND,
@@ -23,7 +24,6 @@ use commands::{
     wow::SEARCH_COMMAND,
 };
 use serde::Deserialize;
-use serde_json::json;
 use serenity::async_trait;
 use serenity::client::{bridge::gateway::GatewayIntents, Client, Context, EventHandler};
 use serenity::framework::standard::{
@@ -35,7 +35,7 @@ use serenity::model::{
     channel::Message,
     event::PresenceUpdateEvent,
     gateway::{ActivityType, Ready},
-    interactions::Interaction,
+    interactions::{Interaction, message_component::{ButtonStyle, InteractionMessage}},
     id::{ChannelId, MessageId, UserId},
     user::OnlineStatus,
 };
@@ -241,7 +241,7 @@ impl EventHandler for Handler {
         let row = {
             let data = ctx.data.read().await;
             let db = data.get::<DB>().unwrap();
-            match sqlx::query(r#"SELECT author_id, user_ids, username FROM playtime_button WHERE id = $1"#).bind(button_id).fetch_one(&*db).await {
+            match sqlx::query(r#"SELECT author_id, user_ids, username, end_date, start_offset FROM playtime_button WHERE id = $1"#).bind(button_id).fetch_one(&*db).await {
                 Ok(row) => row,
                 Err(e) => {println!("{}", e);return;}
             }
@@ -259,17 +259,55 @@ impl EventHandler for Handler {
         }
         let user_ids = row.get::<Vec<i64>, _>(1);
         let username = row.get::<Option<String>, _>(2);
+        let end_date = row.get::<DateTime<FixedOffset>, _>(3);
+        let mut offset = row.get::<i32, _>(4);
 
-        let new_content = gen_playtime_message(&ctx, &user_ids, &username, None, 10).await.unwrap();
-        let edit_body = json!({ "content": new_content });
+        if prev_next == "prev" {
+            offset = (offset-10).max(0)
+        } else if prev_next == "next" {
+            offset += 10;
+        } else {
+            return;
+        }
 
-        if let Err(e) = ctx.http.edit_message(interaction.channel_id.0, interaction.message.id().0, &edit_body).await {
+        let new_content = gen_playtime_message(&ctx, &user_ids, &username, None, end_date, offset as usize).await.unwrap();
+        let mut message = match interaction.message {
+            InteractionMessage::Regular(ref m) => m.clone(),
+            _ => return,
+        };
+        if let Err(e) = message.edit(&ctx, |m| {
+            m.content(&new_content);
+            m.components(|c| {
+                c.create_action_row(|a| {
+                    a.create_button(|b| {
+                        b.custom_id(format!("playtime:prev:{}", button_id)).style(ButtonStyle::Primary).label("Prev 10").disabled(offset < 1);
+                        b
+                    });
+                    a.create_button(|b| {
+                        b.custom_id(format!("playtime:next:{}", button_id)).style(ButtonStyle::Primary).label("Next 10").disabled(new_content.matches('\n').count() < 12);
+                        b
+                    });
+                    a
+                });
+                c
+            });
+            m
+        }).await {
             println!("{}", e);
             return;
         }
 
-        if let Err(e) = interaction.create_interaction_response(ctx, |r| r).await {
+        if let Err(e) = interaction.create_interaction_response(&ctx, |r| r).await {
             println!("{}", e);
+            return;
+        }
+
+        {
+            let data = ctx.data.read().await;
+            let db = data.get::<DB>().unwrap();
+            if let Err(e) = sqlx::query(r#"UPDATE playtime_button SET start_offset = $2 WHERE id = $1"#).bind(button_id).bind(offset).execute(&*db).await {
+                println!("{}", e);
+            }
         }
     }
 }

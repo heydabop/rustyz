@@ -34,6 +34,42 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: playtime_button; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.playtime_button (
+    id integer NOT NULL,
+    create_date timestamp with time zone DEFAULT now() NOT NULL,
+    author_id bigint NOT NULL,
+    user_ids bigint[] NOT NULL,
+    username character varying(32),
+    start_date timestamp with time zone,
+    end_date timestamp with time zone,
+    start_offset integer NOT NULL
+);
+
+
+--
+-- Name: playtime_button_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.playtime_button_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: playtime_button_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.playtime_button_id_seq OWNED BY public.playtime_button.id;
+
+
+--
 -- Name: user_presence; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -66,6 +102,13 @@ ALTER SEQUENCE public.user_presence_id_seq OWNED BY public.user_presence.id;
 
 
 --
+-- Name: playtime_button id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.playtime_button ALTER COLUMN id SET DEFAULT nextval('public.playtime_button_id_seq'::regclass);
+
+
+--
 -- Name: user_presence id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -78,6 +121,20 @@ ALTER TABLE ONLY public.user_presence ALTER COLUMN id SET DEFAULT nextval('publi
 
 ALTER TABLE ONLY public.user_presence
     ADD CONSTRAINT user_presence_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: TABLE playtime_button; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT ON TABLE public.playtime_button TO rustyz;
+
+
+--
+-- Name: SEQUENCE playtime_button_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT USAGE ON SEQUENCE public.playtime_button_id_seq TO rustyz;
 
 
 --

@@ -31,12 +31,14 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
             None => return Ok(()),
         };
 
-    let content = gen_playtime_message(ctx, &user_ids, &username, None, 0).await?;
+    let now = Local::now();
+    let now = now.with_timezone(now.offset());
+    let content = gen_playtime_message(ctx, &user_ids, &username, None, now, 0).await?;
 
     let insert = {
         let data = ctx.data.read().await;
         let db = data.get::<DB>().unwrap();
-        sqlx::query(r#"INSERT INTO playtime_button(author_id, user_ids, username) VALUES ($1, $2, $3) RETURNING id"#).bind(msg.author.id.0 as i64).bind(user_ids).bind(username).fetch_one(&*db).await?
+        sqlx::query(r#"INSERT INTO playtime_button(author_id, user_ids, username, end_date, start_offset) VALUES ($1, $2, $3, $4, 0) RETURNING id"#).bind(msg.author.id.0 as i64).bind(user_ids).bind(username).bind(now).fetch_one(&*db).await?
     };
     let button_id = insert.get::<i32, _>(0);
 
@@ -45,11 +47,11 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
         m.components(|c| {
             c.create_action_row(|a| {
                 a.create_button(|b| {
-                    b.custom_id(format!("playtime:prev:{}:0", button_id)).style(ButtonStyle::Primary).label("Prev 10").disabled(true);
+                    b.custom_id(format!("playtime:prev:{}", button_id)).style(ButtonStyle::Primary).label("Prev 10").disabled(true);
                     b
                 });
                 a.create_button(|b| {
-                    b.custom_id(format!("playtime:next:{}:0", button_id)).style(ButtonStyle::Primary).label("Next 10");
+                    b.custom_id(format!("playtime:next:{}", button_id)).style(ButtonStyle::Primary).label("Next 10");
                     b
                 });
                 a
@@ -108,7 +110,9 @@ pub async fn recent_playtime(ctx: &Context, msg: &Message, args: Args) -> Comman
         None => return Ok(()),
     };
 
-    let message = gen_playtime_message(ctx, &user_ids, &username, Some(start_date), 0).await?;
+    let now = Local::now();
+    let now = now.with_timezone(now.offset());
+    let message = gen_playtime_message(ctx, &user_ids, &username, Some(start_date), now, 0).await?;
 
     util::record_say(ctx, msg, message).await?;
 
@@ -222,13 +226,14 @@ pub async fn gen_playtime_message(
     user_ids: &[i64],
     username: &Option<String>,
     start_date: Option<DateTime<FixedOffset>>,
+    end_date: DateTime<FixedOffset>,
     offset: usize,
 ) -> CommandResult<String> {
     // get all rows with a user id in the channel
     let rows = {
         let data = ctx.data.read().await;
         let db = data.get::<DB>().unwrap();
-        sqlx::query(r#"SELECT create_date, user_id, game_name FROM user_presence WHERE user_id = any($1) AND (create_date > $2) IS NOT FALSE ORDER BY create_date"#).bind(user_ids).bind(start_date).fetch_all(&*db).await?
+        sqlx::query(r#"SELECT create_date, user_id, game_name FROM user_presence WHERE user_id = any($1) AND (create_date > $2) IS NOT FALSE AND create_date <= $3 ORDER BY create_date"#).bind(user_ids).bind(start_date).bind(end_date).fetch_all(&*db).await?
     };
     if rows.is_empty() {
         return Ok(format!(
@@ -283,15 +288,13 @@ pub async fn gen_playtime_message(
     }
 
     // users are currently playing game at the time of this command so we have no row for them stopping
-    let now = Local::now();
-    let now = now.with_timezone(now.offset());
     for last in last_user_game.values() {
         if let Some(gametime) = gametimes.get_mut(&last.game) {
             // increment existing game time
-            *gametime = *gametime + (now - last.date);
+            *gametime = *gametime + (end_date - last.date);
         } else {
             // or insert new entry for first-seen game
-            gametimes.insert(last.game.clone(), now - last.date);
+            gametimes.insert(last.game.clone(), end_date - last.date);
         }
     }
 
@@ -324,12 +327,15 @@ pub async fn gen_playtime_message(
         game: String::from("All Games"),
     });
     gametimes.sort_by(|a, b| b.time.cmp(&a.time));
-    gametimes.truncate(offset+11); // only show top 10 (plus total)
+    let min_offset = offset.max(0);
+    let max_offset = (offset+10).min(gametimes.len());
+    println!("{} {} {} {}", offset, gametimes.len(), min_offset, max_offset);
+    let gametimes = &gametimes[min_offset..max_offset];
     let longest_game_name = gametimes.iter().map(|g| g.game.len()).max().unwrap(); // get longest game name so we can pad shorter game names and lineup times
 
     let mut lines = Vec::with_capacity(gametimes.len());
     #[allow(clippy::cast_precision_loss)]
-    for gametime in &gametimes {
+    for gametime in gametimes {
         lines.push(format!(
             "{:>width$} \u{2014} {:.2}\n",
             gametime.game,
@@ -340,7 +346,7 @@ pub async fn gen_playtime_message(
 
     let mut time_format_string = "%b %d, %Y";
     if let Some(start_date) = start_date {
-        if (now - start_date).num_days() < 1 {
+        if (end_date - start_date).num_days() < 1 {
             time_format_string = "%l:%M%p";
         }
     };
@@ -353,7 +359,7 @@ pub async fn gen_playtime_message(
             String::from("Since")
         },
         first_time
-            .with_timezone(now.offset())
+            .with_timezone(end_date.offset())
             .format(time_format_string),
         lines.concat()
     ))
