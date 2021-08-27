@@ -1,4 +1,4 @@
-use crate::TarkovMarketConfig;
+use crate::config::TarkovMarket;
 use num_format::{Locale, ToFormattedString};
 use reqwest::Url;
 use serde::Deserialize;
@@ -34,7 +34,7 @@ struct Item {
 pub async fn tarkov(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let api_key = {
         let data = ctx.data.read().await;
-        data.get::<TarkovMarketConfig>().unwrap().api_key.clone()
+        data.get::<TarkovMarket>().unwrap().api_key.clone()
     };
 
     let client = reqwest::Client::new();

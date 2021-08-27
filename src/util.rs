@@ -1,4 +1,4 @@
-use crate::LastCommandMessages;
+use crate::model::LastCommandMessages;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
 use serenity::http::client::Http;

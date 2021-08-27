@@ -1,5 +1,5 @@
+use crate::model::OldDB;
 use crate::util;
-use crate::OldDB;
 use serenity::client::Context;
 use serenity::framework::standard::{macros::command, Args, CommandError, CommandResult};
 use serenity::model::channel::Message;

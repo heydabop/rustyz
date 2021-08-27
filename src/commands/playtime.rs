@@ -1,5 +1,5 @@
+use crate::model::DB;
 use crate::util;
-use crate::DB;
 use chrono::{prelude::*, Duration};
 use regex::{Match, Regex};
 use serenity::client::Context;

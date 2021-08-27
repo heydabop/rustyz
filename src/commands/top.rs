@@ -1,5 +1,5 @@
+use crate::model::OldDB;
 use crate::util;
-use crate::OldDB;
 use num_traits::cast::ToPrimitive;
 use serenity::client::Context;
 use serenity::framework::standard::{macros::command, Args, CommandResult};

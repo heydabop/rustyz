@@ -1,4 +1,4 @@
-use crate::{util::record_say, WowAuth, WowConfig};
+use crate::{config, util::record_say};
 use chrono::{DateTime, Local, TimeZone, Utc};
 use image::{imageops, png::PngEncoder, ColorType, ImageFormat};
 use reqwest::{StatusCode, Url};
@@ -238,7 +238,7 @@ struct Search {
 async fn get_access_token(ctx: &Context) -> Result<String, reqwest::Error> {
     let mut wow_config = {
         let data = ctx.data.read().await;
-        data.get::<WowConfig>().unwrap().clone()
+        data.get::<config::Wow>().unwrap().clone()
     };
     if wow_config.auth.is_none() || wow_config.auth.as_ref().unwrap().expires_at < SystemTime::now()
     {
@@ -247,7 +247,7 @@ async fn get_access_token(ctx: &Context) -> Result<String, reqwest::Error> {
         let access_token = new_auth.access_token.clone();
         let mut data = ctx.data.write().await;
         wow_config.auth = Some(new_auth);
-        data.insert::<WowConfig>(wow_config);
+        data.insert::<config::Wow>(wow_config);
         Ok(access_token)
     } else {
         // Otherwise return existing saved token
@@ -349,7 +349,7 @@ async fn get_character_titles(
 }
 
 // Get bearer auth token from Blizzard API with client_id and client_secret
-async fn auth(client_id: &str, client_secret: &str) -> Result<WowAuth, reqwest::Error> {
+async fn auth(client_id: &str, client_secret: &str) -> Result<config::WowAuth, reqwest::Error> {
     let client = reqwest::Client::new();
     let resp = client
         .post("https://us.battle.net/oauth/token")
@@ -363,7 +363,7 @@ async fn auth(client_id: &str, client_secret: &str) -> Result<WowAuth, reqwest::
     // Mark auth as expiring a little early so that we refresh before absolutely necessary
     let expires_at = SystemTime::now() + Duration::from_secs((resp.expires_in - 60).max(0));
 
-    Ok(WowAuth {
+    Ok(config::WowAuth {
         access_token: resp.access_token,
         expires_at,
     })

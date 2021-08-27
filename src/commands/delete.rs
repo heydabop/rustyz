@@ -1,4 +1,4 @@
-use crate::LastCommandMessages;
+use crate::model::LastCommandMessages;
 use serenity::client::Context;
 use serenity::framework::standard::{macros::command, Args, CommandResult};
 use serenity::model::channel::Message;
