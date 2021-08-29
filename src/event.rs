@@ -1,4 +1,4 @@
-use crate::commands::playtime::gen_playtime_message;
+use crate::commands::playtime::{create_components, gen_playtime_message};
 use crate::model;
 
 use chrono::prelude::*;
@@ -8,8 +8,8 @@ use serenity::model::{
     event::PresenceUpdateEvent,
     gateway::{ActivityType, Ready},
     interactions::{
-        message_component::{ButtonStyle, InteractionMessage},
-        Interaction, InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
+        message_component::InteractionMessage, Interaction,
+        InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
     },
 };
 use sqlx::Row;
@@ -99,7 +99,7 @@ impl EventHandler for Handler {
             return;
         }
         let prev_next = fields[1];
-        let button_id = fields[2].parse::<i64>().unwrap();
+        let button_id = fields[2].parse::<i32>().unwrap();
         let row = {
             let data = ctx.data.read().await;
             let db = data.get::<model::DB>().unwrap();
@@ -135,18 +135,24 @@ impl EventHandler for Handler {
         let mut offset = row.get::<i32, _>(5);
 
         if prev_next == "prev" {
-            offset = (offset - 10).max(0);
+            offset = (offset - 15).max(0);
         } else if prev_next == "next" {
-            offset += 10;
+            offset += 15;
         } else {
             return;
         }
 
         #[allow(clippy::cast_sign_loss)]
-        let new_content =
-            gen_playtime_message(&ctx, &user_ids, &username, start_date, end_date, offset as usize)
-                .await
-                .unwrap();
+        let new_content = gen_playtime_message(
+            &ctx,
+            &user_ids,
+            &username,
+            start_date,
+            end_date,
+            offset as usize,
+        )
+        .await
+        .unwrap();
         let mut message = match interaction.message {
             InteractionMessage::Regular(ref m) => m.clone(),
             InteractionMessage::Ephemeral(_) => return,
@@ -154,26 +160,7 @@ impl EventHandler for Handler {
         if let Err(e) = message
             .edit(&ctx, |m| {
                 m.content(&new_content);
-                m.components(|c| {
-                    c.create_action_row(|a| {
-                        a.create_button(|b| {
-                            b.custom_id(format!("playtime:prev:{}", button_id))
-                                .style(ButtonStyle::Primary)
-                                .label("Prev 10")
-                                .disabled(offset < 1);
-                            b
-                        });
-                        a.create_button(|b| {
-                            b.custom_id(format!("playtime:next:{}", button_id))
-                                .style(ButtonStyle::Primary)
-                                .label("Next 10")
-                                .disabled(new_content.matches('\n').count() < 12);
-                            b
-                        });
-                        a
-                    });
-                    c
-                });
+                m.components(|c| create_components(c, offset, &new_content, button_id));
                 m
             })
             .await

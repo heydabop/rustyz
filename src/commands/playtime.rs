@@ -2,6 +2,7 @@ use crate::model::DB;
 use crate::util;
 use chrono::{prelude::*, Duration};
 use regex::{Match, Regex};
+use serenity::builder::CreateComponents;
 use serenity::client::Context;
 use serenity::framework::standard::{macros::command, Args, CommandResult};
 use serenity::model::channel::Message;
@@ -294,7 +295,7 @@ pub async fn gen_playtime_message(
     });
     gametimes.sort_by(|a, b| b.time.cmp(&a.time));
     let min_offset = offset.max(0);
-    let max_offset = (offset + 10).min(gametimes.len());
+    let max_offset = (offset + 15).min(gametimes.len());
     let gametimes = &gametimes[min_offset..max_offset];
     let longest_game_name = gametimes.iter().map(|g| g.game.len()).max().unwrap(); // get longest game name so we can pad shorter game names and lineup times
 
@@ -353,26 +354,7 @@ async fn send_message_with_buttons(
         .channel_id
         .send_message(&ctx.http, |m| {
             m.content(&content);
-            m.components(|c| {
-                c.create_action_row(|a| {
-                    a.create_button(|b| {
-                        b.custom_id(format!("playtime:prev:{}", button_id))
-                            .style(ButtonStyle::Primary)
-                            .label("Prev 10")
-                            .disabled(true);
-                        b
-                    });
-                    a.create_button(|b| {
-                        b.custom_id(format!("playtime:next:{}", button_id))
-                            .style(ButtonStyle::Primary)
-                            .label("Next 10")
-                            .disabled(content.matches('\n').count() < 12);
-                        b
-                    });
-                    a
-                });
-                c
-            });
+            m.components(|c| create_components(c, 0, &content, button_id));
             m
         })
         .await?;
@@ -380,4 +362,30 @@ async fn send_message_with_buttons(
     util::record_sent_message(ctx, msg, reply.id).await;
 
     Ok(())
+}
+
+pub fn create_components<'a>(
+    components: &'a mut CreateComponents,
+    offset: i32,
+    content: &str,
+    button_id: i32,
+) -> &'a mut CreateComponents {
+    components.create_action_row(|a| {
+        a.create_button(|b| {
+            b.custom_id(format!("playtime:prev:{}", button_id))
+                .style(ButtonStyle::Primary)
+                .label("Prev")
+                .disabled(offset < 1);
+            b
+        });
+        a.create_button(|b| {
+            b.custom_id(format!("playtime:next:{}", button_id))
+                .style(ButtonStyle::Primary)
+                .label("Next")
+                .disabled(content.matches('\n').count() < 17);
+            b
+        });
+        a
+    });
+    components
 }
