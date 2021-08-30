@@ -2,6 +2,7 @@ pub mod affixes;
 pub mod delete;
 pub mod fortune;
 pub mod karma;
+pub mod lastseen;
 pub mod ping;
 pub mod playtime;
 pub mod raiderio;

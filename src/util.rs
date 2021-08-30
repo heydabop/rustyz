@@ -1,10 +1,23 @@
-use crate::model::LastCommandMessages;
+use crate::model::{LastCommandMessages, LastUserPresence};
+use regex::Regex;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
 use serenity::http::client::Http;
-use serenity::model::{channel::Message, guild::Member, id::MessageId};
+use serenity::model::{
+    channel::Message,
+    guild::Member,
+    id::{GuildId, MessageId, UserId},
+    user::OnlineStatus,
+};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
+
+pub struct UserIdName {
+    pub id: u64,
+    pub name: String,
+    pub status: Option<OnlineStatus>,
+}
 
 // This feels a little clunky (as its also combined with get_username below)
 // However in testing it seems faster than not mapping and instead hitting guild.member(&ctx) (falling back to http.get_user) for each member
@@ -171,4 +184,83 @@ pub async fn record_sent_message(ctx: &Context, source_msg: &Message, reply_id: 
             [source_msg.id, reply_id],
         );
     }
+}
+
+pub async fn user_from_mention(
+    ctx: &Context,
+    msg: &Message,
+    args: &str,
+) -> CommandResult<Option<UserIdName>> {
+    if args.is_empty() {
+        return Ok(None);
+    }
+    let mut username: Option<String> = None;
+    let mut status: Option<OnlineStatus> = None;
+    let mention_regex = Regex::new(r#"^\s*<@!?(\d+?)>\s*$"#).unwrap();
+    return if let Some(captures) = mention_regex.captures(args) {
+        let user_id = if let Ok(user_id) = u64::from_str(captures.get(1).unwrap().as_str()) {
+            user_id
+        } else {
+            record_say(ctx, msg, "```Invalid mention```").await?;
+            return Ok(None);
+        };
+        if let Some(guild) = ctx.cache.guild(msg.guild_id.unwrap()).await {
+            if let Ok(member) = guild.member(ctx, user_id).await {
+                username = member.nick;
+            }
+            if let Some(presence) = guild.presences.get(&UserId(user_id)) {
+                status = Some(presence.status);
+            }
+        }
+        if username.is_none() {
+            let members = collect_members(ctx, msg).await?;
+            username = if let Some(member) = members.get(&user_id) {
+                match &member.nick {
+                    Some(nick) => Some(nick.clone()),
+                    None => Some(member.user.name.clone()),
+                }
+            } else {
+                record_say(ctx, msg, "```Unable to find user```").await?;
+                return Ok(None);
+            };
+        }
+        if status.is_none() {
+            status = get_user_status(ctx, msg.guild_id.unwrap(), UserId(user_id)).await;
+        }
+        Ok(Some(UserIdName {
+            id: user_id,
+            name: username.unwrap(),
+            status,
+        }))
+    } else if let Some(user) = search_user_id_by_name(ctx, msg, args).await? {
+        Ok(Some(UserIdName {
+            id: user.0,
+            name: user.1,
+            status: get_user_status(ctx, msg.guild_id.unwrap(), UserId(user.0)).await,
+        }))
+    } else {
+        record_say(ctx, msg, "```Unable to find user```").await?;
+        Ok(None)
+    };
+}
+
+async fn get_user_status(
+    ctx: &Context,
+    guild_id: GuildId,
+    user_id: UserId,
+) -> Option<OnlineStatus> {
+    let data = ctx.data.read().await;
+    if let Some(last_presence) = data.get::<LastUserPresence>().unwrap().get(&user_id) {
+        return Some(last_presence.status);
+    }
+    if let Some(presences) = ctx
+        .cache
+        .guild_field(guild_id, |g| g.presences.clone())
+        .await
+    {
+        if let Some(presence) = presences.get(&user_id) {
+            return Some(presence.status);
+        }
+    }
+    None
 }

@@ -7,6 +7,7 @@ use serenity::client::{Context, EventHandler};
 use serenity::model::{
     event::PresenceUpdateEvent,
     gateway::{ActivityType, Ready},
+    guild::Guild,
     interactions::{
         message_component::InteractionMessage, Interaction,
         InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
@@ -192,6 +193,12 @@ impl EventHandler for Handler {
             {
                 println!("{}", e);
             }
+        }
+    }
+
+    async fn guild_create(&self, _: Context, guild: Guild, _: bool) {
+        for (user_id, presence) in &guild.presences {
+            println!("{} {:?}", user_id, presence.status);
         }
     }
 }
