@@ -38,7 +38,7 @@ use sqlx::postgres::PgPoolOptions;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-const FAST_COMMANDS: [&str; 4] = ["delete", "fortune", "ping", "source"];
+const FAST_COMMANDS: [&str; 5] = ["delete", "fortune", "lastseen", "ping", "source"];
 
 #[group]
 #[commands(
@@ -169,7 +169,8 @@ async fn main() {
         .type_map_insert::<model::LastCommandMessages>(Arc::new(RwLock::new(HashMap::new())))
         .event_handler(event::Handler)
         .intents(
-            GatewayIntents::GUILD_MEMBERS
+            GatewayIntents::GUILDS
+                | GatewayIntents::GUILD_MEMBERS
                 | GatewayIntents::GUILD_PRESENCES
                 | GatewayIntents::GUILD_MESSAGES
                 | GatewayIntents::DIRECT_MESSAGES,

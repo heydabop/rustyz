@@ -6,8 +6,9 @@ use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::{
     event::PresenceUpdateEvent,
-    gateway::{ActivityType, Ready},
+    gateway::{ActivityType, Presence, Ready},
     guild::Guild,
+    id::UserId,
     interactions::{
         message_component::InteractionMessage, Interaction,
         InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
@@ -25,68 +26,7 @@ impl EventHandler for Handler {
 
     async fn presence_update(&self, ctx: Context, update: PresenceUpdateEvent) {
         let presence = update.presence;
-        let user_id = presence.user_id;
-        if match presence.user {
-            Some(user) => user.bot,
-            None => match ctx.cache.user(user_id).await {
-                Some(user) => user.bot,
-                None => {
-                    if let Ok(user) = ctx.http.get_user(user_id.0).await {
-                        user.bot
-                    } else {
-                        println!("Unable to determine if user {} is bot", user_id);
-                        false
-                    }
-                }
-            },
-        } {
-            // ignore updates from bots
-            return;
-        }
-        let game_name = presence.activities.iter().find_map(|a| {
-            if a.kind == ActivityType::Playing {
-                // clients reporting ® and ™ seems inconsistent, so the same game gets different names overtime
-                let mut game_name = a.name.replace(&['®', '™'][..], "");
-                game_name.truncate(512);
-                Some(game_name)
-            } else {
-                None
-            }
-        });
-
-        {
-            let data = ctx.data.read().await;
-            if let Some(last_presence) =
-                data.get::<model::LastUserPresence>().unwrap().get(&user_id)
-            {
-                if last_presence.status == presence.status && last_presence.game_name == game_name {
-                    return;
-                }
-            }
-        }
-
-        let mut data = ctx.data.write().await;
-        let db = data.get::<model::DB>().unwrap();
-        #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
-            r#"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)"#,
-        )
-        .bind(user_id.0 as i64)
-            .bind(presence.status.name())
-            .bind(&game_name)
-            .execute(&*db)
-            .await
-        {
-            println!("Error saving user_presence: {}", e);
-            return;
-        }
-        let last_presence_map = data.get_mut::<model::LastUserPresence>().unwrap();
-        last_presence_map.insert(
-            user_id,
-            model::UserPresence {
-                status: presence.status,
-                game_name,
-            },
-        );
+        handle_presence(&ctx, presence.user_id, presence).await;
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
@@ -196,9 +136,71 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn guild_create(&self, _: Context, guild: Guild, _: bool) {
-        for (user_id, presence) in &guild.presences {
-            println!("{} {:?}", user_id, presence.status);
+    async fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
+        for (user_id, presence) in guild.presences {
+            handle_presence(&ctx, user_id, presence).await;
         }
     }
+}
+
+async fn handle_presence(ctx: &Context, user_id: UserId, presence: Presence) {
+    if match presence.user {
+        Some(user) => user.bot,
+        None => match ctx.cache.user(user_id).await {
+            Some(user) => user.bot,
+            None => {
+                if let Ok(user) = ctx.http.get_user(user_id.0).await {
+                    user.bot
+                } else {
+                    println!("Unable to determine if user {} is bot", user_id);
+                    false
+                }
+            }
+        },
+    } {
+        // ignore updates from bots
+        return;
+    }
+    let game_name = presence.activities.iter().find_map(|a| {
+        if a.kind == ActivityType::Playing {
+            // clients reporting ® and ™ seems inconsistent, so the same game gets different names overtime
+            let mut game_name = a.name.replace(&['®', '™'][..], "");
+            game_name.truncate(512);
+            Some(game_name)
+        } else {
+            None
+        }
+    });
+
+    {
+        let data = ctx.data.read().await;
+        if let Some(last_presence) = data.get::<model::LastUserPresence>().unwrap().get(&user_id) {
+            if last_presence.status == presence.status && last_presence.game_name == game_name {
+                return;
+            }
+        }
+    }
+
+    let mut data = ctx.data.write().await;
+    let db = data.get::<model::DB>().unwrap();
+    #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
+        r#"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)"#,
+    )
+    .bind(user_id.0 as i64)
+        .bind(presence.status.name())
+        .bind(&game_name)
+        .execute(&*db)
+        .await
+    {
+        println!("Error saving user_presence: {}", e);
+        return;
+    }
+    let last_presence_map = data.get_mut::<model::LastUserPresence>().unwrap();
+    last_presence_map.insert(
+        user_id,
+        model::UserPresence {
+            status: presence.status,
+            game_name,
+        },
+    );
 }

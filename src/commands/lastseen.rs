@@ -29,7 +29,8 @@ pub async fn lastseen(ctx: &Context, msg: &Message, args: Args) -> CommandResult
         sqlx::query(r#"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1"#).bind(user.id as i64).fetch_optional(&*db).await?
     };
     if row.is_none() {
-        util::record_say(ctx, msg, "```Unable to find user```").await?;
+        util::record_say(ctx, msg, format!("I've never seen {}", user.name)).await?;
+        return Ok(());
     }
 
     let now = Local::now();
