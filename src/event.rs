@@ -7,14 +7,16 @@ use serenity::client::{Context, EventHandler};
 use serenity::model::{
     event::PresenceUpdateEvent,
     gateway::{ActivityType, Presence, Ready},
-    guild::Guild,
-    id::UserId,
+    guild::{Guild, Member},
+    id::GuildId,
     interactions::{
         message_component::InteractionMessage, Interaction,
         InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
     },
+    user::User,
 };
 use sqlx::Row;
+use std::collections::HashSet;
 
 pub struct Handler;
 
@@ -25,8 +27,7 @@ impl EventHandler for Handler {
     }
 
     async fn presence_update(&self, ctx: Context, update: PresenceUpdateEvent) {
-        let presence = update.presence;
-        handle_presence(&ctx, presence.user_id, presence).await;
+        handle_presence(&ctx, update.guild_id, update.presence).await;
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
@@ -137,13 +138,52 @@ impl EventHandler for Handler {
     }
 
     async fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
-        for (user_id, presence) in guild.presences {
-            handle_presence(&ctx, user_id, presence).await;
+        for (_, presence) in guild.presences {
+            handle_presence(&ctx, Some(guild.id), presence).await;
+        }
+    }
+
+    async fn guild_member_removal(
+        &self,
+        ctx: Context,
+        guild_id: GuildId,
+        user: User,
+        _: Option<Member>,
+    ) {
+        // Check to see if we can still see this user in other guilds, if not mark them as offline in DB
+        let guild_lists = {
+            let data = ctx.data.read().await;
+            data.get::<model::UserGuildList>().unwrap().clone()
+        };
+        let is_empty = {
+            let mut guild_lists = guild_lists.write().await;
+            match guild_lists.get_mut(&user.id) {
+                Some(user_list) => {
+                    // Remove this guild ID from user's list and check if list is now empty
+                    user_list.remove(&guild_id);
+                    user_list.is_empty()
+                }
+                None => true,
+            }
+        };
+        if is_empty {
+            let data = ctx.data.read().await;
+            let db = data.get::<model::DB>().unwrap();
+            #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
+                r#"INSERT INTO user_presence (user_id, status) VALUES ($1, 'offline'::online_status)"#,
+            )
+            .bind(user.id.0 as i64)
+                .execute(&*db)
+                .await
+            {
+                println!("Error saving user_presence: {}", e);
+            }
         }
     }
 }
 
-async fn handle_presence(ctx: &Context, user_id: UserId, presence: Presence) {
+async fn handle_presence(ctx: &Context, guild_id: Option<GuildId>, presence: Presence) {
+    let user_id = presence.user_id;
     if match presence.user {
         Some(user) => user.bot,
         None => match ctx.cache.user(user_id).await {
@@ -172,30 +212,65 @@ async fn handle_presence(ctx: &Context, user_id: UserId, presence: Presence) {
         }
     });
 
-    {
-        let data = ctx.data.read().await;
-        if let Some(last_presence) = data.get::<model::LastUserPresence>().unwrap().get(&user_id) {
-            if last_presence.status == presence.status && last_presence.game_name == game_name {
-                return;
+    // Check if we've already recorded that user is in this guild
+    if let Some(guild_id) = guild_id {
+        let guild_lists = {
+            let data = ctx.data.read().await;
+            data.get::<model::UserGuildList>().unwrap().clone()
+        };
+        let in_guild_list = {
+            let in_guild_list = match guild_lists.read().await.get(&user_id) {
+                Some(g) => g.contains(&guild_id),
+                None => false,
+            };
+            in_guild_list
+        };
+        // Add guild ID to user's list, creating list for user if they're new
+        if !in_guild_list {
+            let mut guild_lists = guild_lists.write().await;
+            if let Some(l) = guild_lists.get_mut(&user_id) {
+                l.insert(guild_id);
+            } else {
+                let mut new_list = HashSet::new();
+                new_list.insert(guild_id);
+                guild_lists.insert(user_id, new_list);
             }
         }
     }
 
-    let mut data = ctx.data.write().await;
-    let db = data.get::<model::DB>().unwrap();
-    #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
-        r#"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)"#,
-    )
-    .bind(user_id.0 as i64)
-        .bind(presence.status.name())
-        .bind(&game_name)
-        .execute(&*db)
-        .await
-    {
-        println!("Error saving user_presence: {}", e);
-        return;
-    }
-    let last_presence_map = data.get_mut::<model::LastUserPresence>().unwrap();
+    // Do nothing if presence's status and game name haven't changed since the last update we saw
+    let last_presence_map = {
+        let data = ctx.data.read().await;
+        if let Some(last_presence) = data
+            .get::<model::LastUserPresence>()
+            .unwrap()
+            .clone()
+            .read()
+            .await
+            .get(&user_id)
+        {
+            if last_presence.status == presence.status && last_presence.game_name == game_name {
+                return;
+            }
+        }
+
+        let db = data.get::<model::DB>().unwrap();
+        #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
+            r#"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)"#,
+        )
+        .bind(user_id.0 as i64)
+            .bind(presence.status.name())
+            .bind(&game_name)
+            .execute(&*db)
+            .await
+        {
+            println!("Error saving user_presence: {}", e);
+            return;
+        }
+
+        data.get::<model::LastUserPresence>().unwrap().clone()
+    };
+    let mut last_presence_map = last_presence_map.write().await;
     last_presence_map.insert(
         user_id,
         model::UserPresence {

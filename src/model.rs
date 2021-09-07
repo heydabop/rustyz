@@ -1,10 +1,10 @@
 use serenity::model::{
-    id::{ChannelId, MessageId, UserId},
+    id::{ChannelId, GuildId, MessageId, UserId},
     user::OnlineStatus,
 };
 use serenity::prelude::*;
 use sqlx::{Pool, Postgres};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 pub struct OldDB;
@@ -40,5 +40,11 @@ impl TypeMapKey for LastCommandMessages {
 pub struct LastUserPresence;
 
 impl TypeMapKey for LastUserPresence {
-    type Value = HashMap<UserId, UserPresence>;
+    type Value = Arc<RwLock<HashMap<UserId, UserPresence>>>;
+}
+
+pub struct UserGuildList;
+
+impl TypeMapKey for UserGuildList {
+    type Value = Arc<RwLock<HashMap<UserId, HashSet<GuildId>>>>;
 }

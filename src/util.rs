@@ -249,8 +249,11 @@ async fn get_user_status(
     guild_id: GuildId,
     user_id: UserId,
 ) -> Option<OnlineStatus> {
-    let data = ctx.data.read().await;
-    if let Some(last_presence) = data.get::<LastUserPresence>().unwrap().get(&user_id) {
+    let last_presence = {
+        let data = ctx.data.read().await;
+        data.get::<LastUserPresence>().unwrap().clone()
+    };
+    if let Some(last_presence) = last_presence.read().await.get(&user_id) {
         return Some(last_presence.status);
     }
     if let Some(presences) = ctx
