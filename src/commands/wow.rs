@@ -1,4 +1,7 @@
-use crate::{config, util::record_say};
+use crate::{
+    config,
+    util::{record_say, record_sent_message},
+};
 use chrono::{DateTime, Local, TimeZone, Utc};
 use image::{imageops, png::PngEncoder, ColorType, ImageFormat};
 use reqwest::{StatusCode, Url};
@@ -533,7 +536,8 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     )?;
 
     // Send message with attached cropped image
-    msg.channel_id
+    let sent_message_id = msg
+        .channel_id
         .send_message(&ctx.http, |m| {
             m.add_file(AttachmentType::Bytes {
                 data: Cow::from(cropped_buffer),
@@ -542,7 +546,9 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             m.content(msg_content);
             m
         })
-        .await?;
+        .await?
+        .id;
+    record_sent_message(ctx, msg, sent_message_id).await;
 
     Ok(())
 }
@@ -645,7 +651,8 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
         String::from("")
     };
 
-    msg.channel_id
+    let sent_message_id = msg
+        .channel_id
         .send_message(&ctx.http, |m| {
             m.embed(|e| {
                 e.title(format!("{}{}", titled_name, guild_name))
@@ -695,7 +702,9 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
             });
             m
         })
-        .await?;
+        .await?
+        .id;
+    record_sent_message(ctx, msg, sent_message_id).await;
 
     Ok(())
 }
