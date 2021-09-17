@@ -206,11 +206,23 @@ async fn handle_presence(ctx: &Context, guild_id: Option<GuildId>, presence: Pre
             // clients reporting ® and ™ seems inconsistent, so the same game gets different names overtime
             let mut game_name = a.name.replace(&['®', '™'][..], "");
             game_name.truncate(512);
+            if game_name.starts_with(char::is_whitespace)
+                || game_name.ends_with(char::is_whitespace)
+            {
+                game_name = game_name.trim().to_owned();
+            }
             Some(game_name)
         } else {
             None
         }
     });
+
+    if guild_id.is_none() {
+        println!(
+            "Presence without guild: {} {:?} {:?}",
+            user_id, presence.status, game_name
+        );
+    }
 
     // Check if we've already recorded that user is in this guild
     if let Some(guild_id) = guild_id {
