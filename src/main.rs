@@ -5,7 +5,9 @@
 mod commands;
 mod config;
 mod event;
+mod google;
 mod model;
+mod tomorrowio;
 mod util;
 
 use commands::{
@@ -20,6 +22,7 @@ use commands::{
     source::SOURCE_COMMAND,
     tarkov::TARKOV_COMMAND,
     top::TOP_COMMAND,
+    weather::WEATHER_COMMAND,
     whois::WHOIS_COMMAND,
     wow::CHARACTER_COMMAND,
     wow::MOG_COMMAND,
@@ -54,6 +57,7 @@ const FAST_COMMANDS: [&str; 5] = ["delete", "fortune", "lastseen", "ping", "sour
     tarkov,
     top,
     raiderio,
+    weather,
     whois
 )]
 struct General;
@@ -162,7 +166,9 @@ async fn main() {
         .application_id(cfg.discord.application_id)
         .type_map_insert::<model::OldDB>(old_pool)
         .type_map_insert::<model::DB>(pool)
+        .type_map_insert::<config::Google>(cfg.google)
         .type_map_insert::<config::TarkovMarket>(cfg.tarkov_market)
+        .type_map_insert::<config::TomorrowIO>(cfg.tomorrow_io)
         .type_map_insert::<config::Wow>(cfg.wow)
         .type_map_insert::<model::OwnerId>(cfg.owner_id)
         .type_map_insert::<model::LastUserPresence>(Arc::new(RwLock::new(HashMap::new())))

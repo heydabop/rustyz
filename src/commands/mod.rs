@@ -9,5 +9,6 @@ pub mod raiderio;
 pub mod source;
 pub mod tarkov;
 pub mod top;
+pub mod weather;
 pub mod whois;
 pub mod wow;

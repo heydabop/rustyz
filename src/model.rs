@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use serenity::model::{
     id::{ChannelId, GuildId, MessageId, UserId},
     user::OnlineStatus,
@@ -47,4 +48,10 @@ pub struct UserGuildList;
 
 impl TypeMapKey for UserGuildList {
     type Value = Arc<RwLock<HashMap<UserId, HashSet<GuildId>>>>;
+}
+
+#[derive(Deserialize, Clone, Copy)]
+pub struct Point {
+    pub lat: f64,
+    pub lng: f64,
 }

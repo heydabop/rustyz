@@ -10,15 +10,25 @@ pub struct Discord {
 }
 
 #[derive(Deserialize)]
+pub struct Google {
+    pub maps_api_key: String,
+}
+
+#[derive(Deserialize)]
 pub struct Psql {
     pub old_url: String,
     pub url: String,
 }
 
+#[derive(Deserialize)]
+pub struct TarkovMarket {
+    pub api_key: String,
+}
+
 #[derive(Clone, Deserialize)]
-pub struct WowAuth {
-    pub access_token: String,
-    pub expires_at: SystemTime,
+pub struct TomorrowIO {
+    pub api_key: String,
+    pub default_location_id: String,
 }
 
 #[derive(Clone, Deserialize)]
@@ -28,13 +38,22 @@ pub struct Wow {
     pub auth: Option<WowAuth>, // not populated by config.toml, populated by first request to wow API
 }
 
-#[derive(Deserialize)]
-pub struct TarkovMarket {
-    pub api_key: String,
+#[derive(Clone, Deserialize)]
+pub struct WowAuth {
+    pub access_token: String,
+    pub expires_at: SystemTime,
+}
+
+impl TypeMapKey for Google {
+    type Value = Google;
 }
 
 impl TypeMapKey for TarkovMarket {
     type Value = TarkovMarket;
+}
+
+impl TypeMapKey for TomorrowIO {
+    type Value = TomorrowIO;
 }
 
 impl TypeMapKey for Wow {
@@ -45,7 +64,9 @@ impl TypeMapKey for Wow {
 pub struct Main {
     pub owner_id: u64,
     pub discord: Discord,
+    pub google: Google,
     pub psql: Psql,
     pub tarkov_market: TarkovMarket,
+    pub tomorrow_io: TomorrowIO,
     pub wow: Wow,
 }
