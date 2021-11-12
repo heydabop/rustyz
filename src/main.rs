@@ -22,6 +22,7 @@ use commands::{
     source::SOURCE_COMMAND,
     tarkov::TARKOV_COMMAND,
     top::TOP_COMMAND,
+    toplength::TOPLENGTH_COMMAND,
     weather::WEATHER_COMMAND,
     whois::WHOIS_COMMAND,
     wow::CHARACTER_COMMAND,
@@ -56,6 +57,7 @@ const FAST_COMMANDS: [&str; 5] = ["delete", "fortune", "lastseen", "ping", "sour
     source,
     tarkov,
     top,
+    toplength,
     raiderio,
     weather,
     whois
