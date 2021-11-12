@@ -45,5 +45,5 @@ fn twelve_hour(iana: &str) -> String {
 fn twentyfour_hour(iana: &str) -> String {
     let tz: Tz = iana.parse().unwrap();
     let now = Local::now().with_timezone(&tz);
-    now.format("%H:%M %p - %a, %b %d").to_string()
+    now.format("%H:%M - %a, %b %d").to_string()
 }
