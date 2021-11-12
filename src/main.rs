@@ -21,6 +21,9 @@ use commands::{
     raiderio::RAIDERIO_COMMAND,
     source::SOURCE_COMMAND,
     tarkov::TARKOV_COMMAND,
+    time::{
+        BIRDTIME_COMMAND, MIROTIME_COMMAND, NIELTIME_COMMAND, SEBBITIME_COMMAND, USTIME_COMMAND,
+    },
     top::TOP_COMMAND,
     toplength::TOPLENGTH_COMMAND,
     weather::WEATHER_COMMAND,
@@ -47,17 +50,22 @@ const FAST_COMMANDS: [&str; 5] = ["delete", "fortune", "lastseen", "ping", "sour
 #[group]
 #[commands(
     affixes,
+    birdtime,
     delete,
     fortune,
     lastseen,
     karma,
+    mirotime,
+    nieltime,
     ping,
     playtime,
     recent_playtime,
+    sebbitime,
     source,
     tarkov,
     top,
     toplength,
+    ustime,
     raiderio,
     weather,
     whois
