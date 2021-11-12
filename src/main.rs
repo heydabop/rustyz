@@ -161,7 +161,7 @@ async fn main() {
 
     let framework = StandardFramework::new()
         .configure(|c| {
-            c.prefix("!")
+            c.prefix("/")
                 .with_whitespace(true)
                 .on_mention(Some(UserId(cfg.discord.user_id)))
                 .no_dm_prefix(true)
