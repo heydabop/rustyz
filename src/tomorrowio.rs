@@ -55,7 +55,7 @@ pub struct Values {
     pub temperature: Option<f32>,
     #[serde(rename = "temperatureApparent")]
     pub temperature_apparent: Option<f32>,
-    pub humidity: Option<u32>,
+    pub humidity: Option<f32>,
     #[serde(rename = "dewPoint")]
     pub dewpoint: Option<f32>,
     #[serde(rename = "windSpeed")]
