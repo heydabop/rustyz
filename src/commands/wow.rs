@@ -386,7 +386,7 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         return Ok(());
     }
     let character = char_realm[0].trim();
-    let realm = char_realm[1].trim().replace(" ", "-").replace("'", "");
+    let realm = char_realm[1].trim().replace(' ', "-").replace('\'', "");
 
     let access_token = get_access_token(ctx).await?;
 
@@ -566,7 +566,7 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
         return Ok(());
     }
     let character_name = char_realm[0].trim();
-    let realm_name = char_realm[1].trim().replace(" ", "-").replace("'", "");
+    let realm_name = char_realm[1].trim().replace(' ', "-").replace('\'', "");
 
     let access_token = get_access_token(ctx).await?;
 
@@ -779,7 +779,7 @@ pub async fn realm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     // Parse out character and realm names from single string arg `<character>-<realm>`
     let mut arg = args.rest().to_string();
     arg.make_ascii_lowercase();
-    let realm_slug = arg.trim().replace(" ", "-").replace("'", "");
+    let realm_slug = arg.trim().replace(' ', "-").replace('\'', "");
 
     let access_token = get_access_token(ctx).await?;
 

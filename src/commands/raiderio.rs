@@ -96,7 +96,7 @@ pub async fn raiderio(ctx: &Context, msg: &Message, args: Args) -> CommandResult
         return Ok(());
     }
     let character = char_realm[0].trim();
-    let realm = char_realm[1].trim().replace(" ", "-").replace("'", "");
+    let realm = char_realm[1].trim().replace(' ', "-").replace('\'', "");
 
     let client = reqwest::Client::new();
     let dungeons = client
