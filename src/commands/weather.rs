@@ -112,7 +112,7 @@ pub async fn weather(ctx: &Context, msg: &Message, args: Args) -> CommandResult 
         None => "unknown",
     };
 
-    let tree_pollen = match conditions.tree_index {
+    let pollen = match conditions.tree_index.max(conditions.grass_index).max(conditions.weed_index) {
         Some(t) => match t {
             0 => "none",
             1 => "very low",
@@ -132,7 +132,7 @@ relative humidty | {} {}
 wind | {} {} {}
 uv index | {}
 air quality index | {} {}
-tree pollen | {}"#,
+pollen | {}"#,
         conditions
             .temperature
             .map_or_else(|| "--".to_string(), |t| format!("{:.0} \u{b0}F", t)),
@@ -164,7 +164,7 @@ tree pollen | {}"#,
             .epa_index
             .map_or_else(|| "--".to_string(), |e| format!("{}", e)),
         aqi_health,
-        tree_pollen
+        pollen
     );
 
     crate::util::record_say(ctx, msg, response_msg).await?;

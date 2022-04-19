@@ -72,12 +72,16 @@ pub struct Values {
     pub epa_index: Option<u32>,
     #[serde(rename = "treeIndex")]
     pub tree_index: Option<u32>,
+    #[serde(rename = "grassIndex")]
+    pub grass_index: Option<u32>,
+    #[serde(rename = "weedIndex")]
+    pub weed_index: Option<u32>,
 }
 
 pub async fn get_current(location: &str, api_key: &str) -> Result<Values, Error> {
     let client = reqwest::Client::new();
 
-    let resp = client.get(Url::parse(&format!("https://api.tomorrow.io/v4/timelines?location={}&fields=temperature,temperatureApparent,humidity,dewPoint,windSpeed,windDirection,windGust,uvIndex,weatherCode,epaIndex,treeIndex&timesteps=current&units=imperial&apikey={}", location, api_key)).unwrap()).send().await?;
+    let resp = client.get(Url::parse(&format!("https://api.tomorrow.io/v4/timelines?location={}&fields=temperature,temperatureApparent,humidity,dewPoint,windSpeed,windDirection,windGust,uvIndex,weatherCode,epaIndex,treeIndex,grassIndex,weedIndex&timesteps=current&units=imperial&apikey={}", location, api_key)).unwrap()).send().await?;
     let api_response = match resp.error_for_status() {
         Ok(resp) => resp.json::<ApiResponse>().await?,
         Err(e) => return Err(Error::from(e)),
