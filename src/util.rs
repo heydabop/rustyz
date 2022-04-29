@@ -26,9 +26,9 @@ pub struct UserIdName {
 // Returns a mapping of user IDs to Members
 // Panics on an http error or if msg wasn't sent in a GuildChannel
 pub async fn collect_members(ctx: &Context, msg: &Message) -> CommandResult<HashMap<u64, Member>> {
-    let guild = match msg.channel(&ctx.cache).await {
-        Some(channel) => channel,
-        None => ctx.http.get_channel(msg.channel_id.0).await?,
+    let guild = match msg.channel(&ctx.http).await {
+        Ok(channel) => channel,
+        Err(_) => ctx.http.get_channel(msg.channel_id.0).await?,
     }
     .guild()
     .unwrap();
@@ -45,6 +45,23 @@ pub async fn collect_members(ctx: &Context, msg: &Message) -> CommandResult<Hash
     Ok(members_by_id)
 }
 
+// Returns a mapping of user IDs to Members
+pub async fn collect_members_guild_id(
+    ctx: &Context,
+    guild_id: GuildId,
+) -> CommandResult<HashMap<UserId, Member>> {
+    let members_by_id: HashMap<UserId, Member> = match ctx.cache.guild(guild_id) {
+        Some(g) => g.members,
+        None => {
+            let guild = ctx.http.get_guild(guild_id.0).await?;
+            let members: Vec<Member> = guild.members(&ctx.http, None, None).await?;
+            members.into_iter().map(|m| (m.user.id, m)).collect()
+        }
+    };
+
+    Ok(members_by_id)
+}
+
 // Looks up username/nickname for user_id in usernames, falling back to an http call if the user_id isn't present
 pub async fn get_username(
     http: &Arc<Http>,
@@ -57,6 +74,23 @@ pub async fn get_username(
             None => member.user.name.clone(),
         },
         None => match http.get_user(user_id).await {
+            Ok(user) => user.name,
+            Err(_) => String::from("`<UNKNOWN>`"),
+        },
+    }
+}
+
+pub async fn get_username_userid(
+    http: &Arc<Http>,
+    members: &HashMap<UserId, Member>,
+    user_id: UserId,
+) -> String {
+    match members.get(&user_id) {
+        Some(member) => match &member.nick {
+            Some(nick) => nick.clone(),
+            None => member.user.name.clone(),
+        },
+        None => match http.get_user(user_id.0).await {
             Ok(user) => user.name,
             Err(_) => String::from("`<UNKNOWN>`"),
         },
@@ -204,7 +238,7 @@ pub async fn user_from_mention(
             record_say(ctx, msg, "```Invalid mention```").await?;
             return Ok(None);
         };
-        if let Some(guild) = ctx.cache.guild(msg.guild_id.unwrap()).await {
+        if let Some(guild) = ctx.cache.guild(msg.guild_id.unwrap()) {
             if let Ok(member) = guild.member(ctx, user_id).await {
                 username = member.nick;
             }
@@ -256,11 +290,7 @@ async fn get_user_status(
     if let Some(last_presence) = last_presence.read().await.get(&user_id) {
         return Some(last_presence.status);
     }
-    if let Some(presences) = ctx
-        .cache
-        .guild_field(guild_id, |g| g.presences.clone())
-        .await
-    {
+    if let Some(presences) = ctx.cache.guild_field(guild_id, |g| g.presences.clone()) {
         if let Some(presence) = presences.get(&user_id) {
             return Some(presence.status);
         }

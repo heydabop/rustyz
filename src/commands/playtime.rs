@@ -134,9 +134,9 @@ async fn user_ids_and_name_from_args(
     #[allow(clippy::cast_possible_wrap)]
     let user_ids: Vec<i64> = if args.is_empty() {
         // get list of user IDs in channel
-        let guild = match msg.channel(&ctx.cache).await {
-            Some(channel) => channel,
-            None => ctx.http.get_channel(msg.channel_id.0).await.unwrap(),
+        let guild = match msg.channel(&ctx.http).await {
+            Ok(channel) => channel,
+            Err(_) => ctx.http.get_channel(msg.channel_id.0).await.unwrap(),
         }
         .guild()
         .unwrap();
@@ -158,7 +158,7 @@ async fn user_ids_and_name_from_args(
                 util::record_say(ctx, msg, "```Invalid mention```").await?;
                 return Ok(None);
             };
-            if let Some(guild) = ctx.cache.guild(msg.guild_id.unwrap()).await {
+            if let Some(guild) = ctx.cache.guild(msg.guild_id.unwrap()) {
                 if let Ok(member) = guild.member(ctx, user_id).await {
                     username = member.nick;
                 }

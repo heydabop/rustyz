@@ -24,7 +24,6 @@ use commands::{
     time::{
         BIRDTIME_COMMAND, MIROTIME_COMMAND, NIELTIME_COMMAND, SEBBITIME_COMMAND, USTIME_COMMAND,
     },
-    top::TOP_COMMAND,
     toplength::TOPLENGTH_COMMAND,
     weather::WEATHER_COMMAND,
     whois::WHOIS_COMMAND,
@@ -33,13 +32,13 @@ use commands::{
     wow::REALM_COMMAND,
     wow::SEARCH_COMMAND,
 };
-use serenity::client::{bridge::gateway::GatewayIntents, Client, Context};
+use serenity::client::{Client, Context};
 use serenity::framework::standard::{
     help_commands,
     macros::{group, help, hook},
     Args, CommandError, CommandGroup, CommandResult, HelpOptions, StandardFramework,
 };
-use serenity::model::{channel::Message, id::UserId};
+use serenity::model::{channel::Message, gateway::GatewayIntents, id::UserId};
 use serenity::prelude::*;
 use sqlx::postgres::PgPoolOptions;
 use std::collections::{HashMap, HashSet};
@@ -63,7 +62,6 @@ const FAST_COMMANDS: [&str; 5] = ["delete", "fortune", "lastseen", "ping", "sour
     sebbitime,
     source,
     tarkov,
-    top,
     toplength,
     ustime,
     raiderio,
@@ -111,7 +109,7 @@ async fn after_log_error(
             let data = ctx.data.read().await;
             *(data.get::<model::OwnerId>().unwrap())
         };
-        let owner = match ctx.cache.user(owner_id).await {
+        let owner = match ctx.cache.user(owner_id) {
             Some(owner) => owner,
             None => ctx.http.get_user(owner_id).await.unwrap(),
         };
@@ -172,7 +170,12 @@ async fn main() {
         .help(&DEFAULT_HELP)
         .before(before_typing)
         .after(after_log_error);
-    let mut client = Client::builder(cfg.discord.bot_token)
+    let intents = GatewayIntents::GUILDS
+        | GatewayIntents::GUILD_MEMBERS
+        | GatewayIntents::GUILD_PRESENCES
+        | GatewayIntents::GUILD_MESSAGES
+        | GatewayIntents::DIRECT_MESSAGES;
+    let mut client = Client::builder(cfg.discord.bot_token, intents)
         .application_id(cfg.discord.application_id)
         .type_map_insert::<model::OldDB>(old_pool)
         .type_map_insert::<model::DB>(pool)
@@ -185,13 +188,6 @@ async fn main() {
         .type_map_insert::<model::UserGuildList>(Arc::new(RwLock::new(HashMap::new())))
         .type_map_insert::<model::LastCommandMessages>(Arc::new(RwLock::new(HashMap::new())))
         .event_handler(event::Handler)
-        .intents(
-            GatewayIntents::GUILDS
-                | GatewayIntents::GUILD_MEMBERS
-                | GatewayIntents::GUILD_PRESENCES
-                | GatewayIntents::GUILD_MESSAGES
-                | GatewayIntents::DIRECT_MESSAGES,
-        )
         .framework(framework)
         .await
         .expect("Error creating Discord client");

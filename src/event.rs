@@ -5,13 +5,13 @@ use chrono::prelude::*;
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::{
-    event::PresenceUpdateEvent,
+    channel::MessageFlags,
     gateway::{ActivityType, Presence, Ready},
     guild::{Guild, Member},
     id::GuildId,
     interactions::{
-        message_component::InteractionMessage, Interaction,
-        InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
+        application_command::ApplicationCommandOptionType,
+        Interaction, InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
     },
     user::User,
 };
@@ -22,118 +22,158 @@ pub struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn ready(&self, _: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
         println!("Bot {} is successfully connected.", ready.user.name);
+
+        let guild_id = GuildId(
+            "161010139309015040"
+                .parse()
+                .expect("GUILD_ID must be an integer"),
+        );
+
+        if let Err(e) = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
+            commands
+                .create_application_command(|command| command.name("ping").description("it pongs"))
+                .create_application_command(|c| {
+                    c.name("top")
+                        .description("Lists users by number of messages sent")
+                        .create_option(|o| {
+                            o.name("count")
+                                .description("The number of users to lists (defaults to 5)")
+                                .kind(ApplicationCommandOptionType::Integer)
+                                .required(false)
+                                .min_int_value(1)
+                                .max_int_value(100)
+                        })
+                })
+        })
+        .await
+        {
+            println!("error setting commands: {}", e);
+        }
     }
 
-    async fn presence_update(&self, ctx: Context, update: PresenceUpdateEvent) {
-        handle_presence(&ctx, update.guild_id, update.presence).await;
+    async fn presence_update(&self, ctx: Context, update: Presence) {
+        handle_presence(&ctx, update.guild_id, update).await;
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        let interaction = match interaction.message_component() {
-            Some(c) => c,
-            None => return,
-        };
-        let fields: Vec<&str> = interaction.data.custom_id.split(':').collect();
-        let command = fields[0];
-        if command != "playtime" {
-            return;
-        }
-        let prev_next = fields[1];
-        let button_id = fields[2].parse::<i32>().unwrap();
-        let row = {
-            let data = ctx.data.read().await;
-            let db = data.get::<model::DB>().unwrap();
-            match sqlx::query(r#"SELECT author_id, user_ids, username, start_date, end_date, start_offset FROM playtime_button WHERE id = $1"#).bind(button_id).fetch_one(&*db).await {
-                Ok(row) => row,
-                Err(e) => {println!("{}", e);return;}
+        match interaction {
+            Interaction::ApplicationCommand(command) => {
+                if let Err(e) = match command.data.name.as_str() {
+                    "top" => crate::commands::top::top(&ctx, &command).await,
+                    _ => Ok(()),
+                } {
+                    println!("Cannot respond to slash command: {}", e);
+                }
             }
-        };
-        let author_id = row.get::<i64, _>(0);
+            Interaction::MessageComponent(interaction) => {
+                let fields: Vec<&str> = interaction.data.custom_id.split(':').collect();
+                let command = fields[0];
+                if command != "playtime" {
+                    return;
+                }
+                let prev_next = fields[1];
+                let button_id = fields[2].parse::<i32>().unwrap();
+                let row = {
+                    let data = ctx.data.read().await;
+                    let db = data.get::<model::DB>().unwrap();
+                    match sqlx::query(r#"SELECT author_id, user_ids, username, start_date, end_date, start_offset FROM playtime_button WHERE id = $1"#).bind(button_id).fetch_one(&*db).await {
+                        Ok(row) => row,
+                        Err(e) => {println!("{}", e);return;}
+                    }
+                };
+                let author_id = row.get::<i64, _>(0);
 
-        #[allow(clippy::cast_possible_wrap)]
-        if author_id != interaction.user.id.0 as i64 {
-            if let Err(e) = interaction
-                .create_interaction_response(ctx, |r| {
-                    r.interaction_response_data(|d| {
-                        d.flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL);
-                        d.content("Sorry, only the original command user can change the message");
-                        d
-                    });
-                    r
-                })
+                #[allow(clippy::cast_possible_wrap)]
+                if author_id != interaction.user.id.0 as i64 {
+                    if let Err(e) = interaction
+                        .create_interaction_response(ctx, |r| {
+                            r.interaction_response_data(|d| {
+                                d.flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL);
+                                d.content(
+                                    "Sorry, only the original command user can change the message",
+                                );
+                                d
+                            });
+                            r
+                        })
+                        .await
+                    {
+                        println!("{}", e);
+                    }
+                    return;
+                }
+
+                let user_ids = row.get::<Vec<i64>, _>(1);
+                let username = row.get::<Option<String>, _>(2);
+                let start_date = row.get::<Option<DateTime<FixedOffset>>, _>(3);
+                let end_date = row.get::<DateTime<FixedOffset>, _>(4);
+                let mut offset = row.get::<i32, _>(5);
+
+                if prev_next == "prev" {
+                    offset = (offset - 15).max(0);
+                } else if prev_next == "next" {
+                    offset += 15;
+                } else {
+                    return;
+                }
+
+                #[allow(clippy::cast_sign_loss)]
+                let new_content = gen_playtime_message(
+                    &ctx,
+                    &user_ids,
+                    &username,
+                    start_date,
+                    end_date,
+                    offset as usize,
+                )
                 .await
-            {
-                println!("{}", e);
-            }
-            return;
-        }
-
-        let user_ids = row.get::<Vec<i64>, _>(1);
-        let username = row.get::<Option<String>, _>(2);
-        let start_date = row.get::<Option<DateTime<FixedOffset>>, _>(3);
-        let end_date = row.get::<DateTime<FixedOffset>, _>(4);
-        let mut offset = row.get::<i32, _>(5);
-
-        if prev_next == "prev" {
-            offset = (offset - 15).max(0);
-        } else if prev_next == "next" {
-            offset += 15;
-        } else {
-            return;
-        }
-
-        #[allow(clippy::cast_sign_loss)]
-        let new_content = gen_playtime_message(
-            &ctx,
-            &user_ids,
-            &username,
-            start_date,
-            end_date,
-            offset as usize,
-        )
-        .await
-        .unwrap();
-        let mut message = match interaction.message {
-            InteractionMessage::Regular(ref m) => m.clone(),
-            InteractionMessage::Ephemeral(_) => return,
-        };
-        if let Err(e) = message
-            .edit(&ctx, |m| {
-                m.content(&new_content);
-                m.components(|c| create_components(c, offset, &new_content, button_id));
-                m
-            })
-            .await
-        {
-            println!("{}", e);
-            return;
-        }
-
-        if let Err(e) = interaction
-            .create_interaction_response(&ctx, |r| {
-                r.kind(InteractionResponseType::UpdateMessage);
-                r
-            })
-            .await
-        {
-            println!("{}", e);
-            return;
-        }
-
-        {
-            let data = ctx.data.read().await;
-            let db = data.get::<model::DB>().unwrap();
-            if let Err(e) =
-                sqlx::query(r#"UPDATE playtime_button SET start_offset = $2 WHERE id = $1"#)
-                    .bind(button_id)
-                    .bind(offset)
-                    .execute(&*db)
+                .unwrap();
+                if let Some(flags) = interaction.message.flags {
+                    if flags.contains(MessageFlags::EPHEMERAL) {
+                        return;
+                    }
+                }
+                let mut message = interaction.message.clone();
+                if let Err(e) = message
+                    .edit(&ctx, |m| {
+                        m.content(&new_content);
+                        m.components(|c| create_components(c, offset, &new_content, button_id));
+                        m
+                    })
                     .await
-            {
-                println!("{}", e);
+                {
+                    println!("{}", e);
+                    return;
+                }
+
+                if let Err(e) = interaction
+                    .create_interaction_response(&ctx, |r| {
+                        r.kind(InteractionResponseType::UpdateMessage);
+                        r
+                    })
+                    .await
+                {
+                    println!("{}", e);
+                    return;
+                }
+
+                {
+                    let data = ctx.data.read().await;
+                    let db = data.get::<model::DB>().unwrap();
+                    if let Err(e) =
+                        sqlx::query(r#"UPDATE playtime_button SET start_offset = $2 WHERE id = $1"#)
+                            .bind(button_id)
+                            .bind(offset)
+                            .execute(&*db)
+                            .await
+                    {
+                        println!("{}", e);
+                    }
+                }
             }
+            _ => {}
         }
     }
 
@@ -183,10 +223,10 @@ impl EventHandler for Handler {
 }
 
 async fn handle_presence(ctx: &Context, guild_id: Option<GuildId>, presence: Presence) {
-    let user_id = presence.user_id;
-    if match presence.user {
-        Some(user) => user.bot,
-        None => match ctx.cache.user(user_id).await {
+    let user_id = presence.user.id;
+    if match presence.user.bot {
+        Some(bot) => bot,
+        None => match ctx.cache.user(user_id) {
             Some(user) => user.bot,
             None => {
                 if let Ok(user) = ctx.http.get_user(user_id.0).await {

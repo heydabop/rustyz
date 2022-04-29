@@ -2,18 +2,40 @@ use crate::model::OldDB;
 use crate::util;
 use num_traits::cast::ToPrimitive;
 use serenity::client::Context;
-use serenity::framework::standard::{macros::command, Args, CommandResult};
-use serenity::model::channel::Message;
+use serenity::framework::standard::CommandResult;
+use serenity::model::id::UserId;
+use serenity::model::interactions::{
+    application_command::{
+        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
+    },
+    InteractionResponseType,
+};
 use sqlx::types::Decimal;
 use sqlx::Row;
 
 // Replies to msg with the top users in channel sorted by most messages sent
 // Allows a single optional arg of how many users to list, defaults to 5
-#[command]
-#[only_in(guilds)]
-pub async fn top(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let members = util::collect_members(ctx, msg).await?;
-    let limit: u32 = args.single().unwrap_or(5).min(100);
+pub async fn top(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    let guild_id = match interaction.guild_id {
+        Some(g) => g,
+        None => return Ok(()),
+    };
+    let members = util::collect_members_guild_id(ctx, guild_id).await?;
+    let limit: u32 = interaction
+        .data
+        .options
+        .get(0)
+        .and_then(|o| {
+            o.resolved.as_ref().map(|r| {
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                if let ApplicationCommandInteractionDataOptionValue::Integer(l) = r {
+                    *l as u32
+                } else {
+                    5
+                }
+            })
+        })
+        .unwrap_or(5);
 
     let rows = {
         let data = ctx.data.read().await;
@@ -28,7 +50,7 @@ GROUP BY author_id
 ORDER BY count(author_id) DESC
 LIMIT $2"#,
         )
-        .bind(Decimal::from(msg.channel_id.0))
+        .bind(Decimal::from(interaction.channel_id.0))
         .bind(limit)
         .fetch_all(&*db)
         .await?
@@ -37,13 +59,19 @@ LIMIT $2"#,
     let mut lines = Vec::with_capacity(limit as usize);
 
     for row in &rows {
-        let user_id = row.get::<Decimal, _>(0).to_u64().unwrap();
+        let user_id = UserId(row.get::<Decimal, _>(0).to_u64().unwrap());
         let num_messages: i64 = row.get(1);
-        let username = util::get_username(&ctx.http, &members, user_id).await;
+        let username = util::get_username_userid(&ctx.http, &members, user_id).await;
         lines.push(format!("{} \u{2014} {}\n", username, num_messages));
     }
 
-    util::record_say(ctx, msg, lines.concat()).await?;
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(|message| message.content(lines.concat()))
+        })
+        .await?;
 
     Ok(())
 }

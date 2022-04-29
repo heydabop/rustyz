@@ -112,7 +112,11 @@ pub async fn weather(ctx: &Context, msg: &Message, args: Args) -> CommandResult 
         None => "unknown",
     };
 
-    let pollen = match conditions.tree_index.max(conditions.grass_index).max(conditions.weed_index) {
+    let pollen = match conditions
+        .tree_index
+        .max(conditions.grass_index)
+        .max(conditions.weed_index)
+    {
         Some(t) => match t {
             0 => "none",
             1 => "very low",
