@@ -1,13 +1,30 @@
 use crate::{config, google, model::Point, tomorrowio};
 use serenity::client::Context;
-use serenity::framework::standard::{macros::command, Args, CommandError, CommandResult};
-use serenity::model::channel::Message;
+use serenity::framework::standard::{CommandError, CommandResult};
+use serenity::model::interactions::{
+    application_command::{
+        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
+    },
+    InteractionResponseType,
+};
 
 // Replies to msg with the weather for either the bot's location or the supplied location
 // Takes a single optional argument - location as zipcode, city+state, or lat/lng in decimal form
-#[command]
-pub async fn weather(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let args = args.rest();
+pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    let args = interaction
+        .data
+        .options
+        .get(0)
+        .and_then(|o| {
+            o.resolved.as_ref().map(|r| {
+                if let ApplicationCommandInteractionDataOptionValue::String(s) = r {
+                    s
+                } else {
+                    ""
+                }
+            })
+        })
+        .unwrap_or("");
     let mut location: Option<Point> = None;
     let point_regex = regex::Regex::new(r#"^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$"#).unwrap();
 
@@ -17,14 +34,26 @@ pub async fn weather(ctx: &Context, msg: &Message, args: Args) -> CommandResult 
         let lat = match lat.parse::<f64>() {
             Ok(l) => l,
             Err(e) => {
-                crate::util::record_say(ctx, msg, e.to_string()).await?;
+                interaction
+                    .create_interaction_response(&ctx.http, |response| {
+                        response
+                            .kind(InteractionResponseType::ChannelMessageWithSource)
+                            .interaction_response_data(|message| message.content(e.to_string()))
+                    })
+                    .await?;
                 return Ok(());
             }
         };
         let lng = match lng.parse::<f64>() {
             Ok(l) => l,
             Err(e) => {
-                crate::util::record_say(ctx, msg, e.to_string()).await?;
+                interaction
+                    .create_interaction_response(&ctx.http, |response| {
+                        response
+                            .kind(InteractionResponseType::ChannelMessageWithSource)
+                            .interaction_response_data(|message| message.content(e.to_string()))
+                    })
+                    .await?;
                 return Ok(());
             }
         };
@@ -39,7 +68,13 @@ pub async fn weather(ctx: &Context, msg: &Message, args: Args) -> CommandResult 
             Err(e) => match e {
                 google::Error::Reqwest(e) => return Err(CommandError::from(e)),
                 e => {
-                    crate::util::record_say(ctx, msg, e).await?;
+                    interaction
+                        .create_interaction_response(&ctx.http, |response| {
+                            response
+                                .kind(InteractionResponseType::ChannelMessageWithSource)
+                                .interaction_response_data(|message| message.content(e.to_string()))
+                        })
+                        .await?;
                     return Ok(());
                 }
             },
@@ -171,7 +206,13 @@ pollen | {}"#,
         pollen
     );
 
-    crate::util::record_say(ctx, msg, response_msg).await?;
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(|message| message.content(response_msg))
+        })
+        .await?;
 
     Ok(())
 }

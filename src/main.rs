@@ -11,21 +11,14 @@ mod tomorrowio;
 mod util;
 
 use commands::{
-    affixes::AFFIXES_COMMAND,
     delete::DELETE_COMMAND,
-    fortune::FORTUNE_COMMAND,
-    karma::KARMA_COMMAND,
-    lastseen::LASTSEEN_COMMAND,
     ping::PING_COMMAND,
     playtime::{PLAYTIME_COMMAND, RECENT_PLAYTIME_COMMAND},
     raiderio::RAIDERIO_COMMAND,
-    source::SOURCE_COMMAND,
     tarkov::TARKOV_COMMAND,
     time::{
         BIRDTIME_COMMAND, MIROTIME_COMMAND, NIELTIME_COMMAND, SEBBITIME_COMMAND, USTIME_COMMAND,
     },
-    toplength::TOPLENGTH_COMMAND,
-    weather::WEATHER_COMMAND,
     whois::WHOIS_COMMAND,
     wow::CHARACTER_COMMAND,
     wow::MOG_COMMAND,
@@ -44,28 +37,21 @@ use sqlx::postgres::PgPoolOptions;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-const FAST_COMMANDS: [&str; 5] = ["delete", "fortune", "lastseen", "ping", "source"];
+const FAST_COMMANDS: [&str; 2] = ["delete", "ping"];
 
 #[group]
 #[commands(
-    affixes,
     birdtime,
     delete,
-    fortune,
-    lastseen,
-    karma,
     mirotime,
     nieltime,
     ping,
     playtime,
     recent_playtime,
     sebbitime,
-    source,
     tarkov,
-    toplength,
     ustime,
     raiderio,
-    weather,
     whois
 )]
 struct General;

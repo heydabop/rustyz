@@ -1,4 +1,7 @@
-use crate::commands::playtime::{create_components, gen_playtime_message};
+use crate::commands::{
+    self,
+    playtime::{create_components, gen_playtime_message},
+};
 use crate::model;
 
 use chrono::prelude::*;
@@ -10,8 +13,8 @@ use serenity::model::{
     guild::{Guild, Member},
     id::GuildId,
     interactions::{
-        application_command::ApplicationCommandOptionType,
-        Interaction, InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
+        application_command::ApplicationCommandOptionType, Interaction,
+        InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
     },
     user::User,
 };
@@ -33,17 +36,69 @@ impl EventHandler for Handler {
 
         if let Err(e) = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
             commands
-                .create_application_command(|command| command.name("ping").description("it pongs"))
                 .create_application_command(|c| {
-                    c.name("top")
-                        .description("Lists users by number of messages sent")
+                    c.name("affixes").description("Sends this week's US Mythic+ affixes")
+                })
+                .create_application_command(|c| {
+                    c.name("fortune").description("Sends a random adage")
+                })
+                .create_application_command(|c| {
+                    c.name("karma")
+                        .description("Lists members by karma points")
                         .create_option(|o| {
                             o.name("count")
-                                .description("The number of users to lists (defaults to 5)")
+                                .description("The number of members to list (defaults to 5)")
                                 .kind(ApplicationCommandOptionType::Integer)
                                 .required(false)
                                 .min_int_value(1)
                                 .max_int_value(100)
+                        })
+                })
+                .create_application_command(|c| {
+                    c.name("lastseen")
+                        .description("Sends how long it's been since a user was last online")
+                        .create_option(|o| {
+                            o.name("user")
+                                .description("User to check")
+                                .kind(ApplicationCommandOptionType::User)
+                                .required(true)
+                        })
+                })
+                .create_application_command(|c| {
+                    c.name("source").description("Sends link to bot source code")
+                })
+                .create_application_command(|c| {
+                    c.name("top")
+                        .description("Lists members by number of sent messages")
+                        .create_option(|o| {
+                            o.name("count")
+                                .description("The number of members to list (defaults to 5)")
+                                .kind(ApplicationCommandOptionType::Integer)
+                                .required(false)
+                                .min_int_value(1)
+                                .max_int_value(100)
+                        })
+                })
+                .create_application_command(|c| {
+                    c.name("toplength")
+                        .description("Lists members by average length of sent messages")
+                        .create_option(|o| {
+                            o.name("count")
+                                .description("The number of members to list (defaults to 5)")
+                                .kind(ApplicationCommandOptionType::Integer)
+                                .required(false)
+                                .min_int_value(1)
+                                .max_int_value(100)
+                        })
+                })
+                .create_application_command(|c| {
+                    c.name("weather")
+                        .description("Sends weather conditions for an area")
+                        .create_option(|o| {
+                            o.name("location")
+                                .description("Area to get weather for; can be city name, postal code, or decimal lat/long (default: Austin, TX)")
+                                .kind(ApplicationCommandOptionType::String)
+                                .required(false)
                         })
                 })
         })
@@ -61,7 +116,14 @@ impl EventHandler for Handler {
         match interaction {
             Interaction::ApplicationCommand(command) => {
                 if let Err(e) = match command.data.name.as_str() {
-                    "top" => crate::commands::top::top(&ctx, &command).await,
+                    "affixes" => commands::affixes::affixes(&ctx, &command).await,
+                    "fortune" => commands::fortune::fortune(&ctx, &command).await,
+                    "karma" => commands::karma::karma(&ctx, &command).await,
+                    "lastseen" => commands::lastseen::lastseen(&ctx, &command).await,
+                    "source" => commands::source::source(&ctx, &command).await,
+                    "top" => commands::top::top(&ctx, &command).await,
+                    "toplength" => commands::toplength::toplength(&ctx, &command).await,
+                    "weather" => commands::weather::weather(&ctx, &command).await,
                     _ => Ok(()),
                 } {
                     println!("Cannot respond to slash command: {}", e);

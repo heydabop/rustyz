@@ -1,22 +1,39 @@
 use crate::model::OldDB;
 use crate::util;
 use serenity::client::Context;
-use serenity::framework::standard::{macros::command, Args, CommandError, CommandResult};
-use serenity::model::channel::Message;
+use serenity::framework::standard::CommandResult;
+use serenity::model::id::UserId;
+use serenity::model::interactions::{
+    application_command::{
+        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
+    },
+    InteractionResponseType,
+};
 use sqlx::Row;
 
 // Replies with the top users in guild sorted by highest karma (vote count)
 // Allows a single optional arg of how many users to list, defaults to 5
-#[command]
-#[only_in(guilds)]
-pub async fn karma(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let guild_id = if let Some(guild_id) = msg.guild_id {
-        guild_id.0
-    } else {
-        return Err(CommandError::from("Unable to get guild ID of message"));
+pub async fn karma(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    let guild_id = match interaction.guild_id {
+        Some(g) => g,
+        None => return Ok(()),
     };
-    let members = util::collect_members(ctx, msg).await?;
-    let limit: u32 = args.single().unwrap_or(5).min(100);
+    let members = util::collect_members_guild_id(ctx, guild_id).await?;
+    let limit: u32 = interaction
+        .data
+        .options
+        .get(0)
+        .and_then(|o| {
+            o.resolved.as_ref().map(|r| {
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                if let ApplicationCommandInteractionDataOptionValue::Integer(l) = r {
+                    *l as u32
+                } else {
+                    5
+                }
+            })
+        })
+        .unwrap_or(5);
 
     let rows = {
         let data = ctx.data.read().await;
@@ -38,13 +55,19 @@ LIMIT $2"#,
     let mut lines = Vec::with_capacity(limit as usize);
 
     for row in &rows {
-        let user_id = row.get::<String, _>(0).parse::<u64>().unwrap();
+        let user_id = UserId(row.get::<String, _>(0).parse::<u64>().unwrap());
         let karma: i32 = row.get(1);
-        let username = util::get_username(&ctx.http, &members, user_id).await;
+        let username = util::get_username_userid(&ctx.http, &members, user_id).await;
         lines.push(format!("{} \u{2014} {}\n", username, karma));
     }
 
-    util::record_say(ctx, msg, lines.concat()).await?;
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(|message| message.content(lines.concat()))
+        })
+        .await?;
 
     Ok(())
 }
