@@ -1,24 +1,18 @@
-use crate::commands::{
-    self,
-    playtime::{create_components, gen_playtime_message},
-};
+use crate::commands;
 use crate::model;
 
-use chrono::prelude::*;
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::{
-    channel::MessageFlags,
     gateway::{ActivityType, Presence, Ready},
     guild::{Guild, Member},
     id::GuildId,
     interactions::{
-        application_command::ApplicationCommandOptionType, Interaction,
-        InteractionApplicationCommandCallbackDataFlags, InteractionResponseType,
+        application_command::{ApplicationCommand, ApplicationCommandOptionType},
+        Interaction,
     },
     user::User,
 };
-use sqlx::Row;
 use std::collections::HashSet;
 
 pub struct Handler;
@@ -28,29 +22,8 @@ impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("Bot {} is successfully connected.", ready.user.name);
 
-        let guild_id = GuildId(
-            "161010139309015040"
-                .parse()
-                .expect("GUILD_ID must be an integer"),
-        );
-
-        if let Err(e) = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
+        match ApplicationCommand::set_global_application_commands(&ctx.http, |commands| {
             commands
-                .create_application_command(|c| {
-                    c.name("birdtime").description("Sends current time for bird")
-                })
-                .create_application_command(|c| {
-                    c.name("mirotime").description("Sends current time for miro")
-                })
-                .create_application_command(|c| {
-                    c.name("nieltime").description("Sends current time for niel")
-                })
-                .create_application_command(|c| {
-                    c.name("sebbitime").description("Sends current time for sebbi")
-                })
-                .create_application_command(|c| {
-                    c.name("natime").description("Sends current time for NA")
-                })
                 .create_application_command(|c| {
                     c.name("affixes").description("Sends this week's US Mythic+ affixes")
                 })
@@ -193,9 +166,9 @@ impl EventHandler for Handler {
                         })
                 })
         })
-        .await
-        {
-            println!("error setting commands: {}", e);
+        .await {
+            Ok(guild_commands) => println!("commands set: {:?}", guild_commands.iter().map(|g| &g.name).collect::<Vec<&String>>()),
+            Err(e) => println!("error setting commands: {}", e),
         }
     }
 
@@ -204,141 +177,27 @@ impl EventHandler for Handler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        match interaction {
-            Interaction::ApplicationCommand(command) => {
-                if let Err(e) = match command.data.name.as_str() {
-                    "birdtime" => commands::time::time(&ctx, &command, "Europe/Oslo").await,
-                    "mirotime" => commands::time::time(&ctx, &command, "Europe/Helsinki").await,
-                    "nieltime" => commands::time::time(&ctx, &command, "Europe/Stockholm").await,
-                    "sebbitime" => commands::time::time(&ctx, &command, "Europe/Copenhagen").await,
-                    "natime" => commands::time::time(&ctx, &command, "America/Chicago").await,
-                    "affixes" => commands::affixes::affixes(&ctx, &command).await,
-                    "fortune" => commands::fortune::fortune(&ctx, &command).await,
-                    "karma" => commands::karma::karma(&ctx, &command).await,
-                    "lastseen" => commands::lastseen::lastseen(&ctx, &command).await,
-                    "ping" => commands::ping::ping(&ctx, &command).await,
-                    "playtime" => commands::playtime::playtime(&ctx, &command).await,
-                    "raiderio" => commands::raiderio::raiderio(&ctx, &command).await,
-                    "recentplaytime" => commands::playtime::recent_playtime(&ctx, &command).await,
-                    "roll" => commands::roll::roll(&ctx, &command).await,
-                    "source" => commands::source::source(&ctx, &command).await,
-                    "tarkov" => commands::tarkov::tarkov(&ctx, &command).await,
-                    "top" => commands::top::top(&ctx, &command).await,
-                    "toplength" => commands::toplength::toplength(&ctx, &command).await,
-                    "weather" => commands::weather::weather(&ctx, &command).await,
-                    "whois" => commands::whois::whois(&ctx, &command).await,
-                    _ => Ok(()),
-                } {
-                    println!("Cannot respond to slash command: {}", e);
-                }
+        if let Interaction::ApplicationCommand(command) = interaction {
+            if let Err(e) = match command.data.name.as_str() {
+                "affixes" => commands::affixes::affixes(&ctx, &command).await,
+                "fortune" => commands::fortune::fortune(&ctx, &command).await,
+                "karma" => commands::karma::karma(&ctx, &command).await,
+                "lastseen" => commands::lastseen::lastseen(&ctx, &command).await,
+                "ping" => commands::ping::ping(&ctx, &command).await,
+                "playtime" => commands::playtime::playtime(&ctx, &command).await,
+                "raiderio" => commands::raiderio::raiderio(&ctx, &command).await,
+                "recentplaytime" => commands::playtime::recent_playtime(&ctx, &command).await,
+                "roll" => commands::roll::roll(&ctx, &command).await,
+                "source" => commands::source::source(&ctx, &command).await,
+                "tarkov" => commands::tarkov::tarkov(&ctx, &command).await,
+                "top" => commands::top::top(&ctx, &command).await,
+                "toplength" => commands::toplength::toplength(&ctx, &command).await,
+                "weather" => commands::weather::weather(&ctx, &command).await,
+                "whois" => commands::whois::whois(&ctx, &command).await,
+                _ => Ok(()),
+            } {
+                println!("Cannot respond to slash command: {}", e);
             }
-            Interaction::MessageComponent(interaction) => {
-                let fields: Vec<&str> = interaction.data.custom_id.split(':').collect();
-                let command = fields[0];
-                if command != "playtime" {
-                    return;
-                }
-                let prev_next = fields[1];
-                let button_id = fields[2].parse::<i32>().unwrap();
-                let row = {
-                    let data = ctx.data.read().await;
-                    let db = data.get::<model::DB>().unwrap();
-                    match sqlx::query(r#"SELECT author_id, user_ids, username, start_date, end_date, start_offset FROM playtime_button WHERE id = $1"#).bind(button_id).fetch_one(&*db).await {
-                        Ok(row) => row,
-                        Err(e) => {println!("{}", e);return;}
-                    }
-                };
-                let author_id = row.get::<i64, _>(0);
-
-                #[allow(clippy::cast_possible_wrap)]
-                if author_id != interaction.user.id.0 as i64 {
-                    if let Err(e) = interaction
-                        .create_interaction_response(ctx, |r| {
-                            r.interaction_response_data(|d| {
-                                d.flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL);
-                                d.content(
-                                    "Sorry, only the original command user can change the message",
-                                );
-                                d
-                            });
-                            r
-                        })
-                        .await
-                    {
-                        println!("{}", e);
-                    }
-                    return;
-                }
-
-                let user_ids = row.get::<Vec<i64>, _>(1);
-                let username = row.get::<Option<String>, _>(2);
-                let start_date = row.get::<Option<DateTime<FixedOffset>>, _>(3);
-                let end_date = row.get::<DateTime<FixedOffset>, _>(4);
-                let mut offset = row.get::<i32, _>(5);
-
-                if prev_next == "prev" {
-                    offset = (offset - 15).max(0);
-                } else if prev_next == "next" {
-                    offset += 15;
-                } else {
-                    return;
-                }
-
-                #[allow(clippy::cast_sign_loss)]
-                let new_content = gen_playtime_message(
-                    &ctx,
-                    &user_ids,
-                    &username,
-                    start_date,
-                    end_date,
-                    offset as usize,
-                )
-                .await
-                .unwrap();
-                if let Some(flags) = interaction.message.flags {
-                    if flags.contains(MessageFlags::EPHEMERAL) {
-                        return;
-                    }
-                }
-                let mut message = interaction.message.clone();
-                if let Err(e) = message
-                    .edit(&ctx, |m| {
-                        m.content(&new_content);
-                        m.components(|c| create_components(c, offset, &new_content, button_id));
-                        m
-                    })
-                    .await
-                {
-                    println!("{}", e);
-                    return;
-                }
-
-                if let Err(e) = interaction
-                    .create_interaction_response(&ctx, |r| {
-                        r.kind(InteractionResponseType::UpdateMessage);
-                        r
-                    })
-                    .await
-                {
-                    println!("{}", e);
-                    return;
-                }
-
-                {
-                    let data = ctx.data.read().await;
-                    let db = data.get::<model::DB>().unwrap();
-                    if let Err(e) =
-                        sqlx::query(r#"UPDATE playtime_button SET start_offset = $2 WHERE id = $1"#)
-                            .bind(button_id)
-                            .bind(offset)
-                            .execute(&*db)
-                            .await
-                    {
-                        println!("{}", e);
-                    }
-                }
-            }
-            _ => {}
         }
     }
 

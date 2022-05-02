@@ -2,7 +2,6 @@ use crate::model::DB;
 use crate::util;
 use chrono::{prelude::*, Duration};
 use regex::{Match, Regex};
-use serenity::builder::CreateComponents;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
 use serenity::model::id::GuildId;
@@ -11,7 +10,6 @@ use serenity::model::interactions::{
         ApplicationCommandInteraction, ApplicationCommandInteractionDataOption,
         ApplicationCommandInteractionDataOptionValue,
     },
-    message_component::ButtonStyle,
     InteractionResponseType,
 };
 use sqlx::Row;
@@ -350,51 +348,13 @@ async fn send_message_with_buttons(
     let now = now.with_timezone(now.offset());
     let content = gen_playtime_message(ctx, user_ids, username, start_date, now, 0).await?;
 
-    #[allow(clippy::cast_possible_wrap)]
-    let insert = {
-        let data = ctx.data.read().await;
-        let db = data.get::<DB>().unwrap();
-        sqlx::query(r#"INSERT INTO playtime_button(author_id, user_ids, username, start_date, end_date, start_offset) VALUES ($1, $2, $3, $4, $5, 0) RETURNING id"#).bind(interaction.user.id.0 as i64).bind(user_ids).bind(username).bind(start_date).bind(now).fetch_one(&*db).await?
-    };
-    let button_id = insert.get::<i32, _>(0);
-
     interaction
         .create_interaction_response(&ctx.http, |response| {
             response
                 .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|m| {
-                    m.content(&content);
-                    m.components(|c| create_components(c, 0, &content, button_id));
-                    m
-                })
+                .interaction_response_data(|m| m.content(&content))
         })
         .await?;
 
     Ok(())
-}
-
-pub fn create_components<'a>(
-    components: &'a mut CreateComponents,
-    offset: i32,
-    content: &str,
-    button_id: i32,
-) -> &'a mut CreateComponents {
-    components.create_action_row(|a| {
-        a.create_button(|b| {
-            b.custom_id(format!("playtime:prev:{}", button_id))
-                .style(ButtonStyle::Primary)
-                .label("Prev")
-                .disabled(offset < 1);
-            b
-        });
-        a.create_button(|b| {
-            b.custom_id(format!("playtime:next:{}", button_id))
-                .style(ButtonStyle::Primary)
-                .label("Next")
-                .disabled(content.matches('\n').count() < 17);
-            b
-        });
-        a
-    });
-    components
 }

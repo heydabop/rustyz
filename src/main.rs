@@ -10,96 +10,13 @@ mod model;
 mod tomorrowio;
 mod util;
 
-use commands::{
-    delete::DELETE_COMMAND, wow::CHARACTER_COMMAND, wow::MOG_COMMAND, wow::REALM_COMMAND,
-    wow::SEARCH_COMMAND,
-};
-use serenity::client::{Client, Context};
-use serenity::framework::standard::{
-    help_commands,
-    macros::{group, help, hook},
-    Args, CommandError, CommandGroup, CommandResult, HelpOptions, StandardFramework,
-};
-use serenity::model::{channel::Message, gateway::GatewayIntents, id::UserId};
+use serenity::client::Client;
+use serenity::framework::standard::StandardFramework;
+use serenity::model::gateway::GatewayIntents;
 use serenity::prelude::*;
 use sqlx::postgres::PgPoolOptions;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
-
-const FAST_COMMANDS: [&str; 1] = ["delete"];
-
-#[group]
-#[commands(delete)]
-struct General;
-
-#[group]
-#[prefix = "wow"]
-#[commands(character, realm, search, mog)]
-struct Wow;
-
-#[hook]
-async fn before_typing(ctx: &Context, msg: &Message, cmd: &str) -> bool {
-    if FAST_COMMANDS.contains(&cmd) {
-        // fast running commands dont need to broadcast typing
-        return true;
-    }
-    let http = ctx.http.clone();
-    let channel_id = msg.channel_id.0;
-    tokio::spawn(async move {
-        std::mem::drop(http.broadcast_typing(channel_id).await);
-    });
-    true
-}
-
-#[hook]
-async fn after_log_error(
-    ctx: &Context,
-    msg: &Message,
-    cmd_name: &str,
-    error: Result<(), CommandError>,
-) {
-    if let Err(why) = error {
-        let error_message = format!(
-            "Error in {}: {:?}\n\tMessage: {}",
-            cmd_name, why, msg.content
-        );
-        println!("{}", error_message);
-        if let Err(e) = util::record_say(ctx, msg, "Something broke").await {
-            println!("Error sending error reply: {}", e);
-        };
-        let owner_id: u64 = {
-            let data = ctx.data.read().await;
-            *(data.get::<model::OwnerId>().unwrap())
-        };
-        let owner = match ctx.cache.user(owner_id) {
-            Some(owner) => owner,
-            None => ctx.http.get_user(owner_id).await.unwrap(),
-        };
-        if let Err(e) = owner
-            .direct_message(&ctx.http, |m| {
-                m.content(error_message);
-                m
-            })
-            .await
-        {
-            println!("Error sending error DM: {}", e);
-        }
-    }
-}
-
-#[help]
-#[strikethrough_commands_tip_in_guild("")]
-async fn default_help(
-    context: &Context,
-    msg: &Message,
-    args: Args,
-    help_options: &'static HelpOptions,
-    groups: &[&'static CommandGroup],
-    owners: HashSet<UserId>,
-) -> CommandResult {
-    let _help = help_commands::plain(context, msg, args, help_options, groups, owners).await;
-    Ok(())
-}
 
 #[tokio::main]
 async fn main() {
@@ -119,19 +36,7 @@ async fn main() {
         .await
         .expect("Error connecting to PSQL database");
 
-    let framework = StandardFramework::new()
-        .configure(|c| {
-            c.prefix("/")
-                .with_whitespace(true)
-                .on_mention(Some(UserId(cfg.discord.user_id)))
-                .no_dm_prefix(true)
-                .case_insensitivity(true)
-        })
-        .group(&GENERAL_GROUP)
-        .group(&WOW_GROUP)
-        .help(&DEFAULT_HELP)
-        .before(before_typing)
-        .after(after_log_error);
+    let framework = StandardFramework::new();
     let intents = GatewayIntents::GUILDS
         | GatewayIntents::GUILD_MEMBERS
         | GatewayIntents::GUILD_PRESENCES

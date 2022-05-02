@@ -1,5 +1,4 @@
 pub mod affixes;
-pub mod delete;
 pub mod fortune;
 pub mod karma;
 pub mod lastseen;
@@ -9,9 +8,7 @@ pub mod raiderio;
 pub mod roll;
 pub mod source;
 pub mod tarkov;
-pub mod time;
 pub mod top;
 pub mod toplength;
 pub mod weather;
 pub mod whois;
-pub mod wow;

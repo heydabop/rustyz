@@ -1,11 +1,10 @@
-use crate::model::{LastCommandMessages, LastUserPresence};
+use crate::model::LastUserPresence;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
 use serenity::http::client::Http;
 use serenity::model::{
-    channel::Message,
     guild::Member,
-    id::{GuildId, MessageId, UserId},
+    id::{GuildId, UserId},
     user::OnlineStatus,
 };
 use std::collections::HashMap;
@@ -46,49 +45,6 @@ pub async fn get_username_userid(
             Ok(user) => user.name,
             Err(_) => String::from("`<UNKNOWN>`"),
         },
-    }
-}
-
-pub async fn record_say(
-    ctx: &Context,
-    msg: &Message,
-    content: impl std::fmt::Display,
-) -> serenity::Result<Message> {
-    let reply = msg.channel_id.say(&ctx.http, content).await?;
-
-    let last_messages = {
-        ctx.data
-            .read()
-            .await
-            .get::<LastCommandMessages>()
-            .unwrap()
-            .clone()
-    };
-
-    {
-        let mut last_messages = last_messages.write().await;
-        last_messages.insert((msg.channel_id, msg.author.id), [msg.id, reply.id]);
-    }
-
-    Ok(reply)
-}
-
-pub async fn record_sent_message(ctx: &Context, source_msg: &Message, reply_id: MessageId) {
-    let last_messages = {
-        ctx.data
-            .read()
-            .await
-            .get::<LastCommandMessages>()
-            .unwrap()
-            .clone()
-    };
-
-    {
-        let mut last_messages = last_messages.write().await;
-        last_messages.insert(
-            (source_msg.channel_id, source_msg.author.id),
-            [source_msg.id, reply_id],
-        );
     }
 }
 
