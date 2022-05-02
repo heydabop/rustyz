@@ -3,7 +3,7 @@ use crate::{
     util::{record_say, record_sent_message},
 };
 use chrono::{DateTime, Local, TimeZone, Utc};
-use image::{imageops, png::PngEncoder, ColorType, ImageFormat};
+use image::{imageops, codecs::png::PngEncoder, ColorType, ImageFormat};
 use reqwest::{StatusCode, Url};
 use serde::Deserialize;
 use serenity::client::Context;
