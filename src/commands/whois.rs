@@ -1,22 +1,44 @@
 use crate::util;
 use serenity::client::Context;
-use serenity::framework::standard::{macros::command, Args, CommandError, CommandResult};
-use serenity::model::channel::Message;
+use serenity::framework::standard::{CommandError, CommandResult};
+use serenity::model::id::UserId;
+use serenity::model::interactions::{
+    application_command::{
+        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
+    },
+    InteractionResponseType,
+};
 
 // Replies with the username or nickname of the supplied user ID
 // Takes a single required argument of a user ID
-#[command]
-pub async fn whois(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let user_id: u64 = if let Ok(user_id) = args.single() {
-        user_id
+pub async fn whois(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    if interaction.guild_id.is_none() {
+        return Ok(());
+    }
+
+    let user_id = if let ApplicationCommandInteractionDataOptionValue::String(u) =
+        interaction.data.options[0].resolved.as_ref().unwrap()
+    {
+        if let Ok(id) = u.parse() {
+            UserId(id)
+        } else {
+            return Err(CommandError::from("Invalid user ID"));
+        }
     } else {
         return Err(CommandError::from("Invalid user ID"));
     };
-    let members = util::collect_members(ctx, msg).await?;
 
-    let username = util::get_username(&ctx.http, &members, user_id).await;
+    let members = util::collect_members_guild_id(ctx, interaction.guild_id.unwrap()).await?;
 
-    util::record_say(ctx, msg, username).await?;
+    let username = util::get_username_userid(&ctx.http, &members, user_id).await;
+
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(|message| message.content(username))
+        })
+        .await?;
 
     Ok(())
 }

@@ -37,6 +37,21 @@ impl EventHandler for Handler {
         if let Err(e) = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
             commands
                 .create_application_command(|c| {
+                    c.name("birdtime").description("Sends current time for bird")
+                })
+                .create_application_command(|c| {
+                    c.name("mirotime").description("Sends current time for miro")
+                })
+                .create_application_command(|c| {
+                    c.name("nieltime").description("Sends current time for niel")
+                })
+                .create_application_command(|c| {
+                    c.name("sebbitime").description("Sends current time for sebbi")
+                })
+                .create_application_command(|c| {
+                    c.name("natime").description("Sends current time for NA")
+                })
+                .create_application_command(|c| {
                     c.name("affixes").description("Sends this week's US Mythic+ affixes")
                 })
                 .create_application_command(|c| {
@@ -65,7 +80,62 @@ impl EventHandler for Handler {
                         })
                 })
                 .create_application_command(|c| {
+                    c.name("ping").description("pong")
+                })
+                .create_application_command(|c| {
+                    c.name("playtime")
+                        .description("Shows all recorded video game playtime of a user or everyone in this server")
+                        .create_option(|o| {
+                            o.name("user")
+                                .description("User to show playtime for")
+                                .kind(ApplicationCommandOptionType::User)
+                                .required(false)
+                        })
+                })
+                .create_application_command(|c| {
+                    c.name("raiderio")
+                        .description("Displays raider.io stats for given character")
+                        .create_option(|o| {
+                            o.name("character")
+                                .description("Character to get stats for")
+                                .kind(ApplicationCommandOptionType::String)
+                                .required(true)
+                        })
+                        .create_option(|o| {
+                            o.name("realm")
+                                .description("Realm that character is on")
+                                .kind(ApplicationCommandOptionType::String)
+                                .required(true)
+                        })
+                })
+                .create_application_command(|c| {
+                    c.name("recentplaytime")
+                        .description("Shows video game playtime over a specified duration of a user or everyone in this server")
+                        .create_option(|o| {
+                            o.name("duration")
+                                .description("Duration to show playtime for (1 week, 2 months, etc)")
+                                .kind(ApplicationCommandOptionType::String)
+                                .required(true)
+                        })
+                        .create_option(|o| {
+                            o.name("user")
+                                .description("User to show playtime for")
+                                .kind(ApplicationCommandOptionType::User)
+                                .required(false)
+                        })
+                })
+                .create_application_command(|c| {
                     c.name("source").description("Sends link to bot source code")
+                })
+                .create_application_command(|c| {
+                    c.name("tarkov")
+                        .description("Sends flea market and vendor info for item")
+                        .create_option(|o| {
+                            o.name("item")
+                                .description("Tarkov item to search the flea market for")
+                                .kind(ApplicationCommandOptionType::String)
+                                .required(true)
+                        })
                 })
                 .create_application_command(|c| {
                     c.name("top")
@@ -101,6 +171,16 @@ impl EventHandler for Handler {
                                 .required(false)
                         })
                 })
+                .create_application_command(|c| {
+                    c.name("whois")
+                        .description("Lookup username by ID")
+                        .create_option(|o| {
+                            o.name("user id")
+                                .description("ID of user to find")
+                                .kind(ApplicationCommandOptionType::String)
+                                .required(false)
+                        })
+                })
         })
         .await
         {
@@ -116,14 +196,25 @@ impl EventHandler for Handler {
         match interaction {
             Interaction::ApplicationCommand(command) => {
                 if let Err(e) = match command.data.name.as_str() {
+                    "birdtime" => commands::time::time(&ctx, &command, "Europe/Oslo").await,
+                    "mirotime" => commands::time::time(&ctx, &command, "Europe/Helsinki").await,
+                    "nieltime" => commands::time::time(&ctx, &command, "Europe/Stockholm").await,
+                    "sebbitime" => commands::time::time(&ctx, &command, "Europe/Copenhagen").await,
+                    "natime" => commands::time::time(&ctx, &command, "America/Chicago").await,
                     "affixes" => commands::affixes::affixes(&ctx, &command).await,
                     "fortune" => commands::fortune::fortune(&ctx, &command).await,
                     "karma" => commands::karma::karma(&ctx, &command).await,
                     "lastseen" => commands::lastseen::lastseen(&ctx, &command).await,
+                    "ping" => commands::ping::ping(&ctx, &command).await,
+                    "playtime" => commands::playtime::playtime(&ctx, &command).await,
+                    "raiderio" => commands::raiderio::raiderio(&ctx, &command).await,
+                    "recentplaytime" => commands::playtime::recent_playtime(&ctx, &command).await,
                     "source" => commands::source::source(&ctx, &command).await,
+                    "tarkov" => commands::tarkov::tarkov(&ctx, &command).await,
                     "top" => commands::top::top(&ctx, &command).await,
                     "toplength" => commands::toplength::toplength(&ctx, &command).await,
                     "weather" => commands::weather::weather(&ctx, &command).await,
+                    "whois" => commands::whois::whois(&ctx, &command).await,
                     _ => Ok(()),
                 } {
                     println!("Cannot respond to slash command: {}", e);

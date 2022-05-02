@@ -46,11 +46,6 @@ struct GeocodeGeometry {
     location: Option<Point>,
 }
 
-#[derive(Debug)]
-struct GeocodeError {
-    status: String,
-}
-
 pub async fn geocode(address: &str, api_key: &str) -> Result<Point, Error> {
     let client = reqwest::Client::new();
 

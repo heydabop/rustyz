@@ -4,9 +4,16 @@ use chrono::{prelude::*, Duration};
 use regex::{Match, Regex};
 use serenity::builder::CreateComponents;
 use serenity::client::Context;
-use serenity::framework::standard::{macros::command, Args, CommandResult};
-use serenity::model::channel::Message;
-use serenity::model::interactions::message_component::ButtonStyle;
+use serenity::framework::standard::CommandResult;
+use serenity::model::id::GuildId;
+use serenity::model::interactions::{
+    application_command::{
+        ApplicationCommandInteraction, ApplicationCommandInteractionDataOption,
+        ApplicationCommandInteractionDataOptionValue,
+    },
+    message_component::ButtonStyle,
+    InteractionResponseType,
+};
 use sqlx::Row;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -23,16 +30,22 @@ struct GameTime {
 
 // Replies to msg with the cumulative playtime of all users in the guild
 // Takes a single optional argument of a username to filter playtime for
-#[command]
-#[only_in(guilds)]
-pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let (user_ids, username): (Vec<i64>, Option<String>) =
-        match user_ids_and_name_from_args(ctx, msg, args.rest()).await? {
-            Some(u) => (u.0, u.1),
-            None => return Ok(()),
-        };
+pub async fn playtime(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    if interaction.guild_id.is_none() {
+        return Ok(());
+    }
+    let (user_ids, username): (Vec<i64>, Option<String>) = match user_ids_and_name_from_option(
+        ctx,
+        interaction.guild_id.unwrap(),
+        interaction.data.options.get(0),
+    )
+    .await?
+    {
+        Some(u) => (u.0, u.1),
+        None => return Ok(()),
+    };
 
-    send_message_with_buttons(ctx, msg, &user_ids, &username, None).await?;
+    send_message_with_buttons(ctx, interaction, &user_ids, &username, None).await?;
 
     Ok(())
 }
@@ -41,47 +54,62 @@ pub async fn playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult
 // Takes two arguments
 // First (required): human readable time duration (2 days, 1 hour, 3 months, etc)
 // Second (optional): username to filter playtime for
-#[command("recentplaytime")]
-#[only_in(guilds)]
-pub async fn recent_playtime(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let args = args.rest();
-    let duration_regex = Regex::new(r#"(?i)(?:(?:(?:(\d+)\s+years?)|(?:(\d+)\s+months?)|(?:(\d+)\s+weeks?)|(?:(\d+)\s+days?)|(?:(\d+)\s+hours?)|(?:(\d+)\s+minutes?)|(?:(\d+)\s+seconds?))\s?)+(?:\s*(.*))?"#).unwrap();
+pub async fn recent_playtime(
+    ctx: &Context,
+    interaction: &ApplicationCommandInteraction,
+) -> CommandResult {
+    if interaction.guild_id.is_none() {
+        return Ok(());
+    }
+    let arg = if let ApplicationCommandInteractionDataOptionValue::String(c) =
+        interaction.data.options[0].resolved.as_ref().unwrap()
+    {
+        String::from(c.trim())
+    } else {
+        String::new()
+    };
+    let duration_regex = Regex::new(r#"(?i)(?:(?:(?:(\d+)\s+years?)|(?:(\d+)\s+months?)|(?:(\d+)\s+weeks?)|(?:(\d+)\s+days?)|(?:(\d+)\s+hours?)|(?:(\d+)\s+minutes?)|(?:(\d+)\s+seconds?))\s?)+"#).unwrap();
     let now = Local::now();
     let now = now.with_timezone(now.offset());
-    let (start_date, mention): (DateTime<FixedOffset>, String) =
-        if let Some(captures) = duration_regex.captures(args) {
-            let years = get_digit_from_match(captures.get(1));
-            let months = get_digit_from_match(captures.get(2));
-            let weeks = get_digit_from_match(captures.get(3));
-            let days = get_digit_from_match(captures.get(4));
-            let hours = get_digit_from_match(captures.get(5));
-            let minutes = get_digit_from_match(captures.get(6));
-            let seconds = get_digit_from_match(captures.get(7));
-            let since = now
-                - Duration::days(years * 365)
-                - Duration::days(months_to_days(now, months))
-                - Duration::days(weeks * 7)
-                - Duration::days(days)
-                - Duration::hours(hours)
-                - Duration::minutes(minutes)
-                - Duration::seconds(seconds);
-
-            let mention = match captures.get(8) {
-                Some(c) => c.as_str(),
-                None => "",
-            };
-
-            (since, String::from(mention))
-        } else {
-            util::record_say(ctx, msg, "```Unable to parse time```").await?;
-            return Ok(());
-        };
-    let (user_ids, username) = match user_ids_and_name_from_args(ctx, msg, &mention).await? {
+    let start_date: DateTime<FixedOffset> = if let Some(captures) = duration_regex.captures(&arg) {
+        let years = get_digit_from_match(captures.get(1));
+        let months = get_digit_from_match(captures.get(2));
+        let weeks = get_digit_from_match(captures.get(3));
+        let days = get_digit_from_match(captures.get(4));
+        let hours = get_digit_from_match(captures.get(5));
+        let minutes = get_digit_from_match(captures.get(6));
+        let seconds = get_digit_from_match(captures.get(7));
+        now - Duration::days(years * 365)
+            - Duration::days(months_to_days(now, months))
+            - Duration::days(weeks * 7)
+            - Duration::days(days)
+            - Duration::hours(hours)
+            - Duration::minutes(minutes)
+            - Duration::seconds(seconds)
+    } else {
+        interaction
+            .create_interaction_response(&ctx.http, |response| {
+                response
+                    .kind(InteractionResponseType::ChannelMessageWithSource)
+                    .interaction_response_data(|message| {
+                        message.content("```Unable to parse time```")
+                    })
+            })
+            .await?;
+        return Ok(());
+    };
+    let (user_ids, username) = match user_ids_and_name_from_option(
+        ctx,
+        interaction.guild_id.unwrap(),
+        interaction.data.options.get(1),
+    )
+    .await?
+    {
         Some(u) => (u.0, u.1),
         None => return Ok(()),
     };
 
-    send_message_with_buttons(ctx, msg, &user_ids, &username, Some(start_date)).await?;
+    send_message_with_buttons(ctx, interaction, &user_ids, &username, Some(start_date)).await?;
 
     Ok(())
 }
@@ -125,64 +153,44 @@ fn months_to_days(now: DateTime<FixedOffset>, mut months: i64) -> i64 {
     }
 }
 
-async fn user_ids_and_name_from_args(
+async fn user_ids_and_name_from_option(
     ctx: &Context,
-    msg: &Message,
-    args: &str,
+    guild_id: GuildId,
+    option: Option<&ApplicationCommandInteractionDataOption>,
 ) -> CommandResult<Option<(Vec<i64>, Option<String>)>> {
     let mut username: Option<String> = None;
     #[allow(clippy::cast_possible_wrap)]
-    let user_ids: Vec<i64> = if args.is_empty() {
+    let user_ids: Vec<i64> = if option.is_none() {
         // get list of user IDs in channel
-        let guild = match msg.channel(&ctx.http).await {
-            Ok(channel) => channel,
-            Err(_) => ctx.http.get_channel(msg.channel_id.0).await.unwrap(),
-        }
-        .guild()
-        .unwrap();
-        let members = match guild.members(&ctx.cache).await {
-            Ok(members) => members,
-            Err(_) => ctx
-                .http
-                .get_guild_members(guild.id.0, None, None)
-                .await
-                .unwrap(),
-        };
-        members.iter().map(|m| *m.user.id.as_u64() as i64).collect()
+        let members = util::collect_members_guild_id(ctx, guild_id).await?;
+        members.iter().map(|m| *m.0.as_u64() as i64).collect()
     } else {
-        let mention_regex = Regex::new(r#"^\s*<@!?(\d+?)>\s*$"#).unwrap();
-        if let Some(captures) = mention_regex.captures(args) {
-            let user_id = if let Ok(user_id) = u64::from_str(captures.get(1).unwrap().as_str()) {
-                user_id
+        let user_id = if let Some(r) = option.unwrap().resolved.as_ref() {
+            if let ApplicationCommandInteractionDataOptionValue::User(u, _) = r {
+                u.id
             } else {
-                util::record_say(ctx, msg, "```Invalid mention```").await?;
+                return Ok(None);
+            }
+        } else {
+            return Ok(None);
+        };
+        if let Some(guild) = ctx.cache.guild(guild_id) {
+            if let Ok(member) = guild.member(ctx, user_id).await {
+                username = member.nick;
+            }
+        }
+        if username.is_none() {
+            let members = util::collect_members_guild_id(ctx, guild_id).await?;
+            username = if let Some(member) = members.get(&user_id) {
+                match &member.nick {
+                    Some(nick) => Some(nick.clone()),
+                    None => Some(member.user.name.clone()),
+                }
+            } else {
                 return Ok(None);
             };
-            if let Some(guild) = ctx.cache.guild(msg.guild_id.unwrap()) {
-                if let Ok(member) = guild.member(ctx, user_id).await {
-                    username = member.nick;
-                }
-            }
-            if username.is_none() {
-                let members = util::collect_members(ctx, msg).await?;
-                username = if let Some(member) = members.get(&user_id) {
-                    match &member.nick {
-                        Some(nick) => Some(nick.clone()),
-                        None => Some(member.user.name.clone()),
-                    }
-                } else {
-                    util::record_say(ctx, msg, "```Unable to find user```").await?;
-                    return Ok(None);
-                };
-            }
-            vec![user_id as i64]
-        } else if let Some(user) = util::search_user_id_by_name(ctx, msg, args).await? {
-            username = Some(user.1);
-            vec![user.0 as i64]
-        } else {
-            util::record_say(ctx, msg, "```Unable to find user```").await?;
-            return Ok(None);
         }
+        vec![user_id.0 as i64]
     };
 
     Ok(Some((user_ids, username)))
@@ -333,7 +341,7 @@ pub async fn gen_playtime_message(
 
 async fn send_message_with_buttons(
     ctx: &Context,
-    msg: &Message,
+    interaction: &ApplicationCommandInteraction,
     user_ids: &[i64],
     username: &Option<String>,
     start_date: Option<DateTime<FixedOffset>>,
@@ -346,20 +354,21 @@ async fn send_message_with_buttons(
     let insert = {
         let data = ctx.data.read().await;
         let db = data.get::<DB>().unwrap();
-        sqlx::query(r#"INSERT INTO playtime_button(author_id, user_ids, username, start_date, end_date, start_offset) VALUES ($1, $2, $3, $4, $5, 0) RETURNING id"#).bind(msg.author.id.0 as i64).bind(user_ids).bind(username).bind(start_date).bind(now).fetch_one(&*db).await?
+        sqlx::query(r#"INSERT INTO playtime_button(author_id, user_ids, username, start_date, end_date, start_offset) VALUES ($1, $2, $3, $4, $5, 0) RETURNING id"#).bind(interaction.user.id.0 as i64).bind(user_ids).bind(username).bind(start_date).bind(now).fetch_one(&*db).await?
     };
     let button_id = insert.get::<i32, _>(0);
 
-    let reply = msg
-        .channel_id
-        .send_message(&ctx.http, |m| {
-            m.content(&content);
-            m.components(|c| create_components(c, 0, &content, button_id));
-            m
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(|m| {
+                    m.content(&content);
+                    m.components(|c| create_components(c, 0, &content, button_id));
+                    m
+                })
         })
         .await?;
-
-    util::record_sent_message(ctx, msg, reply.id).await;
 
     Ok(())
 }

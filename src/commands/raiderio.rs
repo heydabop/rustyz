@@ -1,9 +1,13 @@
-use crate::util::record_say;
 use reqwest::{StatusCode, Url};
 use serde::Deserialize;
 use serenity::client::Context;
-use serenity::framework::standard::{macros::command, Args, CommandError, CommandResult};
-use serenity::model::channel::Message;
+use serenity::framework::standard::{CommandError, CommandResult};
+use serenity::model::interactions::{
+    application_command::{
+        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
+    },
+    InteractionResponseType,
+};
 use std::collections::HashMap;
 use std::time::SystemTime;
 
@@ -85,18 +89,23 @@ struct Dungeon {
 }
 
 // Takes in the arg `<character>-<realm>` and replies with stats from raider.io
-#[command]
-pub async fn raiderio(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    // Parse out character and realm names from single string arg `<character>-<realm>`
-    let mut arg = args.rest().to_string();
-    arg.make_ascii_lowercase();
-    let char_realm: Vec<&str> = arg.splitn(2, '-').collect();
-    if char_realm.len() != 2 {
-        record_say(ctx, msg, "`Usage: !raiderio name-realm`").await?;
-        return Ok(());
-    }
-    let character = char_realm[0].trim();
-    let realm = char_realm[1].trim().replace(' ', "-").replace('\'', "");
+pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    let mut character = if let ApplicationCommandInteractionDataOptionValue::String(c) =
+        interaction.data.options[0].resolved.as_ref().unwrap()
+    {
+        String::from(c.trim())
+    } else {
+        String::new()
+    };
+    let mut realm = if let ApplicationCommandInteractionDataOptionValue::String(r) =
+        interaction.data.options[0].resolved.as_ref().unwrap()
+    {
+        r.trim().replace(' ', "-").replace('\'', "")
+    } else {
+        String::new()
+    };
+    character.make_ascii_lowercase();
+    realm.make_ascii_lowercase();
 
     let client = reqwest::Client::new();
     let dungeons = client
@@ -112,16 +121,23 @@ pub async fn raiderio(ctx: &Context, msg: &Message, args: Args) -> CommandResult
             profile
         } else {
             // assume raider.io is giving us a 400 response as a json error under a 200 http response
-            record_say(ctx, msg, format!("Unable to find raiderio profile for {} on {}", character, realm),
-                )
+            interaction
+                .create_interaction_response(&ctx.http, |response| {
+                    response
+                        .kind(InteractionResponseType::ChannelMessageWithSource)
+                        .interaction_response_data(|message| message.content(format!("Unable to find raiderio profile for {} on {}", character, realm)))
+                })
                 .await?;
             return Ok(());
         }
         Err(e) => {
             if e.status() == Some(StatusCode::NOT_FOUND) || e.status() == Some(StatusCode::BAD_REQUEST) {
-                record_say(ctx, msg,
-                        format!("Unable to find raiderio profile for {} on {}", character, realm),
-                    )
+                interaction
+                    .create_interaction_response(&ctx.http, |response| {
+                        response
+                            .kind(InteractionResponseType::ChannelMessageWithSource)
+                            .interaction_response_data(|message| message.content(format!("Unable to find raiderio profile for {} on {}", character, realm)))
+                    })
                     .await?;
                 return Ok(());
             }
@@ -177,23 +193,26 @@ pub async fn raiderio(ctx: &Context, msg: &Message, args: Args) -> CommandResult
         sorted_best_runs.join("\n")
     };
 
-    msg.channel_id
-        .send_message(&ctx.http, |m| {
-            m.embed(|e| {
-                e.title(format!("{}-{}", profile.name, realm))
-                    .timestamp(profile.last_crawled_at)
-                    .url(profile.profile_url)
-                    .thumbnail(thumbnail_url)
-                    .field(
-                        "Mythic+ Score",
-                        profile.mythic_plus_scores_by_season[0].scores.all,
-                        true,
-                    )
-                    .field("Highest Runs", highest_runs, true)
-                    .field("Recent Runs", recent_runs, true)
-                    .field("Best Runs by Dungeon", best_runs, true)
-            });
-            m
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(|m| {
+                    m.embed(|e| {
+                        e.title(format!("{}-{}", profile.name, realm))
+                            .timestamp(profile.last_crawled_at)
+                            .url(profile.profile_url)
+                            .thumbnail(thumbnail_url)
+                            .field(
+                                "Mythic+ Score",
+                                profile.mythic_plus_scores_by_season[0].scores.all,
+                                true,
+                            )
+                            .field("Highest Runs", highest_runs, true)
+                            .field("Recent Runs", recent_runs, true)
+                            .field("Best Runs by Dungeon", best_runs, true)
+                    })
+                })
         })
         .await?;
 

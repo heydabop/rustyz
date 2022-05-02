@@ -3,24 +3,26 @@ use crate::util;
 use chrono::prelude::*;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::{user::OnlineStatus, id::UserId};
-use sqlx::Row;
 use serenity::model::interactions::{
     application_command::{
         ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
     },
     InteractionResponseType,
 };
+use serenity::model::user::OnlineStatus;
+use sqlx::Row;
 
 // Replies to msg with the duration since the user was last online
 pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let user = match interaction.data.options.get(0).and_then(|o| o.resolved.as_ref().and_then(|r| {
-        if let ApplicationCommandInteractionDataOptionValue::User(u, _) = r {
-            Some(u)
-        } else {
-            None
-        }
-    })) {
+    let user = match interaction.data.options.get(0).and_then(|o| {
+        o.resolved.as_ref().and_then(|r| {
+            if let ApplicationCommandInteractionDataOptionValue::User(u, _) = r {
+                Some(u)
+            } else {
+                None
+            }
+        })
+    }) {
         Some(u) => u,
         None => {
             interaction
@@ -40,7 +42,9 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
                 .create_interaction_response(&ctx.http, |response| {
                     response
                         .kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|message| message.content(format!("{} is currently online", user.name)))
+                        .interaction_response_data(|message| {
+                            message.content(format!("{} is currently online", user.name))
+                        })
                 })
                 .await?;
             return Ok(());
@@ -58,7 +62,9 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
             .create_interaction_response(&ctx.http, |response| {
                 response
                     .kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|message| message.content(format!("I've never seen {}", user.name)))
+                    .interaction_response_data(|message| {
+                        message.content(format!("I've never seen {}", user.name))
+                    })
             })
             .await?;
         return Ok(());
@@ -85,7 +91,9 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
         .create_interaction_response(&ctx.http, |response| {
             response
                 .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| message.content(format!("{} was last seen {} ago", user.name, since_str)))
+                .interaction_response_data(|message| {
+                    message.content(format!("{} was last seen {} ago", user.name, since_str))
+                })
         })
         .await?;
 

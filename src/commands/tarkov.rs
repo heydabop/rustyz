@@ -3,8 +3,13 @@ use num_format::{Locale, ToFormattedString};
 use reqwest::Url;
 use serde::Deserialize;
 use serenity::client::Context;
-use serenity::framework::standard::{macros::command, Args, CommandResult};
-use serenity::model::channel::Message;
+use serenity::framework::standard::CommandResult;
+use serenity::model::interactions::{
+    application_command::{
+        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
+    },
+    InteractionResponseType,
+};
 
 #[derive(Deserialize)]
 struct Item {
@@ -30,8 +35,22 @@ struct Item {
 }
 
 // Searches the Tarkov Market site for an item with the provided name, returning flea market and vendor info
-#[command]
-pub async fn tarkov(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn tarkov(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    let search = interaction
+        .data
+        .options
+        .get(0)
+        .and_then(|o| {
+            o.resolved.as_ref().map(|r| {
+                if let ApplicationCommandInteractionDataOptionValue::String(s) = r {
+                    s
+                } else {
+                    ""
+                }
+            })
+        })
+        .unwrap_or("");
+
     let api_key = {
         let data = ctx.data.read().await;
         data.get::<TarkovMarket>().unwrap().api_key.clone()
@@ -40,11 +59,8 @@ pub async fn tarkov(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let client = reqwest::Client::new();
     let items: Vec<Item> = client
         .get(
-            Url::parse_with_params(
-                "https://tarkov-market.com/api/v1/item",
-                &[("q", args.raw().collect::<Vec<&str>>().join(" "))],
-            )
-            .unwrap(),
+            Url::parse_with_params("https://tarkov-market.com/api/v1/item", &[("q", search)])
+                .unwrap(),
         )
         .header("x-api-key", api_key)
         .send()
@@ -53,7 +69,13 @@ pub async fn tarkov(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .await?;
 
     if items.is_empty() {
-        crate::util::record_say(ctx, msg, "No items found").await?;
+        interaction
+            .create_interaction_response(&ctx.http, |response| {
+                response
+                    .kind(InteractionResponseType::ChannelMessageWithSource)
+                    .interaction_response_data(|message| message.content("No items found"))
+            })
+            .await?;
         return Ok(());
     }
     let item = &items[0];
@@ -68,56 +90,60 @@ pub async fn tarkov(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         )
     };
 
-    msg.channel_id
-        .send_message(&ctx.http, |m| {
-            m.embed(|e| {
-                e.title(&item.name)
-                    .url(&item.link)
-                    .timestamp(item.updated.clone())
-                    .field(
-                        "Last Lowest",
-                        format!("{} \u{20bd}", item.price.to_formatted_string(&Locale::en)),
-                        true,
-                    )
-                    .field(
-                        "24h Avg",
-                        format!(
-                            "{} \u{20bd}",
-                            item.avg_24_hour_price.to_formatted_string(&Locale::en)
-                        ),
-                        true,
-                    )
-                    .field(
-                        "7d Avg",
-                        format!(
-                            "{} \u{20bd}",
-                            item.avg_7_day_price.to_formatted_string(&Locale::en)
-                        ),
-                        true,
-                    )
-                    .field("\u{200B}", "\u{200B}", false)
-                    .field(
-                        "24h Diff",
-                        format!(
-                            "{}{}%",
-                            if item.diff_24_hour > 0.0 { "+" } else { "" },
-                            item.diff_24_hour
-                        ),
-                        true,
-                    )
-                    .field(
-                        "7d Diff",
-                        format!(
-                            "{}{}%",
-                            if item.diff_7_day > 0.0 { "+" } else { "" },
-                            item.diff_7_day
-                        ),
-                        true,
-                    )
-                    .field("\u{200B}", "\u{200B}", false)
-                    .field(&item.trader_name, trader_price, false)
-                    .thumbnail(&item.icon)
-            })
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(|m| {
+                    m.embed(|e| {
+                        e.title(&item.name)
+                            .url(&item.link)
+                            .timestamp(item.updated.clone())
+                            .field(
+                                "Last Lowest",
+                                format!("{} \u{20bd}", item.price.to_formatted_string(&Locale::en)),
+                                true,
+                            )
+                            .field(
+                                "24h Avg",
+                                format!(
+                                    "{} \u{20bd}",
+                                    item.avg_24_hour_price.to_formatted_string(&Locale::en)
+                                ),
+                                true,
+                            )
+                            .field(
+                                "7d Avg",
+                                format!(
+                                    "{} \u{20bd}",
+                                    item.avg_7_day_price.to_formatted_string(&Locale::en)
+                                ),
+                                true,
+                            )
+                            .field("\u{200B}", "\u{200B}", false)
+                            .field(
+                                "24h Diff",
+                                format!(
+                                    "{}{}%",
+                                    if item.diff_24_hour > 0.0 { "+" } else { "" },
+                                    item.diff_24_hour
+                                ),
+                                true,
+                            )
+                            .field(
+                                "7d Diff",
+                                format!(
+                                    "{}{}%",
+                                    if item.diff_7_day > 0.0 { "+" } else { "" },
+                                    item.diff_7_day
+                                ),
+                                true,
+                            )
+                            .field("\u{200B}", "\u{200B}", false)
+                            .field(&item.trader_name, trader_price, false)
+                            .thumbnail(&item.icon)
+                    })
+                })
         })
         .await?;
 

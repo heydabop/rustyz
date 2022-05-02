@@ -1,38 +1,30 @@
-use crate::util::record_say;
 use chrono::prelude::*;
 use chrono_tz::Tz;
 use serenity::client::Context;
-use serenity::framework::standard::{macros::command, Args, CommandResult};
-use serenity::model::channel::Message;
+use serenity::framework::standard::CommandResult;
+use serenity::model::interactions::{
+    application_command::ApplicationCommandInteraction, InteractionResponseType,
+};
 
-#[command]
-pub async fn sebbitime(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    record_say(ctx, msg, twelve_hour("Europe/Copenhagen")).await?;
-    Ok(())
-}
+pub async fn time(
+    ctx: &Context,
+    interaction: &ApplicationCommandInteraction,
+    tz: &str,
+) -> CommandResult {
+    let content = if tz == "America/Chicago" {
+        twentyfour_hour(tz)
+    } else {
+        twelve_hour(tz)
+    };
 
-#[command]
-pub async fn mirotime(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    record_say(ctx, msg, twelve_hour("Europe/Helsinki")).await?;
-    Ok(())
-}
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(|message| message.content(content))
+        })
+        .await?;
 
-#[command]
-pub async fn nieltime(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    record_say(ctx, msg, twelve_hour("Europe/Stockholm")).await?;
-    Ok(())
-}
-
-#[command]
-pub async fn birdtime(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    record_say(ctx, msg, twelve_hour("Europe/Oslo")).await?;
-    Ok(())
-}
-
-#[command]
-#[aliases("twintime", "realtime", "natime")]
-pub async fn ustime(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    record_say(ctx, msg, twentyfour_hour("America/Chicago")).await?;
     Ok(())
 }
 
