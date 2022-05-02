@@ -38,6 +38,7 @@ struct GeocodeResponse {
 
 #[derive(Deserialize)]
 struct GeocodeResult {
+    address_components: Option<Vec<Address>>,
     geometry: GeocodeGeometry,
 }
 
@@ -46,7 +47,12 @@ struct GeocodeGeometry {
     location: Option<Point>,
 }
 
-pub async fn geocode(address: &str, api_key: &str) -> Result<Point, Error> {
+#[derive(Deserialize)]
+struct Address {
+    long_name: Option<String>,
+}
+
+pub async fn geocode(address: &str, api_key: &str) -> Result<(Point, Option<String>), Error> {
     let client = reqwest::Client::new();
 
     let resp = client
@@ -70,7 +76,13 @@ pub async fn geocode(address: &str, api_key: &str) -> Result<Point, Error> {
         return Err(Error::NoResults);
     }
     match geo.results[0].geometry.location {
-        Some(p) => Ok(p),
+        Some(p) => {
+            let location_name = geo.results[0]
+                .address_components
+                .as_ref()
+                .and_then(|a| a.get(0).and_then(|c| c.long_name.clone()));
+            Ok((p, location_name))
+        }
         None => Err(Error::MissingGeometry),
     }
 }

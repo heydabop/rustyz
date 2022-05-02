@@ -29,6 +29,7 @@ pub struct TarkovMarket {
 pub struct TomorrowIO {
     pub api_key: String,
     pub default_location_id: String,
+    pub default_location_name: String,
 }
 
 #[derive(Clone, Deserialize)]

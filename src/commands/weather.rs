@@ -27,6 +27,7 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
         .unwrap_or("");
     let mut location: Option<Point> = None;
     let point_regex = regex::Regex::new(r#"^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$"#).unwrap();
+    let mut location_name = String::new();
 
     if let Some(captures) = point_regex.captures(args) {
         let lat = captures.get(1).map_or("", |m| m.as_str());
@@ -58,13 +59,17 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
             }
         };
         location = Some(Point { lat, lng });
+        location_name = format!("{}, {}", lat, lng);
     } else if !args.is_empty() {
         let maps_api_key = {
             let data = ctx.data.read().await;
             data.get::<config::Google>().unwrap().maps_api_key.clone()
         };
         match google::geocode(args, &maps_api_key).await {
-            Ok(p) => location = Some(p),
+            Ok((p, n)) => {
+                location = Some(p);
+                location_name = n.unwrap_or_else(|| args.to_owned()).to_ascii_lowercase();
+            }
             Err(e) => match e {
                 google::Error::Reqwest(e) => return Err(CommandError::from(e)),
                 e => {
@@ -88,6 +93,7 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
     let location = if let Some(location) = location {
         format!("{},{}", location.lat, location.lng)
     } else {
+        location_name = tomorrow_io_config.default_location_name;
         tomorrow_io_config.default_location_id.clone()
     };
     let conditions = match tomorrowio::get_current(&location, &tomorrow_io_config.api_key).await {
@@ -165,13 +171,15 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
     };
 
     let response_msg = format!(
-        r#"temperature | {} {}
+        r#"weather in {}
+temperature | {} {}
 conditions | {}
 relative humidty | {} {}
 wind | {} {} {}
 uv index | {}
 air quality index | {} {}
 pollen | {}"#,
+        location_name,
         conditions
             .temperature
             .map_or_else(|| "--".to_string(), |t| format!("{:.0} \u{b0}F", t)),
