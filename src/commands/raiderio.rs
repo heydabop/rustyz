@@ -98,7 +98,7 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
         String::new()
     };
     let mut realm = if let ApplicationCommandInteractionDataOptionValue::String(r) =
-        interaction.data.options[0].resolved.as_ref().unwrap()
+        interaction.data.options[1].resolved.as_ref().unwrap()
     {
         r.trim().replace(' ', "-").replace('\'', "")
     } else {
