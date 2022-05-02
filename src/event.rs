@@ -125,6 +125,17 @@ impl EventHandler for Handler {
                         })
                 })
                 .create_application_command(|c| {
+                    c.name("roll")
+                        .description("Roll a die")
+                        .create_option(|o| {
+                            o.name("sides")
+                                .description("Sides on die (default 100)")
+                                .kind(ApplicationCommandOptionType::Integer)
+                                .required(false)
+                                .min_int_value(1)
+                        })
+                })
+                .create_application_command(|c| {
                     c.name("source").description("Sends link to bot source code")
                 })
                 .create_application_command(|c| {
@@ -175,7 +186,7 @@ impl EventHandler for Handler {
                     c.name("whois")
                         .description("Lookup username by ID")
                         .create_option(|o| {
-                            o.name("user id")
+                            o.name("id")
                                 .description("ID of user to find")
                                 .kind(ApplicationCommandOptionType::String)
                                 .required(false)
@@ -209,6 +220,7 @@ impl EventHandler for Handler {
                     "playtime" => commands::playtime::playtime(&ctx, &command).await,
                     "raiderio" => commands::raiderio::raiderio(&ctx, &command).await,
                     "recentplaytime" => commands::playtime::recent_playtime(&ctx, &command).await,
+                    "roll" => commands::roll::roll(&ctx, &command).await,
                     "source" => commands::source::source(&ctx, &command).await,
                     "tarkov" => commands::tarkov::tarkov(&ctx, &command).await,
                     "top" => commands::top::top(&ctx, &command).await,
