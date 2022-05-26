@@ -134,6 +134,16 @@ impl EventHandler for Handler {
                         })
                 })
                 .create_application_command(|c| {
+                    c.name("topcommand")
+                        .description("Lists members by most command invocations")
+                        .create_option(|o| {
+                            o.name("command")
+                                .description("Command to list invocations for")
+                                .kind(ApplicationCommandOptionType::String)
+                                .required(true)
+                        })
+                })
+                .create_application_command(|c| {
                     c.name("toplength")
                         .description("Lists members by average length of sent messages")
                         .create_option(|o| {
@@ -191,6 +201,7 @@ impl EventHandler for Handler {
                 "source" => commands::source::source(&ctx, &command).await,
                 "tarkov" => commands::tarkov::tarkov(&ctx, &command).await,
                 "top" => commands::top::top(&ctx, &command).await,
+                "topcommand" => commands::topcommand::topcommand(&ctx, &command).await,
                 "toplength" => commands::toplength::toplength(&ctx, &command).await,
                 "weather" => commands::weather::weather(&ctx, &command).await,
                 "whois" => commands::whois::whois(&ctx, &command).await,

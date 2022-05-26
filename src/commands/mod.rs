@@ -9,6 +9,7 @@ pub mod roll;
 pub mod source;
 pub mod tarkov;
 pub mod top;
+pub mod topcommand;
 pub mod toplength;
 pub mod weather;
 pub mod whois;
