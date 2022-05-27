@@ -163,12 +163,8 @@ async fn user_ids_and_name_from_option(
         let members = util::collect_members_guild_id(ctx, guild_id).await?;
         members.iter().map(|m| *m.0.as_u64() as i64).collect()
     } else {
-        let user_id = if let Some(r) = option.unwrap().resolved.as_ref() {
-            if let ApplicationCommandInteractionDataOptionValue::User(u, _) = r {
-                u.id
-            } else {
-                return Ok(None);
-            }
+        let user_id = if let Some(ApplicationCommandInteractionDataOptionValue::User(u, _)) = option.unwrap().resolved.as_ref() {
+            u.id
         } else {
             return Ok(None);
         };

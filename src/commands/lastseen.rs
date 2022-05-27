@@ -12,6 +12,7 @@ use serenity::model::interactions::{
 use serenity::model::user::OnlineStatus;
 use sqlx::Row;
 
+#[allow(clippy::similar_names)]
 // Replies to msg with the duration since the user was last online
 pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
     let user = match interaction.data.options.get(0).and_then(|o| {
@@ -70,8 +71,7 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
         return Ok(());
     }
 
-    let now = Local::now();
-    let now = now.with_timezone(now.offset());
+    let now = Local::now().with_timezone(Local::now().offset());
     let last_seen = row.unwrap().get::<DateTime<FixedOffset>, _>(0);
     let since = now.signed_duration_since(last_seen);
 

@@ -57,7 +57,7 @@ LIMIT 10"#,
         .await?
     };
 
-    let mut lines = Vec::with_capacity(10 as usize);
+    let mut lines = Vec::with_capacity(10_usize);
 
     for row in &rows {
         let user_id = UserId(row.get::<Decimal, _>(0).to_u64().unwrap());

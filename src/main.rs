@@ -1,6 +1,6 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::too_many_lines)]
+#![allow(clippy::too_many_lines, clippy::module_name_repetitions)]
 
 mod commands;
 mod config;
