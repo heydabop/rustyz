@@ -22,6 +22,19 @@ impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("Bot {} is successfully connected.", ready.user.name);
 
+        #[allow(clippy::unreadable_literal)]
+        let g = GuildId(184428741450006528);
+        match g.set_application_commands(&ctx.http, |commands| {
+            commands.
+                create_application_command(|c| {
+                    c.name("realtime").description("Sends the current time in the central US")
+                })
+        })
+        .await {
+            Ok(guild_commands) => println!("guild commands set: {:?}", guild_commands.iter().map(|g| &g.name).collect::<Vec<&String>>()),
+            Err(e) => eprintln!("error setting guild commands: {}", e),
+        }
+
         match ApplicationCommand::set_global_application_commands(&ctx.http, |commands| {
             commands
                 .create_application_command(|c| {
@@ -177,8 +190,8 @@ impl EventHandler for Handler {
                 })
         })
         .await {
-            Ok(guild_commands) => println!("commands set: {:?}", guild_commands.iter().map(|g| &g.name).collect::<Vec<&String>>()),
-            Err(e) => println!("error setting commands: {}", e),
+            Ok(commands) => println!("commands set: {:?}", commands.iter().map(|g| &g.name).collect::<Vec<&String>>()),
+            Err(e) => eprintln!("error setting commands: {}", e),
         }
     }
 
@@ -196,6 +209,7 @@ impl EventHandler for Handler {
                 "ping" => commands::ping::ping(&ctx, &command).await,
                 "playtime" => commands::playtime::playtime(&ctx, &command).await,
                 "raiderio" => commands::raiderio::raiderio(&ctx, &command).await,
+                "realtime" => commands::time::time(&ctx, &command, "America/Chicago").await,
                 "recentplaytime" => commands::playtime::recent_playtime(&ctx, &command).await,
                 "roll" => commands::roll::roll(&ctx, &command).await,
                 "source" => commands::source::source(&ctx, &command).await,

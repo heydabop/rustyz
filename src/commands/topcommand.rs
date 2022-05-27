@@ -70,7 +70,7 @@ LIMIT 10"#,
         .create_interaction_response(&ctx.http, |response| {
             response
                 .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| message.content(lines.concat()))
+                .interaction_response_data(|message| message.content(format!("usage of `{}`\n{}", command, lines.concat())))
         })
         .await?;
 
