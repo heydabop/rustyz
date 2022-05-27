@@ -27,7 +27,19 @@ impl EventHandler for Handler {
         match g.set_application_commands(&ctx.http, |commands| {
             commands.
                 create_application_command(|c| {
-                    c.name("realtime").description("Sends the current time in the central US")
+                    c.name("birdtime").description("Sends the current time for bird")
+                }).
+                create_application_command(|c| {
+                    c.name("mirotime").description("Sends the current time for miro")
+                }).
+                create_application_command(|c| {
+                    c.name("nieltime").description("Sends the current time for niel")
+                }).
+                create_application_command(|c| {
+                    c.name("realtime").description("Sends the current time for the mainlanders")
+                }).
+                create_application_command(|c| {
+                    c.name("sebbitime").description("Sends the current time for sebbi")
                 })
         })
         .await {
@@ -203,15 +215,19 @@ impl EventHandler for Handler {
         if let Interaction::ApplicationCommand(command) = interaction {
             if let Err(e) = match command.data.name.as_str() {
                 "affixes" => commands::affixes::affixes(&ctx, &command).await,
+                "birdtime" => commands::time::time(&ctx, &command, "Europe/Oslo").await,
                 "fortune" => commands::fortune::fortune(&ctx, &command).await,
                 "karma" => commands::karma::karma(&ctx, &command).await,
                 "lastseen" => commands::lastseen::lastseen(&ctx, &command).await,
+                "mirotime" => commands::time::time(&ctx, &command, "Europe/Helsinki").await,
+                "nieltime" => commands::time::time(&ctx, &command, "Europe/Stockholm").await,
                 "ping" => commands::ping::ping(&ctx, &command).await,
                 "playtime" => commands::playtime::playtime(&ctx, &command).await,
                 "raiderio" => commands::raiderio::raiderio(&ctx, &command).await,
                 "realtime" => commands::time::time(&ctx, &command, "America/Chicago").await,
                 "recentplaytime" => commands::playtime::recent_playtime(&ctx, &command).await,
                 "roll" => commands::roll::roll(&ctx, &command).await,
+                "sebbitime" => commands::time::time(&ctx, &command, "Europe/Copenhagen").await,
                 "source" => commands::source::source(&ctx, &command).await,
                 "tarkov" => commands::tarkov::tarkov(&ctx, &command).await,
                 "top" => commands::top::top(&ctx, &command).await,
