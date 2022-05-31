@@ -2,6 +2,7 @@ use crate::commands;
 use crate::model;
 use crate::twitch;
 
+use num_format::{Locale, ToFormattedString};
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::{
@@ -342,7 +343,7 @@ impl EventHandler for Handler {
                                         stream.user_name,
                                         stream.game_name,
                                         stream.title,
-                                        stream.viewer_count
+                                        stream.viewer_count.to_formatted_string(&Locale::en)
                                     ))
                                 })
                                 .await
