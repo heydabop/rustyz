@@ -8,6 +8,7 @@ mod event;
 mod google;
 mod model;
 mod tomorrowio;
+mod twitch;
 mod util;
 
 use serenity::client::Client;
@@ -41,7 +42,8 @@ async fn main() {
         | GatewayIntents::GUILD_MEMBERS
         | GatewayIntents::GUILD_PRESENCES
         | GatewayIntents::GUILD_MESSAGES
-        | GatewayIntents::DIRECT_MESSAGES;
+        | GatewayIntents::DIRECT_MESSAGES
+        | GatewayIntents::MESSAGE_CONTENT;
     let mut client = Client::builder(cfg.discord.bot_token, intents)
         .application_id(cfg.discord.application_id)
         .type_map_insert::<model::OldDB>(old_pool)
@@ -49,12 +51,13 @@ async fn main() {
         .type_map_insert::<config::Google>(cfg.google)
         .type_map_insert::<config::TarkovMarket>(cfg.tarkov_market)
         .type_map_insert::<config::TomorrowIO>(cfg.tomorrow_io)
+        .type_map_insert::<config::Twitch>(cfg.twitch)
         .type_map_insert::<config::Wow>(cfg.wow)
         .type_map_insert::<model::OwnerId>(cfg.owner_id)
         .type_map_insert::<model::LastUserPresence>(Arc::new(RwLock::new(HashMap::new())))
         .type_map_insert::<model::UserGuildList>(Arc::new(RwLock::new(HashMap::new())))
         .type_map_insert::<model::LastCommandMessages>(Arc::new(RwLock::new(HashMap::new())))
-        .event_handler(event::Handler)
+        .event_handler(event::Handler::default())
         .framework(framework)
         .await
         .expect("Error creating Discord client");

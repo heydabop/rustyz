@@ -33,6 +33,19 @@ pub struct TomorrowIO {
 }
 
 #[derive(Clone, Deserialize)]
+pub struct Twitch {
+    pub client_id: String,
+    pub client_secret: String,
+    pub auth: Option<TwitchAuth>, // not populated by config.toml, populated by first request to twitch API
+}
+
+#[derive(Clone, Deserialize)]
+pub struct TwitchAuth {
+    pub access_token: String,
+    pub expires_at: SystemTime,
+}
+
+#[derive(Clone, Deserialize)]
 pub struct Wow {
     pub client_id: String,
     pub client_secret: String,
@@ -57,6 +70,10 @@ impl TypeMapKey for TomorrowIO {
     type Value = TomorrowIO;
 }
 
+impl TypeMapKey for Twitch {
+    type Value = Twitch;
+}
+
 impl TypeMapKey for Wow {
     type Value = Wow;
 }
@@ -69,5 +86,6 @@ pub struct Main {
     pub psql: Psql,
     pub tarkov_market: TarkovMarket,
     pub tomorrow_io: TomorrowIO,
+    pub twitch: Twitch,
     pub wow: Wow,
 }

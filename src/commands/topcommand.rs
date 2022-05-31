@@ -13,7 +13,10 @@ use serenity::model::interactions::{
 use sqlx::types::Decimal;
 use sqlx::Row;
 
-pub async fn topcommand(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+pub async fn topcommand(
+    ctx: &Context,
+    interaction: &ApplicationCommandInteraction,
+) -> CommandResult {
     let command = match interaction
         .data
         .options
@@ -27,10 +30,11 @@ pub async fn topcommand(ctx: &Context, interaction: &ApplicationCommandInteracti
                 }
             })
         })
-        .unwrap_or(None) {
-            Some(s) => s,
-            None => return Ok(()),
-        };
+        .unwrap_or(None)
+    {
+        Some(s) => s,
+        None => return Ok(()),
+    };
 
     let guild_id = match interaction.guild_id {
         Some(g) => g,
@@ -70,7 +74,9 @@ LIMIT 10"#,
         .create_interaction_response(&ctx.http, |response| {
             response
                 .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| message.content(format!("usage of `{}`\n{}", command, lines.concat())))
+                .interaction_response_data(|message| {
+                    message.content(format!("usage of `{}`\n{}", command, lines.concat()))
+                })
         })
         .await?;
 

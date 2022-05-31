@@ -1,9 +1,11 @@
 use crate::commands;
 use crate::model;
+use crate::twitch;
 
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::{
+    channel::Message,
     gateway::{ActivityType, Presence, Ready},
     guild::{Guild, Member},
     id::GuildId,
@@ -15,7 +17,26 @@ use serenity::model::{
 };
 use std::collections::HashSet;
 
-pub struct Handler;
+pub struct Handler {
+    twitch_regex: regex::Regex,
+}
+
+impl Handler {
+    fn new() -> Self {
+        Self {
+            twitch_regex: regex::RegexBuilder::new(r#"https?://(www\.)?twitch.tv/(\w+)"#)
+                .case_insensitive(true)
+                .build()
+                .unwrap(),
+        }
+    }
+}
+
+impl Default for Handler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[async_trait]
 impl EventHandler for Handler {
@@ -24,26 +45,39 @@ impl EventHandler for Handler {
 
         #[allow(clippy::unreadable_literal)]
         let g = GuildId(184428741450006528);
-        match g.set_application_commands(&ctx.http, |commands| {
-            commands.
-                create_application_command(|c| {
-                    c.name("birdtime").description("Sends the current time for bird")
-                }).
-                create_application_command(|c| {
-                    c.name("mirotime").description("Sends the current time for miro")
-                }).
-                create_application_command(|c| {
-                    c.name("nieltime").description("Sends the current time for niel")
-                }).
-                create_application_command(|c| {
-                    c.name("realtime").description("Sends the current time for the mainlanders")
-                }).
-                create_application_command(|c| {
-                    c.name("sebbitime").description("Sends the current time for sebbi")
-                })
-        })
-        .await {
-            Ok(guild_commands) => println!("guild commands set: {:?}", guild_commands.iter().map(|g| &g.name).collect::<Vec<&String>>()),
+        match g
+            .set_application_commands(&ctx.http, |commands| {
+                commands
+                    .create_application_command(|c| {
+                        c.name("birdtime")
+                            .description("Sends the current time for bird")
+                    })
+                    .create_application_command(|c| {
+                        c.name("mirotime")
+                            .description("Sends the current time for miro")
+                    })
+                    .create_application_command(|c| {
+                        c.name("nieltime")
+                            .description("Sends the current time for niel")
+                    })
+                    .create_application_command(|c| {
+                        c.name("realtime")
+                            .description("Sends the current time for the mainlanders")
+                    })
+                    .create_application_command(|c| {
+                        c.name("sebbitime")
+                            .description("Sends the current time for sebbi")
+                    })
+            })
+            .await
+        {
+            Ok(guild_commands) => println!(
+                "guild commands set: {:?}",
+                guild_commands
+                    .iter()
+                    .map(|g| &g.name)
+                    .collect::<Vec<&String>>()
+            ),
             Err(e) => eprintln!("error setting guild commands: {}", e),
         }
 
@@ -237,7 +271,7 @@ impl EventHandler for Handler {
                 "whois" => commands::whois::whois(&ctx, &command).await,
                 _ => Ok(()),
             } {
-                println!("Cannot respond to slash command: {}", e);
+                eprintln!("Cannot respond to slash command: {}", e);
             }
         }
     }
@@ -281,7 +315,44 @@ impl EventHandler for Handler {
                 .execute(&*db)
                 .await
             {
-                println!("Error saving user_presence: {}", e);
+                eprintln!("Error saving user_presence: {}", e);
+            }
+        }
+    }
+
+    async fn message(&self, ctx: Context, msg: Message) {
+        if let Some(caps) = self.twitch_regex.captures(&msg.content) {
+            if let Some(channel_match) = caps.get(2) {
+                let channel_name = channel_match.as_str();
+                let (access_token, client_id) = match twitch::get_access_token(&ctx).await {
+                    Ok(a) => a,
+                    Err(e) => {
+                        eprintln!("error getting twitch auth: {}", e);
+                        return;
+                    }
+                };
+                match twitch::get_stream_info(&access_token, &client_id, channel_name).await {
+                    Ok(s) => {
+                        if let Some(stream) = s {
+                            if let Err(e) = msg
+                                .channel_id
+                                .send_message(ctx, |m| {
+                                    m.content(format!(
+                                        "{} playing {}\n{}\n{} viewers",
+                                        stream.user_name,
+                                        stream.game_name,
+                                        stream.title,
+                                        stream.viewer_count
+                                    ))
+                                })
+                                .await
+                            {
+                                eprintln!("error sending twitch message: {}", e);
+                            }
+                        }
+                    }
+                    Err(e) => eprintln!("error getting twitch stream info: {}", e),
+                }
             }
         }
     }
