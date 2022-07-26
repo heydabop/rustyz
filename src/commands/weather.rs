@@ -29,6 +29,12 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
     let point_regex = regex::Regex::new(r#"^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$"#).unwrap();
     let mut location_name = String::new();
 
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        })
+        .await?;
+
     if let Some(captures) = point_regex.captures(args) {
         let lat = captures.get(1).map_or("", |m| m.as_str());
         let lng = captures.get(2).map_or("", |m| m.as_str());
@@ -36,10 +42,8 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
             Ok(l) => l,
             Err(e) => {
                 interaction
-                    .create_interaction_response(&ctx.http, |response| {
-                        response
-                            .kind(InteractionResponseType::ChannelMessageWithSource)
-                            .interaction_response_data(|message| message.content(e.to_string()))
+                    .edit_original_interaction_response(&ctx.http, |response| {
+                        response.content(e.to_string())
                     })
                     .await?;
                 return Ok(());
@@ -49,10 +53,8 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
             Ok(l) => l,
             Err(e) => {
                 interaction
-                    .create_interaction_response(&ctx.http, |response| {
-                        response
-                            .kind(InteractionResponseType::ChannelMessageWithSource)
-                            .interaction_response_data(|message| message.content(e.to_string()))
+                    .edit_original_interaction_response(&ctx.http, |response| {
+                        response.content(e.to_string())
                     })
                     .await?;
                 return Ok(());
@@ -74,10 +76,8 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
                 google::Error::Reqwest(e) => return Err(CommandError::from(e)),
                 e => {
                     interaction
-                        .create_interaction_response(&ctx.http, |response| {
-                            response
-                                .kind(InteractionResponseType::ChannelMessageWithSource)
-                                .interaction_response_data(|message| message.content(e.to_string()))
+                        .edit_original_interaction_response(&ctx.http, |response| {
+                            response.content(e.to_string())
                         })
                         .await?;
                     return Ok(());
@@ -215,11 +215,7 @@ pollen | {}"#,
     );
 
     interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| message.content(response_msg))
-        })
+        .edit_original_interaction_response(&ctx.http, |response| response.content(response_msg))
         .await?;
 
     Ok(())
