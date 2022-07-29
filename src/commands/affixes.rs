@@ -2,7 +2,7 @@ use reqwest::Url;
 use serde::Deserialize;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::interactions::{
+use serenity::model::application::interaction::{
     application_command::ApplicationCommandInteraction, InteractionResponseType,
 };
 

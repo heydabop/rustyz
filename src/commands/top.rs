@@ -3,13 +3,11 @@ use crate::util;
 use num_traits::cast::ToPrimitive;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::id::UserId;
-use serenity::model::interactions::{
-    application_command::{
-        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
-    },
+use serenity::model::application::interaction::{
+    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
     InteractionResponseType,
 };
+use serenity::model::id::UserId;
 use sqlx::types::Decimal;
 use sqlx::Row;
 
@@ -28,7 +26,7 @@ pub async fn top(ctx: &Context, interaction: &ApplicationCommandInteraction) -> 
         .and_then(|o| {
             o.resolved.as_ref().map(|r| {
                 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                if let ApplicationCommandInteractionDataOptionValue::Integer(l) = r {
+                if let CommandDataOptionValue::Integer(l) = r {
                     *l as u32
                 } else {
                     5

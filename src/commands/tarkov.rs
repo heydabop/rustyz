@@ -4,10 +4,8 @@ use reqwest::Url;
 use serde::Deserialize;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::interactions::{
-    application_command::{
-        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
-    },
+use serenity::model::application::interaction::{
+    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
     InteractionResponseType,
 };
 
@@ -42,7 +40,7 @@ pub async fn tarkov(ctx: &Context, interaction: &ApplicationCommandInteraction) 
         .get(0)
         .and_then(|o| {
             o.resolved.as_ref().map(|r| {
-                if let ApplicationCommandInteractionDataOptionValue::String(s) = r {
+                if let CommandDataOptionValue::String(s) = r {
                     s
                 } else {
                     ""

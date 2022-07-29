@@ -6,14 +6,12 @@ use num_format::{Locale, ToFormattedString};
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::{
+    application::command::{Command, CommandOptionType},
+    application::interaction::Interaction,
     channel::Message,
     gateway::{ActivityType, Presence, Ready},
     guild::{Guild, Member},
     id::GuildId,
-    interactions::{
-        application_command::{ApplicationCommand, ApplicationCommandOptionType},
-        Interaction,
-    },
     user::User,
 };
 use std::collections::HashSet;
@@ -82,7 +80,7 @@ impl EventHandler for Handler {
             Err(e) => eprintln!("error setting guild commands: {}", e),
         }
 
-        match ApplicationCommand::set_global_application_commands(&ctx.http, |commands| {
+        match Command::set_global_application_commands(&ctx.http, |commands| {
             commands
                 .create_application_command(|c| {
                     c.name("affixes").description("Sends this week's US Mythic+ affixes")
@@ -96,7 +94,7 @@ impl EventHandler for Handler {
                         .create_option(|o| {
                             o.name("count")
                                 .description("The number of members to list (defaults to 5)")
-                                .kind(ApplicationCommandOptionType::Integer)
+                                .kind(CommandOptionType::Integer)
                                 .required(false)
                                 .min_int_value(1)
                                 .max_int_value(100)
@@ -108,7 +106,7 @@ impl EventHandler for Handler {
                         .create_option(|o| {
                             o.name("user")
                                 .description("User to check")
-                                .kind(ApplicationCommandOptionType::User)
+                                .kind(CommandOptionType::User)
                                 .required(true)
                         })
                 })
@@ -121,7 +119,7 @@ impl EventHandler for Handler {
                         .create_option(|o| {
                             o.name("user")
                                 .description("User to show playtime for")
-                                .kind(ApplicationCommandOptionType::User)
+                                .kind(CommandOptionType::User)
                                 .required(false)
                         })
                 })
@@ -131,13 +129,13 @@ impl EventHandler for Handler {
                         .create_option(|o| {
                             o.name("character")
                                 .description("Character to get stats for")
-                                .kind(ApplicationCommandOptionType::String)
+                                .kind(CommandOptionType::String)
                                 .required(true)
                         })
                         .create_option(|o| {
                             o.name("realm")
                                 .description("Realm that character is on")
-                                .kind(ApplicationCommandOptionType::String)
+                                .kind(CommandOptionType::String)
                                 .required(true)
                         })
                 })
@@ -147,13 +145,13 @@ impl EventHandler for Handler {
                         .create_option(|o| {
                             o.name("duration")
                                 .description("Duration to show playtime for (1 week, 2 months, etc)")
-                                .kind(ApplicationCommandOptionType::String)
+                                .kind(CommandOptionType::String)
                                 .required(true)
                         })
                         .create_option(|o| {
                             o.name("user")
                                 .description("User to show playtime for")
-                                .kind(ApplicationCommandOptionType::User)
+                                .kind(CommandOptionType::User)
                                 .required(false)
                         })
                 })
@@ -163,7 +161,7 @@ impl EventHandler for Handler {
                         .create_option(|o| {
                             o.name("sides")
                                 .description("Sides on die (default 100)")
-                                .kind(ApplicationCommandOptionType::Integer)
+                                .kind(CommandOptionType::Integer)
                                 .required(false)
                                 .min_int_value(1)
                         })
@@ -177,7 +175,7 @@ impl EventHandler for Handler {
                         .create_option(|o| {
                             o.name("item")
                                 .description("Tarkov item to search the flea market for")
-                                .kind(ApplicationCommandOptionType::String)
+                                .kind(CommandOptionType::String)
                                 .required(true)
                         })
                 })
@@ -187,7 +185,7 @@ impl EventHandler for Handler {
                         .create_option(|o| {
                             o.name("count")
                                 .description("The number of members to list (defaults to 5)")
-                                .kind(ApplicationCommandOptionType::Integer)
+                                .kind(CommandOptionType::Integer)
                                 .required(false)
                                 .min_int_value(1)
                                 .max_int_value(100)
@@ -199,7 +197,7 @@ impl EventHandler for Handler {
                         .create_option(|o| {
                             o.name("command")
                                 .description("Command to list invocations for")
-                                .kind(ApplicationCommandOptionType::String)
+                                .kind(CommandOptionType::String)
                                 .required(true)
                         })
                 })
@@ -209,7 +207,7 @@ impl EventHandler for Handler {
                         .create_option(|o| {
                             o.name("count")
                                 .description("The number of members to list (defaults to 5)")
-                                .kind(ApplicationCommandOptionType::Integer)
+                                .kind(CommandOptionType::Integer)
                                 .required(false)
                                 .min_int_value(1)
                                 .max_int_value(100)
@@ -221,7 +219,7 @@ impl EventHandler for Handler {
                         .create_option(|o| {
                             o.name("location")
                                 .description("Area to get weather for; can be city name, postal code, or decimal lat/long (default: Austin, TX)")
-                                .kind(ApplicationCommandOptionType::String)
+                                .kind(CommandOptionType::String)
                                 .required(false)
                         })
                 })
@@ -231,7 +229,7 @@ impl EventHandler for Handler {
                         .create_option(|o| {
                             o.name("id")
                                 .description("ID of user to find")
-                                .kind(ApplicationCommandOptionType::String)
+                                .kind(CommandOptionType::String)
                                 .required(false)
                         })
                 })

@@ -1,13 +1,11 @@
 use crate::util;
 use serenity::client::Context;
 use serenity::framework::standard::{CommandError, CommandResult};
-use serenity::model::id::UserId;
-use serenity::model::interactions::{
-    application_command::{
-        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
-    },
+use serenity::model::application::interaction::{
+    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
     InteractionResponseType,
 };
+use serenity::model::id::UserId;
 
 // Replies with the username or nickname of the supplied user ID
 // Takes a single required argument of a user ID
@@ -16,7 +14,7 @@ pub async fn whois(ctx: &Context, interaction: &ApplicationCommandInteraction) -
         return Ok(());
     }
 
-    let user_id = if let ApplicationCommandInteractionDataOptionValue::String(u) =
+    let user_id = if let CommandDataOptionValue::String(u) =
         interaction.data.options[0].resolved.as_ref().unwrap()
     {
         if let Ok(id) = u.parse() {

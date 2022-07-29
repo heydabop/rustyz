@@ -1,10 +1,8 @@
 use rand::{thread_rng, Rng};
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::interactions::{
-    application_command::{
-        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
-    },
+use serenity::model::application::interaction::{
+    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
     InteractionResponseType,
 };
 
@@ -16,7 +14,7 @@ pub async fn roll(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
         .and_then(|o| {
             o.resolved.as_ref().map(|r| {
                 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                if let ApplicationCommandInteractionDataOptionValue::Integer(s) = r {
+                if let CommandDataOptionValue::Integer(s) = r {
                     *s as u32
                 } else {
                     100

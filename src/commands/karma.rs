@@ -2,13 +2,11 @@ use crate::model::OldDB;
 use crate::util;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::id::UserId;
-use serenity::model::interactions::{
-    application_command::{
-        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
-    },
+use serenity::model::application::interaction::{
+    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
     InteractionResponseType,
 };
+use serenity::model::id::UserId;
 use sqlx::Row;
 
 // Replies with the top users in guild sorted by highest karma (vote count)
@@ -26,7 +24,7 @@ pub async fn karma(ctx: &Context, interaction: &ApplicationCommandInteraction) -
         .and_then(|o| {
             o.resolved.as_ref().map(|r| {
                 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                if let ApplicationCommandInteractionDataOptionValue::Integer(l) = r {
+                if let CommandDataOptionValue::Integer(l) = r {
                     *l as u32
                 } else {
                     5

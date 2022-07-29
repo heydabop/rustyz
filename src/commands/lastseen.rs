@@ -3,10 +3,8 @@ use crate::util;
 use chrono::prelude::*;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::interactions::{
-    application_command::{
-        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
-    },
+use serenity::model::application::interaction::{
+    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
     InteractionResponseType,
 };
 use serenity::model::user::OnlineStatus;
@@ -17,7 +15,7 @@ use sqlx::Row;
 pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
     let user = match interaction.data.options.get(0).and_then(|o| {
         o.resolved.as_ref().and_then(|r| {
-            if let ApplicationCommandInteractionDataOptionValue::User(u, _) = r {
+            if let CommandDataOptionValue::User(u, _) = r {
                 Some(u)
             } else {
                 None

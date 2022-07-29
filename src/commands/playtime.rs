@@ -4,14 +4,13 @@ use chrono::{prelude::*, Duration};
 use regex::{Match, Regex};
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::id::GuildId;
-use serenity::model::interactions::{
+use serenity::model::application::interaction::{
     application_command::{
-        ApplicationCommandInteraction, ApplicationCommandInteractionDataOption,
-        ApplicationCommandInteractionDataOptionValue,
+        ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
     },
     InteractionResponseType,
 };
+use serenity::model::id::GuildId;
 use sqlx::Row;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -59,7 +58,7 @@ pub async fn recent_playtime(
     if interaction.guild_id.is_none() {
         return Ok(());
     }
-    let arg = if let ApplicationCommandInteractionDataOptionValue::String(c) =
+    let arg = if let CommandDataOptionValue::String(c) =
         interaction.data.options[0].resolved.as_ref().unwrap()
     {
         String::from(c.trim())
@@ -154,7 +153,7 @@ fn months_to_days(now: DateTime<FixedOffset>, mut months: i64) -> i64 {
 async fn user_ids_and_name_from_option(
     ctx: &Context,
     guild_id: GuildId,
-    option: Option<&ApplicationCommandInteractionDataOption>,
+    option: Option<&CommandDataOption>,
 ) -> CommandResult<Option<(Vec<i64>, Option<String>)>> {
     let mut username: Option<String> = None;
     #[allow(clippy::cast_possible_wrap)]
@@ -163,13 +162,12 @@ async fn user_ids_and_name_from_option(
         let members = util::collect_members_guild_id(ctx, guild_id).await?;
         members.iter().map(|m| *m.0.as_u64() as i64).collect()
     } else {
-        let user_id = if let Some(ApplicationCommandInteractionDataOptionValue::User(u, _)) =
-            option.unwrap().resolved.as_ref()
-        {
-            u.id
-        } else {
-            return Ok(None);
-        };
+        let user_id =
+            if let Some(CommandDataOptionValue::User(u, _)) = option.unwrap().resolved.as_ref() {
+                u.id
+            } else {
+                return Ok(None);
+            };
         if let Some(guild) = ctx.cache.guild(guild_id) {
             if let Ok(member) = guild.member(ctx, user_id).await {
                 username = member.nick;

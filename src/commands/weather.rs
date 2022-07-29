@@ -1,10 +1,8 @@
 use crate::{config, google, model::Point, tomorrowio};
 use serenity::client::Context;
 use serenity::framework::standard::{CommandError, CommandResult};
-use serenity::model::interactions::{
-    application_command::{
-        ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue,
-    },
+use serenity::model::application::interaction::{
+    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
     InteractionResponseType,
 };
 
@@ -17,7 +15,7 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
         .get(0)
         .and_then(|o| {
             o.resolved.as_ref().map(|r| {
-                if let ApplicationCommandInteractionDataOptionValue::String(s) = r {
+                if let CommandDataOptionValue::String(s) = r {
                     s
                 } else {
                     ""
