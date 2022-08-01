@@ -13,12 +13,13 @@ pub async fn track(ctx: &Context, interaction: &ApplicationCommandInteraction) -
         if let CommandDataOptionValue::String(company) =
             interaction.data.options[0].resolved.as_ref().unwrap()
         {
+            #[allow(clippy::enum_glob_use)]
             use shippo::TrackingNumber::*;
             let number = String::from(n);
             match company.as_str() {
                 "fedex" => FedEx(number),
-                "ups" => UPS(number),
-                "usps" => USPS(number),
+                "ups" => Ups(number),
+                "usps" => Usps(number),
                 &_ => {
                     return Err(CommandError::from(format!(
                         "Unrecognized company: {}",

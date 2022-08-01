@@ -5,17 +5,18 @@ use std::fmt;
 
 pub enum TrackingNumber {
     FedEx(String),
-    UPS(String),
-    USPS(String),
+    Ups(String),
+    Usps(String),
 }
 
 impl fmt::Display for TrackingNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        #[allow(clippy::enum_glob_use)]
         use TrackingNumber::*;
         match self {
             FedEx(t) => write!(f, "fedex/{}", t),
-            UPS(t) => write!(f, "ups/{}", t),
-            USPS(t) => write!(f, "usps/{}", t),
+            Ups(t) => write!(f, "ups/{}", t),
+            Usps(t) => write!(f, "usps/{}", t),
         }
     }
 }
@@ -62,6 +63,6 @@ pub async fn get_tracking_status(
         .await?;
     match response.error_for_status() {
         Ok(r) => Ok(r.json::<TrackingResponse>().await?),
-        Err(e) => return Err(e),
+        Err(e) => Err(e),
     }
 }

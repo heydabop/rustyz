@@ -7,6 +7,7 @@ use serenity::model::application::interaction::{
     InteractionResponseType,
 };
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::time::SystemTime;
 
 const PLUSSES: [&str; 4] = ["", "+", "++", "+++"];
@@ -223,10 +224,11 @@ fn format_runs(runs: &[MythicPlusRun], count: usize) -> String {
     }
     let mut s = String::with_capacity(5 * count);
     for run in runs.iter().take(count) {
-        s.push_str(&format!(
-            "{} {}{}\n",
+        let _ = writeln!(
+            s,
+            "{} {}{}",
             run.short_name, run.mythic_level, PLUSSES[run.num_keystone_upgrades as usize]
-        ));
+        );
     }
     s.pop();
     s
