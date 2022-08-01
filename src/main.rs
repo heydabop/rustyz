@@ -7,6 +7,7 @@ mod config;
 mod event;
 mod google;
 mod model;
+mod shippo;
 mod tomorrowio;
 mod twitch;
 mod util;
@@ -49,6 +50,7 @@ async fn main() {
         .type_map_insert::<model::OldDB>(old_pool)
         .type_map_insert::<model::DB>(pool)
         .type_map_insert::<config::Google>(cfg.google)
+        .type_map_insert::<config::Shippo>(cfg.shippo)
         .type_map_insert::<config::TarkovMarket>(cfg.tarkov_market)
         .type_map_insert::<config::TomorrowIO>(cfg.tomorrow_io)
         .type_map_insert::<config::Twitch>(cfg.twitch)

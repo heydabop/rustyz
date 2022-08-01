@@ -6,6 +6,7 @@ pub mod ping;
 pub mod playtime;
 pub mod raiderio;
 pub mod roll;
+pub mod shipping;
 pub mod source;
 pub mod tarkov;
 pub mod time;

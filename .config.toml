@@ -1,4 +1,4 @@
-owner_id = 0 # ID of user that owns the bot
+owner_id = 0 # Discord User ID of user that owns the bot
 
 [discord]
 application_id = 0 # Application ID from Discord dev console
@@ -6,17 +6,27 @@ bot_token = "" # Bot token from Discord dev console (either "<token>" or "Bot <t
 user_id = 0 # Bot's own user ID
 
 [google]
-maps_api_key = ""
+maps_api_key = "" # Google Maps API key used to geocode locations
 
 [psql]
+old_url = "postgresql://<user>[:<password>]@<host>[:<port>]/<database>[?sslmode=<ssl-mode>[&sslcrootcert=<path>]]" # PSQL db connection url for old (disgo) bot DB
 url = "postgresql://<user>[:<password>]@<host>[:<port>]/<database>[?sslmode=<ssl-mode>[&sslcrootcert=<path>]]" # PSQL db connection url
 
+[shippo]
+api_key = "shippo_live_xxx" # goshippo API key
+
 [tarkov_market]
-api_key = ""
+api_key = "" # tarkov-market.com API key
 
 [tomorrow_io]
-api_key = ""
-default_location_id = ""
+api_key = "" # tomorrow.io API key
+default_location_id = "" # tomorrow.io location ID used for default weather requests
+default_location_name = "" # name displayed in response when default location is used
+
+[twitch]
+# twitch.tv auth info
+client_id = ""
+client_secret = ""
 
 [wow]
 # Auth info from Blizzard dev console

@@ -21,6 +21,11 @@ pub struct Psql {
 }
 
 #[derive(Deserialize)]
+pub struct Shippo {
+    pub api_key: String,
+}
+
+#[derive(Deserialize)]
 pub struct TarkovMarket {
     pub api_key: String,
 }
@@ -62,6 +67,10 @@ impl TypeMapKey for Google {
     type Value = Google;
 }
 
+impl TypeMapKey for Shippo {
+    type Value = Shippo;
+}
+
 impl TypeMapKey for TarkovMarket {
     type Value = TarkovMarket;
 }
@@ -84,6 +93,7 @@ pub struct Main {
     pub discord: Discord,
     pub google: Google,
     pub psql: Psql,
+    pub shippo: Shippo,
     pub tarkov_market: TarkovMarket,
     pub tomorrow_io: TomorrowIO,
     pub twitch: Twitch,

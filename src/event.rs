@@ -80,6 +80,42 @@ impl EventHandler for Handler {
             Err(e) => eprintln!("error setting guild commands: {}", e),
         }
 
+        #[allow(clippy::unreadable_literal)]
+        let test = GuildId(161010139309015040);
+        match test
+            .set_application_commands(&ctx.http, |commands| {
+                commands.create_application_command(|c| {
+                    c.name("track")
+                        .description("Track shipment")
+                        .create_option(|o| {
+                            o.name("carrier")
+                                .description("Shipping company")
+                                .kind(CommandOptionType::String)
+                                .required(true)
+                                .add_string_choice("FedEx", "fedex")
+                                .add_string_choice("UPS", "ups")
+                                .add_string_choice("USPS", "usps")
+                        })
+                        .create_option(|o| {
+                            o.name("number")
+                                .description("Tracking number")
+                                .kind(CommandOptionType::String)
+                                .required(true)
+                        })
+                })
+            })
+            .await
+        {
+            Ok(guild_commands) => println!(
+                "guild commands set: {:?}",
+                guild_commands
+                    .iter()
+                    .map(|g| &g.name)
+                    .collect::<Vec<&String>>()
+            ),
+            Err(e) => eprintln!("error setting guild commands: {}", e),
+        }
+
         match Command::set_global_application_commands(&ctx.http, |commands| {
             commands
                 .create_application_command(|c| {
@@ -266,6 +302,7 @@ impl EventHandler for Handler {
                 "top" => commands::top::top(&ctx, &command).await,
                 "topcommand" => commands::topcommand::topcommand(&ctx, &command).await,
                 "toplength" => commands::toplength::toplength(&ctx, &command).await,
+                "track" => commands::shipping::track(&ctx, &command).await,
                 "weather" => commands::weather::weather(&ctx, &command).await,
                 "whois" => commands::whois::whois(&ctx, &command).await,
                 _ => Ok(()),
