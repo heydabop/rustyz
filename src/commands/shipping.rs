@@ -53,12 +53,15 @@ pub async fn track(ctx: &Context, interaction: &ApplicationCommandInteraction) -
         String::new()
     };
 
+    let status_string = if let Some(status) = shipment.tracking_status {
+        status.status_details
+    } else {
+        String::from("Status Unknown")
+    };
+
     interaction
         .edit_original_interaction_response(&ctx.http, |response| {
-            response.content(format!(
-                "{}{}",
-                shipment.tracking_status.status_details, eta_string
-            ))
+            response.content(format!("{}{}", status_string, eta_string))
         })
         .await?;
 

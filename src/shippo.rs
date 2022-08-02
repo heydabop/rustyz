@@ -35,7 +35,7 @@ pub enum Status {
 #[derive(Deserialize)]
 pub struct TrackingResponse {
     pub eta: Option<DateTime<Utc>>,
-    pub tracking_status: TrackingStatus,
+    pub tracking_status: Option<TrackingStatus>,
 }
 
 #[derive(Deserialize)]
