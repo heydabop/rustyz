@@ -14,6 +14,12 @@ pub async fn whois(ctx: &Context, interaction: &ApplicationCommandInteraction) -
         return Ok(());
     }
 
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        })
+        .await?;
+
     let user_id = if let CommandDataOptionValue::String(u) =
         interaction.data.options[0].resolved.as_ref().unwrap()
     {
@@ -31,11 +37,7 @@ pub async fn whois(ctx: &Context, interaction: &ApplicationCommandInteraction) -
     let username = util::get_username_userid(&ctx.http, &members, user_id).await;
 
     interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| message.content(username))
-        })
+        .edit_original_interaction_response(&ctx.http, |response| response.content(username))
         .await?;
 
     Ok(())

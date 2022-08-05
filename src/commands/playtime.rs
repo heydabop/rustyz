@@ -42,6 +42,12 @@ pub async fn playtime(ctx: &Context, interaction: &ApplicationCommandInteraction
         None => return Ok(()),
     };
 
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        })
+        .await?;
+
     send_message_with_buttons(ctx, interaction, &user_ids, &username, None).await?;
 
     Ok(())
@@ -58,6 +64,13 @@ pub async fn recent_playtime(
     if interaction.guild_id.is_none() {
         return Ok(());
     }
+
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        })
+        .await?;
+
     let arg = if let CommandDataOptionValue::String(c) =
         interaction.data.options[0].resolved.as_ref().unwrap()
     {
@@ -85,12 +98,8 @@ pub async fn recent_playtime(
             - Duration::seconds(seconds)
     } else {
         interaction
-            .create_interaction_response(&ctx.http, |response| {
-                response
-                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|message| {
-                        message.content("```Unable to parse time```")
-                    })
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content("```Unable to parse time```")
             })
             .await?;
         return Ok(());
@@ -345,11 +354,7 @@ async fn send_message_with_buttons(
     let content = gen_playtime_message(ctx, user_ids, username, start_date, now, 0).await?;
 
     interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|m| m.content(&content))
-        })
+        .edit_original_interaction_response(&ctx.http, |response| response.content(&content))
         .await?;
 
     Ok(())

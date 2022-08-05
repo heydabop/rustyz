@@ -13,6 +13,12 @@ use sqlx::Row;
 #[allow(clippy::similar_names)]
 // Replies to msg with the duration since the user was last online
 pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        })
+        .await?;
+
     let user = match interaction.data.options.get(0).and_then(|o| {
         o.resolved.as_ref().and_then(|r| {
             if let CommandDataOptionValue::User(u, _) = r {
@@ -25,10 +31,8 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
         Some(u) => u,
         None => {
             interaction
-                .create_interaction_response(&ctx.http, |response| {
-                    response
-                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|message| message.content("Unable to find user"))
+                .edit_original_interaction_response(&ctx.http, |response| {
+                    response.content("Unable to find user")
                 })
                 .await?;
             return Ok(());
@@ -38,12 +42,8 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
     if let Some(status) = util::get_user_status(ctx, interaction.guild_id.unwrap(), user.id).await {
         if status != OnlineStatus::Offline && status != OnlineStatus::Invisible {
             interaction
-                .create_interaction_response(&ctx.http, |response| {
-                    response
-                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|message| {
-                            message.content(format!("{} is currently online", user.name))
-                        })
+                .edit_original_interaction_response(&ctx.http, |response| {
+                    response.content(format!("{} is currently online", user.name))
                 })
                 .await?;
             return Ok(());
@@ -58,12 +58,8 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
     };
     if row.is_none() {
         interaction
-            .create_interaction_response(&ctx.http, |response| {
-                response
-                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|message| {
-                        message.content(format!("I've never seen {}", user.name))
-                    })
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content(format!("I've never seen {}", user.name))
             })
             .await?;
         return Ok(());
@@ -86,12 +82,8 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
     };
 
     interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| {
-                    message.content(format!("{} was last seen {} ago", user.name, since_str))
-                })
+        .edit_original_interaction_response(&ctx.http, |response| {
+            response.content(format!("{} was last seen {} ago", user.name, since_str))
         })
         .await?;
 

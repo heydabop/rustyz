@@ -12,6 +12,12 @@ use sqlx::Row;
 // Replies with the top users in guild sorted by highest karma (vote count)
 // Allows a single optional arg of how many users to list, defaults to 5
 pub async fn karma(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        })
+        .await?;
+
     let guild_id = match interaction.guild_id {
         Some(g) => g,
         None => return Ok(()),
@@ -60,11 +66,7 @@ LIMIT $2"#,
     }
 
     interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| message.content(lines.concat()))
-        })
+        .edit_original_interaction_response(&ctx.http, |response| response.content(lines.concat()))
         .await?;
 
     Ok(())

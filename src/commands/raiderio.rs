@@ -89,6 +89,12 @@ struct Dungeon {
 
 // Takes in the arg `<character>-<realm>` and replies with stats from raider.io
 pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        })
+        .await?;
+
     let mut character = if let CommandDataOptionValue::String(c) =
         interaction.data.options[0].resolved.as_ref().unwrap()
     {
@@ -121,10 +127,8 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
         } else {
             // assume raider.io is giving us a 400 response as a json error under a 200 http response
             interaction
-                .create_interaction_response(&ctx.http, |response| {
-                    response
-                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|message| message.content(format!("Unable to find raiderio profile for {} on {}", character, realm)))
+                .edit_original_interaction_response(&ctx.http, |response| {
+                    response.content(format!("Unable to find raiderio profile for {} on {}", character, realm))
                 })
                 .await?;
             return Ok(());
@@ -132,10 +136,8 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
         Err(e) => {
             if e.status() == Some(StatusCode::NOT_FOUND) || e.status() == Some(StatusCode::BAD_REQUEST) {
                 interaction
-                    .create_interaction_response(&ctx.http, |response| {
-                        response
-                            .kind(InteractionResponseType::ChannelMessageWithSource)
-                            .interaction_response_data(|message| message.content(format!("Unable to find raiderio profile for {} on {}", character, realm)))
+                    .edit_original_interaction_response(&ctx.http, |response| {
+                        response.content(format!("Unable to find raiderio profile for {} on {}", character, realm))
                     })
                     .await?;
                 return Ok(());
@@ -193,25 +195,21 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
     };
 
     interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|m| {
-                    m.embed(|e| {
-                        e.title(format!("{}-{}", profile.name, realm))
-                            .timestamp(profile.last_crawled_at)
-                            .url(profile.profile_url)
-                            .thumbnail(thumbnail_url)
-                            .field(
-                                "Mythic+ Score",
-                                profile.mythic_plus_scores_by_season[0].scores.all,
-                                true,
-                            )
-                            .field("Highest Runs", highest_runs, true)
-                            .field("Recent Runs", recent_runs, true)
-                            .field("Best Runs by Dungeon", best_runs, true)
-                    })
-                })
+        .edit_original_interaction_response(&ctx.http, |response| {
+            response.embed(|e| {
+                e.title(format!("{}-{}", profile.name, realm))
+                    .timestamp(profile.last_crawled_at)
+                    .url(profile.profile_url)
+                    .thumbnail(thumbnail_url)
+                    .field(
+                        "Mythic+ Score",
+                        profile.mythic_plus_scores_by_season[0].scores.all,
+                        true,
+                    )
+                    .field("Highest Runs", highest_runs, true)
+                    .field("Recent Runs", recent_runs, true)
+                    .field("Best Runs by Dungeon", best_runs, true)
+            })
         })
         .await?;
 

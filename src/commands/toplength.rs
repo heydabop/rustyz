@@ -22,6 +22,13 @@ pub async fn toplength(
         Some(g) => g,
         None => return Ok(()),
     };
+
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        })
+        .await?;
+
     let members = util::collect_members_guild_id(ctx, guild_id).await?;
     let limit: u32 = interaction
         .data
@@ -89,11 +96,7 @@ AND content NOT LIKE '/%'"#,
         .collect();
 
     interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| message.content(lines.concat()))
-        })
+        .edit_original_interaction_response(&ctx.http, |response| response.content(lines.concat()))
         .await?;
 
     Ok(())

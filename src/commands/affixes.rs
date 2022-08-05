@@ -21,6 +21,12 @@ struct Affix {
 
 // Returns this week's M+ affixes for US
 pub async fn affixes(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        })
+        .await?;
+
     let client = reqwest::Client::new();
     let affixes = client
         .get(
@@ -32,35 +38,31 @@ pub async fn affixes(ctx: &Context, interaction: &ApplicationCommandInteraction)
         .await?;
 
     interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|m| {
-                    m.embed(|e| {
-                        e.title(affixes.title)
-                            .url("https://mythicpl.us/")
-                            .field(
-                                &affixes.details[0].name,
-                                &affixes.details[0].description,
-                                false,
-                            )
-                            .field(
-                                format!("{} (+4)", affixes.details[1].name),
-                                &affixes.details[1].description,
-                                false,
-                            )
-                            .field(
-                                format!("{} (+7)", affixes.details[2].name),
-                                &affixes.details[2].description,
-                                false,
-                            )
-                            .field(
-                                format!("{} (+10)", affixes.details[3].name),
-                                &affixes.details[3].description,
-                                false,
-                            )
-                    })
-                })
+        .edit_original_interaction_response(&ctx.http, |response| {
+            response.embed(|e| {
+                e.title(affixes.title)
+                    .url("https://mythicpl.us/")
+                    .field(
+                        &affixes.details[0].name,
+                        &affixes.details[0].description,
+                        false,
+                    )
+                    .field(
+                        format!("{} (+4)", affixes.details[1].name),
+                        &affixes.details[1].description,
+                        false,
+                    )
+                    .field(
+                        format!("{} (+7)", affixes.details[2].name),
+                        &affixes.details[2].description,
+                        false,
+                    )
+                    .field(
+                        format!("{} (+10)", affixes.details[3].name),
+                        &affixes.details[3].description,
+                        false,
+                    )
+            })
         })
         .await?;
 

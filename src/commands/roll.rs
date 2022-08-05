@@ -7,6 +7,12 @@ use serenity::model::application::interaction::{
 };
 
 pub async fn roll(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        })
+        .await?;
+
     let sides: u32 = interaction
         .data
         .options
@@ -29,11 +35,7 @@ pub async fn roll(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
     };
 
     interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| message.content(result))
-        })
+        .edit_original_interaction_response(&ctx.http, |response| response.content(result))
         .await?;
 
     Ok(())

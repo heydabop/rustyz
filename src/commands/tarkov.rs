@@ -34,6 +34,12 @@ struct Item {
 
 // Searches the Tarkov Market site for an item with the provided name, returning flea market and vendor info
 pub async fn tarkov(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        })
+        .await?;
+
     let search = interaction
         .data
         .options
@@ -68,10 +74,8 @@ pub async fn tarkov(ctx: &Context, interaction: &ApplicationCommandInteraction) 
 
     if items.is_empty() {
         interaction
-            .create_interaction_response(&ctx.http, |response| {
-                response
-                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|message| message.content("No items found"))
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content("No items found")
             })
             .await?;
         return Ok(());
@@ -89,59 +93,55 @@ pub async fn tarkov(ctx: &Context, interaction: &ApplicationCommandInteraction) 
     };
 
     interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|m| {
-                    m.embed(|e| {
-                        e.title(&item.name)
-                            .url(&item.link)
-                            .timestamp(item.updated.clone())
-                            .field(
-                                "Last Lowest",
-                                format!("{} \u{20bd}", item.price.to_formatted_string(&Locale::en)),
-                                true,
-                            )
-                            .field(
-                                "24h Avg",
-                                format!(
-                                    "{} \u{20bd}",
-                                    item.avg_24_hour_price.to_formatted_string(&Locale::en)
-                                ),
-                                true,
-                            )
-                            .field(
-                                "7d Avg",
-                                format!(
-                                    "{} \u{20bd}",
-                                    item.avg_7_day_price.to_formatted_string(&Locale::en)
-                                ),
-                                true,
-                            )
-                            .field("\u{200B}", "\u{200B}", false)
-                            .field(
-                                "24h Diff",
-                                format!(
-                                    "{}{}%",
-                                    if item.diff_24_hour > 0.0 { "+" } else { "" },
-                                    item.diff_24_hour
-                                ),
-                                true,
-                            )
-                            .field(
-                                "7d Diff",
-                                format!(
-                                    "{}{}%",
-                                    if item.diff_7_day > 0.0 { "+" } else { "" },
-                                    item.diff_7_day
-                                ),
-                                true,
-                            )
-                            .field("\u{200B}", "\u{200B}", false)
-                            .field(&item.trader_name, trader_price, false)
-                            .thumbnail(&item.icon)
-                    })
-                })
+        .edit_original_interaction_response(&ctx.http, |response| {
+            response.embed(|e| {
+                e.title(&item.name)
+                    .url(&item.link)
+                    .timestamp(item.updated.clone())
+                    .field(
+                        "Last Lowest",
+                        format!("{} \u{20bd}", item.price.to_formatted_string(&Locale::en)),
+                        true,
+                    )
+                    .field(
+                        "24h Avg",
+                        format!(
+                            "{} \u{20bd}",
+                            item.avg_24_hour_price.to_formatted_string(&Locale::en)
+                        ),
+                        true,
+                    )
+                    .field(
+                        "7d Avg",
+                        format!(
+                            "{} \u{20bd}",
+                            item.avg_7_day_price.to_formatted_string(&Locale::en)
+                        ),
+                        true,
+                    )
+                    .field("\u{200B}", "\u{200B}", false)
+                    .field(
+                        "24h Diff",
+                        format!(
+                            "{}{}%",
+                            if item.diff_24_hour > 0.0 { "+" } else { "" },
+                            item.diff_24_hour
+                        ),
+                        true,
+                    )
+                    .field(
+                        "7d Diff",
+                        format!(
+                            "{}{}%",
+                            if item.diff_7_day > 0.0 { "+" } else { "" },
+                            item.diff_7_day
+                        ),
+                        true,
+                    )
+                    .field("\u{200B}", "\u{200B}", false)
+                    .field(&item.trader_name, trader_price, false)
+                    .thumbnail(&item.icon)
+            })
         })
         .await?;
 

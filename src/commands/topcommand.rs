@@ -38,6 +38,13 @@ pub async fn topcommand(
         Some(g) => g,
         None => return Ok(()),
     };
+
+    interaction
+        .create_interaction_response(&ctx.http, |response| {
+            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        })
+        .await?;
+
     let members = util::collect_members_guild_id(ctx, guild_id).await?;
 
     let rows = {
@@ -69,12 +76,8 @@ LIMIT 10"#,
     }
 
     interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| {
-                    message.content(format!("usage of `{}`\n{}", command, lines.concat()))
-                })
+        .edit_original_interaction_response(&ctx.http, |response| {
+            response.content(format!("usage of `{}`\n{}", command, lines.concat()))
         })
         .await?;
 
