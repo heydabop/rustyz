@@ -15,3 +15,4 @@ pub mod topcommand;
 pub mod toplength;
 pub mod weather;
 pub mod whois;
+pub mod zalgo;

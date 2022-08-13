@@ -266,7 +266,17 @@ impl EventHandler for Handler {
                             o.name("id")
                                 .description("ID of user to find")
                                 .kind(CommandOptionType::String)
-                                .required(false)
+                                .required(true)
+                        })
+                })
+                .create_application_command(|c| {
+                    c.name("zalgo")
+                        .description("HE COMES")
+                        .create_option(|o| {
+                            o.name("message")
+                                .description("HE COMES")
+                                .kind(CommandOptionType::String)
+                                .required(true)
                         })
                 })
         })
@@ -305,6 +315,7 @@ impl EventHandler for Handler {
                 "track" => commands::shipping::track(&ctx, &command).await,
                 "weather" => commands::weather::weather(&ctx, &command).await,
                 "whois" => commands::whois::whois(&ctx, &command).await,
+                "zalgo" => commands::zalgo::zalgo(&ctx, &command).await,
                 _ => Ok(()),
             } {
                 eprintln!("Cannot respond to slash command: {}", e);

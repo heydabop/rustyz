@@ -1,6 +1,6 @@
 use crate::util;
 use serenity::client::Context;
-use serenity::framework::standard::{CommandError, CommandResult};
+use serenity::framework::standard::CommandResult;
 use serenity::model::application::interaction::{
     application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
     InteractionResponseType,
@@ -26,10 +26,20 @@ pub async fn whois(ctx: &Context, interaction: &ApplicationCommandInteraction) -
         if let Ok(id) = u.parse() {
             UserId(id)
         } else {
-            return Err(CommandError::from("Invalid user ID"));
+            interaction
+                .edit_original_interaction_response(&ctx.http, |response| {
+                    response.content("Invalid User ID")
+                })
+                .await?;
+            return Ok(());
         }
     } else {
-        return Err(CommandError::from("Invalid user ID"));
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content("Invalid User ID")
+            })
+            .await?;
+        return Ok(());
     };
 
     let members = util::collect_members_guild_id(ctx, interaction.guild_id.unwrap()).await?;
