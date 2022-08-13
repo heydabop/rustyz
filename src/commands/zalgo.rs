@@ -1,9 +1,8 @@
 use rand::{thread_rng, Rng};
 use serenity::client::Context;
 use serenity::framework::standard::{CommandError, CommandResult};
-use serenity::model::application::interaction::{
-    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-    InteractionResponseType,
+use serenity::model::application::interaction::application_command::{
+    ApplicationCommandInteraction, CommandDataOptionValue,
 };
 
 pub async fn zalgo(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
@@ -14,12 +13,6 @@ pub async fn zalgo(ctx: &Context, interaction: &ApplicationCommandInteraction) -
     } else {
         return Err(CommandError::from("Missing input"));
     };
-
-    interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        })
-        .await?;
 
     let mut message: Vec<char> = vec![];
 

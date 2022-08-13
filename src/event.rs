@@ -7,7 +7,7 @@ use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::model::{
     application::command::{Command, CommandOptionType},
-    application::interaction::Interaction,
+    application::interaction::{Interaction, InteractionResponseType},
     channel::Message,
     gateway::{ActivityType, Presence, Ready},
     guild::{Guild, Member},
@@ -292,6 +292,15 @@ impl EventHandler for Handler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::ApplicationCommand(command) = interaction {
+            if let Err(e) = command
+                .create_interaction_response(&ctx.http, |response| {
+                    response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
+                })
+                .await
+            {
+                eprintln!("Unable to defer response to interaction: {}", e);
+                return;
+            }
             if let Err(e) = match command.data.name.as_str() {
                 "affixes" => commands::affixes::affixes(&ctx, &command).await,
                 "birdtime" => commands::time::time(&ctx, &command, "Europe/Oslo").await,
@@ -316,9 +325,28 @@ impl EventHandler for Handler {
                 "weather" => commands::weather::weather(&ctx, &command).await,
                 "whois" => commands::whois::whois(&ctx, &command).await,
                 "zalgo" => commands::zalgo::zalgo(&ctx, &command).await,
-                _ => Ok(()),
+                _ => {
+                    eprintln!("Missing command for {}", command.data.name);
+                    if let Err(e) = command
+                        .edit_original_interaction_response(&ctx.http, |response| {
+                            response.content("\u{26A0} `Unknown command`")
+                        })
+                        .await
+                    {
+                        eprintln!("Unable to respond to interaction: {}", e);
+                    }
+                    Ok(())
+                }
             } {
-                eprintln!("Cannot respond to slash command: {}", e);
+                eprintln!("Error running command {}: {}", command.data.name, e);
+                if let Err(e) = command
+                    .edit_original_interaction_response(&ctx.http, |response| {
+                        response.content(format!("\u{26A0} `Error: {}`", e))
+                    })
+                    .await
+                {
+                    eprintln!("Unable to respond to interaction: {}", e);
+                }
             }
         }
     }

@@ -1,9 +1,8 @@
 use crate::{config, shippo};
 use serenity::client::Context;
 use serenity::framework::standard::{CommandError, CommandResult};
-use serenity::model::application::interaction::{
-    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-    InteractionResponseType,
+use serenity::model::application::interaction::application_command::{
+    ApplicationCommandInteraction, CommandDataOptionValue,
 };
 
 pub async fn track(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
@@ -33,12 +32,6 @@ pub async fn track(ctx: &Context, interaction: &ApplicationCommandInteraction) -
     } else {
         return Err(CommandError::from("Missing tracking number arg"));
     };
-
-    interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        })
-        .await?;
 
     let shippo_api_key = {
         let data = ctx.data.read().await;

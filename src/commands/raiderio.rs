@@ -2,9 +2,8 @@ use reqwest::{StatusCode, Url};
 use serde::Deserialize;
 use serenity::client::Context;
 use serenity::framework::standard::{CommandError, CommandResult};
-use serenity::model::application::interaction::{
-    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-    InteractionResponseType,
+use serenity::model::application::interaction::application_command::{
+    ApplicationCommandInteraction, CommandDataOptionValue,
 };
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -89,12 +88,6 @@ struct Dungeon {
 
 // Takes in the arg `<character>-<realm>` and replies with stats from raider.io
 pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        })
-        .await?;
-
     let mut character = if let CommandDataOptionValue::String(c) =
         interaction.data.options[0].resolved.as_ref().unwrap()
     {

@@ -3,9 +3,8 @@ use crate::util;
 use chrono::prelude::*;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::application::interaction::{
-    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-    InteractionResponseType,
+use serenity::model::application::interaction::application_command::{
+    ApplicationCommandInteraction, CommandDataOptionValue,
 };
 use serenity::model::user::OnlineStatus;
 use sqlx::Row;
@@ -13,12 +12,6 @@ use sqlx::Row;
 #[allow(clippy::similar_names)]
 // Replies to msg with the duration since the user was last online
 pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        })
-        .await?;
-
     let user = match interaction.data.options.get(0).and_then(|o| {
         o.resolved.as_ref().and_then(|r| {
             if let CommandDataOptionValue::User(u, _) = r {

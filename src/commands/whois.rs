@@ -1,9 +1,8 @@
 use crate::util;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::application::interaction::{
-    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-    InteractionResponseType,
+use serenity::model::application::interaction::application_command::{
+    ApplicationCommandInteraction, CommandDataOptionValue,
 };
 use serenity::model::id::UserId;
 
@@ -13,12 +12,6 @@ pub async fn whois(ctx: &Context, interaction: &ApplicationCommandInteraction) -
     if interaction.guild_id.is_none() {
         return Ok(());
     }
-
-    interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        })
-        .await?;
 
     let user_id = if let CommandDataOptionValue::String(u) =
         interaction.data.options[0].resolved.as_ref().unwrap()

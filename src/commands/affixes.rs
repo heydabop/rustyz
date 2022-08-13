@@ -2,9 +2,7 @@ use reqwest::Url;
 use serde::Deserialize;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::application::interaction::{
-    application_command::ApplicationCommandInteraction, InteractionResponseType,
-};
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 
 #[derive(Debug, Deserialize)]
 struct Affixes {
@@ -21,12 +19,6 @@ struct Affix {
 
 // Returns this week's M+ affixes for US
 pub async fn affixes(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        })
-        .await?;
-
     let client = reqwest::Client::new();
     let affixes = client
         .get(

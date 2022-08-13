@@ -4,9 +4,8 @@ use reqwest::Url;
 use serde::Deserialize;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::application::interaction::{
-    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-    InteractionResponseType,
+use serenity::model::application::interaction::application_command::{
+    ApplicationCommandInteraction, CommandDataOptionValue,
 };
 
 #[derive(Deserialize)]
@@ -34,12 +33,6 @@ struct Item {
 
 // Searches the Tarkov Market site for an item with the provided name, returning flea market and vendor info
 pub async fn tarkov(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        })
-        .await?;
-
     let search = interaction
         .data
         .options

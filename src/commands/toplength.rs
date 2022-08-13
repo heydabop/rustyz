@@ -3,9 +3,8 @@ use crate::util;
 use num_traits::cast::ToPrimitive;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::application::interaction::{
-    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-    InteractionResponseType,
+use serenity::model::application::interaction::application_command::{
+    ApplicationCommandInteraction, CommandDataOptionValue,
 };
 use serenity::model::id::UserId;
 use sqlx::types::Decimal;
@@ -22,12 +21,6 @@ pub async fn toplength(
         Some(g) => g,
         None => return Ok(()),
     };
-
-    interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        })
-        .await?;
 
     let members = util::collect_members_guild_id(ctx, guild_id).await?;
     let limit: u32 = interaction

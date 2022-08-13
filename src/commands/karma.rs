@@ -2,9 +2,8 @@ use crate::model::OldDB;
 use crate::util;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::application::interaction::{
-    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-    InteractionResponseType,
+use serenity::model::application::interaction::application_command::{
+    ApplicationCommandInteraction, CommandDataOptionValue,
 };
 use serenity::model::id::UserId;
 use sqlx::Row;
@@ -12,12 +11,6 @@ use sqlx::Row;
 // Replies with the top users in guild sorted by highest karma (vote count)
 // Allows a single optional arg of how many users to list, defaults to 5
 pub async fn karma(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        })
-        .await?;
-
     let guild_id = match interaction.guild_id {
         Some(g) => g,
         None => return Ok(()),

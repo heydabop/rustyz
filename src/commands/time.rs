@@ -2,9 +2,7 @@ use chrono::prelude::*;
 use chrono_tz::Tz;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::application::interaction::{
-    application_command::ApplicationCommandInteraction, InteractionResponseType,
-};
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 
 pub async fn time(
     ctx: &Context,
@@ -18,11 +16,7 @@ pub async fn time(
     };
 
     interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|message| message.content(content))
-        })
+        .edit_original_interaction_response(&ctx.http, |response| response.content(content))
         .await?;
 
     Ok(())

@@ -1,9 +1,8 @@
 use crate::{config, google, model::Point, tomorrowio};
 use serenity::client::Context;
 use serenity::framework::standard::{CommandError, CommandResult};
-use serenity::model::application::interaction::{
-    application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
-    InteractionResponseType,
+use serenity::model::application::interaction::application_command::{
+    ApplicationCommandInteraction, CommandDataOptionValue,
 };
 
 // Replies to msg with the weather for either the bot's location or the supplied location
@@ -26,12 +25,6 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
     let mut location: Option<Point> = None;
     let point_regex = regex::Regex::new(r#"^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$"#).unwrap();
     let mut location_name = String::new();
-
-    interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        })
-        .await?;
 
     if let Some(captures) = point_regex.captures(args) {
         let lat = captures.get(1).map_or("", |m| m.as_str());

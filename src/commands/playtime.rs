@@ -4,11 +4,8 @@ use chrono::{prelude::*, Duration};
 use regex::{Match, Regex};
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
-use serenity::model::application::interaction::{
-    application_command::{
-        ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
-    },
-    InteractionResponseType,
+use serenity::model::application::interaction::application_command::{
+    ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
 };
 use serenity::model::id::GuildId;
 use sqlx::Row;
@@ -42,12 +39,6 @@ pub async fn playtime(ctx: &Context, interaction: &ApplicationCommandInteraction
         None => return Ok(()),
     };
 
-    interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        })
-        .await?;
-
     send_message_with_buttons(ctx, interaction, &user_ids, &username, None).await?;
 
     Ok(())
@@ -64,12 +55,6 @@ pub async fn recent_playtime(
     if interaction.guild_id.is_none() {
         return Ok(());
     }
-
-    interaction
-        .create_interaction_response(&ctx.http, |response| {
-            response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        })
-        .await?;
 
     let arg = if let CommandDataOptionValue::String(c) =
         interaction.data.options[0].resolved.as_ref().unwrap()
