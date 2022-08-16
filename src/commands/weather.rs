@@ -182,7 +182,7 @@ pollen | {}"#,
         conditions
             .humidity
             .map_or_else(|| "--".to_string(), |h| format!("{:.0}%", h)),
-        conditions.dewpoint.map_or_else(
+        conditions.dew_point.map_or_else(
             || "".to_string(),
             |t| format!("(dew point: {:.0} \u{b0}F)", t)
         ),

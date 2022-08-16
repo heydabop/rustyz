@@ -51,30 +51,20 @@ struct Interval {
 }
 
 #[derive(Deserialize, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
 pub struct Values {
     pub temperature: Option<f32>,
-    #[serde(rename = "temperatureApparent")]
     pub temperature_apparent: Option<f32>,
     pub humidity: Option<f32>,
-    #[serde(rename = "dewPoint")]
-    pub dewpoint: Option<f32>,
-    #[serde(rename = "windSpeed")]
+    pub dew_point: Option<f32>,
     pub wind_speed: Option<f32>,
-    #[serde(rename = "windDirection")]
     pub wind_direction: Option<f32>,
-    #[serde(rename = "windGust")]
     pub wind_gust: Option<f32>,
-    #[serde(rename = "uvIndex")]
     pub uv_index: Option<u32>,
-    #[serde(rename = "weatherCode")]
     pub weather_code: Option<u32>,
-    #[serde(rename = "epaIndex")]
     pub epa_index: Option<u32>,
-    #[serde(rename = "treeIndex")]
     pub tree_index: Option<u32>,
-    #[serde(rename = "grassIndex")]
     pub grass_index: Option<u32>,
-    #[serde(rename = "weedIndex")]
     pub weed_index: Option<u32>,
 }
 
