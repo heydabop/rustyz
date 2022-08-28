@@ -1,6 +1,7 @@
 pub mod affixes;
 pub mod fortune;
 pub mod karma;
+pub mod lastplayed;
 pub mod lastseen;
 pub mod ping;
 pub mod playtime;

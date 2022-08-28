@@ -147,6 +147,16 @@ impl EventHandler for Handler {
                         })
                 })
                 .create_application_command(|c| {
+                    c.name("lastplayed")
+                        .description("How long it's been since a user was last playing a game, and the game they were playing")
+                        .create_option(|o| {
+                            o.name("user")
+                                .description("User to check")
+                                .kind(CommandOptionType::User)
+                                .required(true)
+                        })
+                })
+                .create_application_command(|c| {
                     c.name("ping").description("pong")
                 })
                 .create_application_command(|c| {
@@ -307,6 +317,7 @@ impl EventHandler for Handler {
                 "fortune" => commands::fortune::fortune(&ctx, &command).await,
                 "karma" => commands::karma::karma(&ctx, &command).await,
                 "lastseen" => commands::lastseen::lastseen(&ctx, &command).await,
+                "lastplayed" => commands::lastplayed::lastplayed(&ctx, &command).await,
                 "mirotime" => commands::time::time(&ctx, &command, "Europe/Helsinki").await,
                 "nieltime" => commands::time::time(&ctx, &command, "Europe/Stockholm").await,
                 "ping" => commands::ping::ping(&ctx, &command).await,
