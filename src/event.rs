@@ -398,7 +398,7 @@ impl EventHandler for Handler {
                 r#"INSERT INTO user_presence (user_id, status) VALUES ($1, 'offline'::online_status)"#,
             )
             .bind(user.id.0 as i64)
-                .execute(&*db)
+                .execute(db)
                 .await
             {
                 eprintln!("Error saving user_presence: {}", e);
@@ -535,7 +535,7 @@ async fn handle_presence(ctx: &Context, guild_id: Option<GuildId>, presence: Pre
         .bind(user_id.0 as i64)
             .bind(presence.status.name())
             .bind(&game_name)
-            .execute(&*db)
+            .execute(db)
             .await
         {
             println!("Error saving user_presence: {}", e);

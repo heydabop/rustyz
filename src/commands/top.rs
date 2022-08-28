@@ -50,7 +50,7 @@ LIMIT $2"#,
         )
         .bind(Decimal::from(interaction.channel_id.0))
         .bind(limit)
-        .fetch_all(&*db)
+        .fetch_all(db)
         .await?
     };
 

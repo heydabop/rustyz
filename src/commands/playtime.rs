@@ -196,7 +196,7 @@ pub async fn gen_playtime_message(
     let rows = {
         let data = ctx.data.read().await;
         let db = data.get::<DB>().unwrap();
-        sqlx::query(r#"SELECT create_date, user_id, game_name FROM user_presence WHERE user_id = any($1) AND (create_date > $2) IS NOT FALSE AND create_date <= $3 ORDER BY create_date"#).bind(user_ids).bind(start_date).bind(end_date).fetch_all(&*db).await?
+        sqlx::query(r#"SELECT create_date, user_id, game_name FROM user_presence WHERE user_id = any($1) AND (create_date > $2) IS NOT FALSE AND create_date <= $3 ORDER BY create_date"#).bind(user_ids).bind(start_date).bind(end_date).fetch_all(db).await?
     };
     if rows.is_empty() {
         return Ok(format!(

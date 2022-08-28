@@ -55,7 +55,7 @@ LIMIT 10"#,
         )
         .bind(format!("/{}%", command))
         .bind(Decimal::from(interaction.channel_id.0))
-        .fetch_all(&*db)
+        .fetch_all(db)
         .await?
     };
 

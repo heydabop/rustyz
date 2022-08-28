@@ -45,7 +45,7 @@ LIMIT $2"#,
         )
         .bind(guild_id.to_string())
         .bind(limit)
-        .fetch_all(&*db)
+        .fetch_all(db)
         .await?
     };
 

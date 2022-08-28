@@ -56,7 +56,7 @@ pub async fn lastplayed(
     let row = {
         let data = ctx.data.read().await;
         let db = data.get::<DB>().unwrap();
-        sqlx::query(r#"SELECT create_date, game_name FROM user_presence WHERE user_id = $1 AND status <> 'offline' AND status <> 'invisible' AND game_name IS NOT NULL ORDER BY create_date DESC LIMIT 1"#).bind(i64::from(user.id)).fetch_optional(&*db).await?
+        sqlx::query(r#"SELECT create_date, game_name FROM user_presence WHERE user_id = $1 AND status <> 'offline' AND status <> 'invisible' AND game_name IS NOT NULL ORDER BY create_date DESC LIMIT 1"#).bind(i64::from(user.id)).fetch_optional(db).await?
     };
     if row.is_none() {
         interaction
