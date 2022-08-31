@@ -32,16 +32,23 @@ pub enum Status {
     Failure,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct TrackingResponse {
     pub eta: Option<DateTime<Utc>>,
     pub tracking_status: Option<TrackingStatus>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct TrackingStatus {
     pub status: Status,
     pub status_details: String,
+    pub status_date: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TrackUpdatedRequest {
+    pub event: String,
+    pub data: TrackingResponse,
 }
 
 pub async fn get_tracking_status(
@@ -65,4 +72,8 @@ pub async fn get_tracking_status(
         Ok(r) => Ok(r.json::<TrackingResponse>().await?),
         Err(e) => Err(e),
     }
+}
+
+pub fn handle_track_updated_webhook(body: TrackUpdatedRequest) {
+    println!("{:?}", body);
 }

@@ -19,6 +19,8 @@ use serenity::prelude::*;
 use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::task::JoinSet;
+use warp::{http::StatusCode, Filter};
 
 #[tokio::main]
 async fn main() {
@@ -66,7 +68,32 @@ async fn main() {
 
     println!("Starting...");
 
-    if let Err(e) = client.start().await {
-        println!("Error running Discord client: {:?}", e);
+    let mut set = JoinSet::new();
+
+    set.spawn(async move {
+        let addr: std::net::SocketAddr = ([127, 0, 0, 1], 8125).into();
+        println!("HTTP listening on {:?}", addr);
+        let health = warp::path("health")
+            .map(warp::reply)
+            .map(|reply| warp::reply::with_status(reply, StatusCode::NO_CONTENT))
+            .or(warp::post()
+                .and(warp::path!("shippo" / "tracking"))
+                .map(warp::reply)
+                .and(warp::body::json())
+                .map(|reply, body: shippo::TrackUpdatedRequest| {
+                    shippo::handle_track_updated_webhook(body);
+                    warp::reply::with_status(reply, StatusCode::NO_CONTENT)
+                }));
+        warp::serve(health).run(addr).await;
+    });
+
+    set.spawn(async move {
+        if let Err(e) = client.start().await {
+            eprintln!("Error running Discord client: {:?}", e);
+        }
+    });
+
+    if let Some(Err(e)) = set.join_next().await {
+        eprintln!("Error joining task: {:?}", e);
     }
 }
