@@ -122,6 +122,16 @@ impl EventHandler for Handler {
                     c.name("affixes").description("Sends this week's US Mythic+ affixes")
                 })
                 .create_application_command(|c| {
+                    c.name("forecast")
+                        .description("Sends hourly weather conditions over the next 12 hours for an area")
+                        .create_option(|o| {
+                            o.name("location")
+                                .description("Area to get weather for; can be city name, postal code, or decimal lat/long (default: Austin, TX)")
+                                .kind(CommandOptionType::String)
+                                .required(false)
+                        })
+                })
+                .create_application_command(|c| {
                     c.name("fortune").description("Sends a random adage")
                 })
                 .create_application_command(|c| {
@@ -314,6 +324,7 @@ impl EventHandler for Handler {
             if let Err(e) = match command.data.name.as_str() {
                 "affixes" => commands::affixes::affixes(&ctx, &command).await,
                 "birdtime" => commands::time::time(&ctx, &command, "Europe/Oslo").await,
+                "forecast" => commands::weather::forecast(&ctx, &command).await,
                 "fortune" => commands::fortune::fortune(&ctx, &command).await,
                 "karma" => commands::karma::karma(&ctx, &command).await,
                 "lastseen" => commands::lastseen::lastseen(&ctx, &command).await,
