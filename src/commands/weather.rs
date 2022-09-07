@@ -169,22 +169,25 @@ pollen | {}"#,
 // Replies to msg with the hourly forecast (12h) for either the bot's location or the supplied location
 // Takes a single optional argument - location as zipcode, city+state, or lat/lng in decimal form
 pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let args = interaction
-        .data
-        .options
-        .get(0)
-        .and_then(|o| {
-            o.resolved.as_ref().map(|r| {
-                if let CommandDataOptionValue::String(s) = r {
-                    s
-                } else {
-                    ""
+    let mut location_args = "";
+    let mut hours = 6;
+    for o in &interaction.data.options {
+        match &o.name[..] {
+            "location" => {
+                if let Some(CommandDataOptionValue::String(s)) = o.resolved.as_ref() {
+                    location_args = s;
                 }
-            })
-        })
-        .unwrap_or("");
+            }
+            "hours" => {
+                if let Some(CommandDataOptionValue::Integer(h)) = o.resolved.as_ref() {
+                    hours = *h;
+                }
+            }
+            _ => {}
+        }
+    }
 
-    let (location, location_name) = match parse_location(ctx, args).await {
+    let (location, location_name) = match parse_location(ctx, location_args).await {
         Ok((l, n)) => (l, n),
         Err(e) => {
             interaction
@@ -200,7 +203,7 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
         let data = ctx.data.read().await;
         data.get::<config::TomorrowIO>().unwrap().api_key.clone()
     };
-    let forecast = match tomorrowio::get_hourly(&location, &api_key).await {
+    let forecast = match tomorrowio::get_hourly(&location, &api_key, hours).await {
         Ok(c) => c,
         Err(e) => return Err(CommandError::from(e)),
     };
@@ -217,7 +220,7 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
     };
 
     let mut response_msg = format!(
-        "weather in {}\n```    Time   | Temperature | Humidity | Dewpoint | Precipitation\n           |             |          |          | Chance\n",
+        "weather in {}\n```   Time  | Temperature | Humidity | Dewpoint | Precipitation\n         |             |          |          | Chance\n",
         location_name
     );
     for v in forecast {
@@ -225,7 +228,7 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
         let time = v.start_time.with_timezone(&timezone);
         writeln!(
             response_msg,
-            "{:^11}|{:^13}|{:^10}|{:^10}|{}",
+            "{:^9}|{:^13}|{:^10}|{:^10}|{}",
             time.format("%l:%M %p"),
             values
                 .temperature

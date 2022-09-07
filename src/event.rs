@@ -130,6 +130,14 @@ impl EventHandler for Handler {
                                 .kind(CommandOptionType::String)
                                 .required(false)
                         })
+                        .create_option(|o| {
+                            o.name("hours")
+                                .description("How many hours into the future to forecast (default: 6)")
+                                .kind(CommandOptionType::Integer)
+                                .required(false)
+                                .min_int_value(2)
+                                .max_int_value(12)
+                        })
                 })
                 .create_application_command(|c| {
                     c.name("fortune").description("Sends a random adage")

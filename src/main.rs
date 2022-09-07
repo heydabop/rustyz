@@ -69,4 +69,6 @@ async fn main() {
     if let Err(e) = client.start().await {
         println!("Error running Discord client: {:?}", e);
     }
+
+    println!("Exiting");
 }
