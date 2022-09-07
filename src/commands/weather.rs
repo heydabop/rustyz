@@ -205,20 +205,28 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
         Err(e) => return Err(CommandError::from(e)),
     };
 
+    let timezone = {
+        let maps_api_key = {
+            let data = ctx.data.read().await;
+            data.get::<config::Google>().unwrap().maps_api_key.clone()
+        };
+        match google::timezone(&location, forecast[0].start_time.timestamp(), &maps_api_key).await {
+            Ok(tz) => tz,
+            Err(e) => return Err(CommandError::from(e)),
+        }
+    };
+
     let mut response_msg = format!(
         "weather in {}\n```    Time   | Temperature | Humidity | Dewpoint | Precipitation\n           |             |          |          | Chance\n",
         location_name
     );
-    for (i, v) in forecast.into_iter().enumerate() {
+    for v in forecast {
         let values = v.values;
+        let time = v.start_time.with_timezone(&timezone);
         writeln!(
             response_msg,
             "{:^11}|{:^13}|{:^10}|{:^10}|{}",
-            match i {
-                0 => String::from("Now"),
-                1 => String::from("1 hour "),
-                _ => format!("{} hours", i),
-            },
+            time.format("%l:%M %p"),
             values
                 .temperature
                 .map_or_else(|| "--".to_string(), |t| format!("{:.0} \u{b0}F", t)),
@@ -245,9 +253,7 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
 async fn parse_location(
     ctx: &Context,
     args: &str,
-) -> Result<(String, String), Box<dyn Error + Send + Sync>> {
-    let mut location: Option<Point> = None;
-    let mut location_name = String::new();
+) -> Result<(Point, String), Box<dyn Error + Send + Sync>> {
     let point_regex = regex::Regex::new(r#"^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$"#).unwrap();
 
     if let Some(captures) = point_regex.captures(args) {
@@ -261,8 +267,9 @@ async fn parse_location(
             Ok(l) => l,
             Err(e) => return Err(Box::new(e)),
         };
-        location = Some(Point { lat, lng });
-        location_name = format!("{}, {}", lat, lng);
+        let location = Point { lat, lng };
+        let location_name = format!("{}, {}", lat, lng);
+        Ok((location, location_name))
     } else if !args.is_empty() {
         let maps_api_key = {
             let data = ctx.data.read().await;
@@ -270,23 +277,19 @@ async fn parse_location(
         };
         match google::geocode(args, &maps_api_key).await {
             Ok((p, n)) => {
-                location = Some(p);
-                location_name = n.unwrap_or_else(|| args.to_owned()).to_ascii_lowercase();
+                let location = p;
+                let location_name = n.unwrap_or_else(|| args.to_owned()).to_ascii_lowercase();
+                Ok((location, location_name))
             }
-            Err(e) => return Err(Box::new(e)),
+            Err(e) => Err(Box::new(e)),
         }
-    }
-
-    let location = if let Some(location) = location {
-        format!("{},{}", location.lat, location.lng)
     } else {
         let tomorrow_io_config = {
             let data = ctx.data.read().await;
             data.get::<config::TomorrowIO>().unwrap().clone()
         };
-        location_name = tomorrow_io_config.default_location_name;
-        tomorrow_io_config.default_location_id
-    };
-
-    Ok((location, location_name))
+        let location = tomorrow_io_config.default_location;
+        let location_name = tomorrow_io_config.default_location_name;
+        Ok((location, location_name))
+    }
 }

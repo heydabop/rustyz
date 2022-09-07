@@ -1,3 +1,4 @@
+use crate::model::Point;
 use serde::Deserialize;
 use serenity::prelude::*;
 use std::time::SystemTime;
@@ -33,7 +34,7 @@ pub struct TarkovMarket {
 #[derive(Clone, Deserialize)]
 pub struct TomorrowIO {
     pub api_key: String,
-    pub default_location_id: String,
+    pub default_location: Point,
     pub default_location_name: String,
 }
 

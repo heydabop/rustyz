@@ -6,6 +6,7 @@ use serenity::model::{
 use serenity::prelude::*;
 use sqlx::{Pool, Postgres};
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::sync::Arc;
 
 pub struct OldDB;
@@ -54,4 +55,10 @@ impl TypeMapKey for UserGuildList {
 pub struct Point {
     pub lat: f64,
     pub lng: f64,
+}
+
+impl fmt::Display for Point {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{},{}", self.lat, self.lng)
+    }
 }
