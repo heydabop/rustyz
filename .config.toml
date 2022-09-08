@@ -20,8 +20,10 @@ api_key = "" # tarkov-market.com API key
 
 [tomorrow_io]
 api_key = "" # tomorrow.io API key
-default_location_id = "" # tomorrow.io location ID used for default weather requests
-default_location_name = "" # name displayed in response when default location is used
+default_location_name = "mit" # name displayed in response when default location is used
+[tomorrow_io.default_location] # lat/lng used for default weather requests
+lat = 42.359722
+lng = -71.091944
 
 [twitch]
 # twitch.tv auth info

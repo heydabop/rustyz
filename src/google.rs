@@ -1,7 +1,9 @@
 use crate::model::Point;
+use chrono_tz::Tz;
 use reqwest::Url;
 use serde::Deserialize;
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub enum Error {
@@ -9,6 +11,7 @@ pub enum Error {
     Status(String),
     NoResults,
     MissingGeometry,
+    InvalidTz(String),
 }
 
 impl From<reqwest::Error> for Error {
@@ -24,6 +27,7 @@ impl fmt::Display for Error {
             Error::NoResults => write!(f, "0 geocoding results"),
             Error::MissingGeometry => write!(f, "missing geometry in geocoding result"),
             Error::Reqwest(e) => write!(f, "request error: {}", e),
+            Error::InvalidTz(e) => write!(f, "invalid timezone ID: {}", e),
         }
     }
 }
@@ -50,6 +54,13 @@ struct GeocodeGeometry {
 #[derive(Deserialize)]
 struct Address {
     long_name: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TimezoneResponse {
+    status: String,
+    time_zone_id: Option<String>,
 }
 
 pub async fn geocode(address: &str, api_key: &str) -> Result<(Point, Option<String>), Error> {
@@ -84,5 +95,34 @@ pub async fn geocode(address: &str, api_key: &str) -> Result<(Point, Option<Stri
             Ok((p, location_name))
         }
         None => Err(Error::MissingGeometry),
+    }
+}
+
+pub async fn timezone(location: &Point, timestamp: i64, api_key: &str) -> Result<Tz, Error> {
+    let client = reqwest::Client::new();
+
+    let resp = client
+        .get(
+            Url::parse(&format!(
+                "https://maps.googleapis.com/maps/api/timezone/json?location={}&timestamp={}&key={}",
+                location, timestamp, api_key
+            ))
+            .unwrap(),
+        )
+        .send()
+        .await?;
+    let json = match resp.error_for_status() {
+        Ok(resp) => resp.json::<TimezoneResponse>().await?,
+        Err(e) => return Err(Error::from(e)),
+    };
+    if json.status != "OK" {
+        return Err(Error::Status(json.status));
+    }
+    match json.time_zone_id {
+        Some(tz_id) => match Tz::from_str(&tz_id) {
+            Ok(tz) => Ok(tz),
+            Err(e) => Err(Error::InvalidTz(e)),
+        },
+        None => Err(Error::NoResults),
     }
 }

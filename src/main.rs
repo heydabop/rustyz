@@ -96,4 +96,6 @@ async fn main() {
     if let Some(Err(e)) = set.join_next().await {
         eprintln!("Error joining task: {:?}", e);
     }
+
+    println!("Exiting");
 }
