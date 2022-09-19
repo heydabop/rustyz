@@ -29,12 +29,14 @@ async fn main() {
             .expect("Error parsing config.toml");
 
     let old_pool = PgPoolOptions::new()
+        .min_connections(1)
         .max_connections(4)
         .connect(cfg.psql.old_url.as_str())
         .await
         .expect("Error connecting to old PSQL database");
 
     let pool = PgPoolOptions::new()
+        .min_connections(1)
         .max_connections(4)
         .connect(cfg.psql.url.as_str())
         .await
