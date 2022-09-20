@@ -1,6 +1,10 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::too_many_lines, clippy::module_name_repetitions)]
+#![allow(
+    clippy::too_many_lines,
+    clippy::module_name_repetitions,
+    clippy::enum_glob_use
+)]
 
 mod commands;
 mod config;
@@ -14,9 +18,11 @@ mod util;
 
 use serenity::client::Client;
 use serenity::framework::standard::StandardFramework;
+use serenity::http::client::Http;
 use serenity::model::gateway::GatewayIntents;
 use serenity::prelude::*;
 use sqlx::postgres::PgPoolOptions;
+use sqlx::{Pool, Postgres};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::task::JoinSet;
@@ -41,6 +47,7 @@ async fn main() {
         .connect(cfg.psql.url.as_str())
         .await
         .expect("Error connecting to PSQL database");
+    let shippo_pool = pool.clone();
 
     let framework = StandardFramework::new();
     let intents = GatewayIntents::GUILDS
@@ -71,22 +78,21 @@ async fn main() {
     println!("Starting...");
 
     let mut set = JoinSet::new();
+    let shippo_http = client.cache_and_http.clone().http.clone();
 
     set.spawn(async move {
         let addr: std::net::SocketAddr = ([127, 0, 0, 1], 8125).into();
         println!("HTTP listening on {:?}", addr);
         let health = warp::path("health")
             .map(warp::reply)
-            .map(|reply| warp::reply::with_status(reply, StatusCode::NO_CONTENT))
-            .or(warp::post()
-                .and(warp::path!("shippo" / "tracking"))
-                .map(warp::reply)
-                .and(warp::body::json())
-                .map(|reply, body: shippo::TrackUpdatedRequest| {
-                    shippo::handle_track_updated_webhook(body);
-                    warp::reply::with_status(reply, StatusCode::NO_CONTENT)
-                }));
-        warp::serve(health).run(addr).await;
+            .map(|reply| warp::reply::with_status(reply, StatusCode::NO_CONTENT));
+        let shippo_tracking = warp::post()
+            .and(warp::path!("shippo" / "tracking"))
+            .and(warp::body::json())
+            .and(with_db(shippo_pool))
+            .and(with_http(shippo_http))
+            .and_then(shippo::handle_post);
+        warp::serve(health.or(shippo_tracking)).run(addr).await;
     });
 
     set.spawn(async move {
@@ -100,4 +106,16 @@ async fn main() {
     }
 
     println!("Exiting");
+}
+
+fn with_db(
+    db: Pool<Postgres>,
+) -> impl Filter<Extract = (Pool<Postgres>,), Error = std::convert::Infallible> + Clone {
+    warp::any().map(move || db.clone())
+}
+
+fn with_http(
+    http: Arc<Http>,
+) -> impl Filter<Extract = (Arc<Http>,), Error = std::convert::Infallible> + Clone {
+    warp::any().map(move || http.clone())
 }

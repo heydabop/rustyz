@@ -29,6 +29,45 @@ CREATE TYPE public.online_status AS ENUM (
 );
 
 
+--
+-- Name: shipment_carrier; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.shipment_carrier AS ENUM (
+    'fedex',
+    'ups',
+    'usps'
+);
+
+
+--
+-- Name: shipment_tracking_status; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.shipment_tracking_status AS ENUM (
+    'unknown',
+    'pre_transit',
+    'transit',
+    'delivered',
+    'returned',
+    'failure'
+);
+
+
+--
+-- Name: row_update_date(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.row_update_date() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+begin
+new.update_date = now();
+return new;
+end;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -67,6 +106,42 @@ CREATE SEQUENCE public.playtime_button_id_seq
 --
 
 ALTER SEQUENCE public.playtime_button_id_seq OWNED BY public.playtime_button.id;
+
+
+--
+-- Name: shipment; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.shipment (
+    id integer NOT NULL,
+    create_date timestamp with time zone DEFAULT now() NOT NULL,
+    update_date timestamp with time zone DEFAULT now() NOT NULL,
+    carrier public.shipment_carrier NOT NULL,
+    tracking_number character varying(100) NOT NULL,
+    author_id bigint NOT NULL,
+    channel_id bigint NOT NULL,
+    status public.shipment_tracking_status NOT NULL
+);
+
+
+--
+-- Name: shipment_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.shipment_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: shipment_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.shipment_id_seq OWNED BY public.shipment.id;
 
 
 --
@@ -109,10 +184,33 @@ ALTER TABLE ONLY public.playtime_button ALTER COLUMN id SET DEFAULT nextval('pub
 
 
 --
+-- Name: shipment id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.shipment ALTER COLUMN id SET DEFAULT nextval('public.shipment_id_seq'::regclass);
+
+
+--
 -- Name: user_presence id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_presence ALTER COLUMN id SET DEFAULT nextval('public.user_presence_id_seq'::regclass);
+
+
+--
+-- Name: shipment shipment_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.shipment
+    ADD CONSTRAINT shipment_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: shipment shipment_uk_carrier_number; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.shipment
+    ADD CONSTRAINT shipment_uk_carrier_number UNIQUE (carrier, tracking_number);
 
 
 --
@@ -121,6 +219,13 @@ ALTER TABLE ONLY public.user_presence ALTER COLUMN id SET DEFAULT nextval('publi
 
 ALTER TABLE ONLY public.user_presence
     ADD CONSTRAINT user_presence_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: shipment shipment_row_update_date; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER shipment_row_update_date BEFORE UPDATE ON public.shipment FOR EACH ROW EXECUTE FUNCTION public.row_update_date();
 
 
 --
@@ -135,6 +240,20 @@ GRANT SELECT,INSERT,UPDATE ON TABLE public.playtime_button TO rustyz;
 --
 
 GRANT USAGE ON SEQUENCE public.playtime_button_id_seq TO rustyz;
+
+
+--
+-- Name: TABLE shipment; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,UPDATE ON TABLE public.shipment TO rustyz;
+
+
+--
+-- Name: SEQUENCE shipment_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT USAGE ON SEQUENCE public.shipment_id_seq TO rustyz;
 
 
 --
