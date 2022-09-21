@@ -16,7 +16,7 @@ pub async fn karma(ctx: &Context, interaction: &ApplicationCommandInteraction) -
         None => return Ok(()),
     };
     let members = util::collect_members_guild_id(ctx, guild_id).await?;
-    let limit: u32 = interaction
+    let limit: i64 = interaction
         .data
         .options
         .get(0)
@@ -24,7 +24,7 @@ pub async fn karma(ctx: &Context, interaction: &ApplicationCommandInteraction) -
             o.resolved.as_ref().map(|r| {
                 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 if let CommandDataOptionValue::Integer(l) = r {
-                    *l as u32
+                    *l
                 } else {
                     5
                 }
