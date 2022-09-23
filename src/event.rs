@@ -259,6 +259,12 @@ impl EventHandler for Handler {
                                 .kind(CommandOptionType::String)
                                 .required(true)
                         })
+                        .create_option(|o| {
+                            o.name("comment")
+                                .description("Optional comment descriping shipment, will be sent to channel upon package delivery")
+                                .kind(CommandOptionType::String)
+                                .required(false)
+                        })
                 })
                 .create_application_command(|c| {
                     c.name("weather")

@@ -120,7 +120,8 @@ CREATE TABLE public.shipment (
     tracking_number character varying(100) NOT NULL,
     author_id bigint NOT NULL,
     channel_id bigint NOT NULL,
-    status public.shipment_tracking_status NOT NULL
+    status public.shipment_tracking_status NOT NULL,
+    comment character varying(50)
 );
 
 

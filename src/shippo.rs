@@ -128,10 +128,20 @@ pub async fn handle_track_updated_webhook(
     }
     let tracking = body.data.tracking_status.unwrap();
     if tracking.status == Status::Delivered {
-        let row = sqlx::query!("UPDATE shipment SET status = 'delivered' WHERE carrier = $1::shipment_carrier AND tracking_number = $2 AND status <> 'delivered' RETURNING author_id, channel_id", body.carrier.clone().or_else(|| body.data.carrier.clone()) as _, body.data.tracking_number as _).fetch_optional(&db).await?;
+        let row = sqlx::query!("UPDATE shipment SET status = 'delivered' WHERE carrier = $1::shipment_carrier AND tracking_number = $2 AND status <> 'delivered' RETURNING author_id, channel_id, comment", body.carrier.clone().or_else(|| body.data.carrier.clone()) as _, body.data.tracking_number as _).fetch_optional(&db).await?;
         if let Some(row) = row {
+            let carrier = &body
+                .carrier
+                .or(body.data.carrier)
+                .or_else(|| Some(String::new()))
+                .unwrap();
+            let comment = if let Some(c) = row.comment {
+                format!(" ({}) ", c)
+            } else {
+                String::new()
+            };
             #[allow(clippy::cast_sign_loss)]
-            http.send_message(row.channel_id as u64, &json!({"content": format!("<@{}>: Your {} shipment {} was marked as delivered at {} with the following message: {}", row.author_id, &body.carrier.or(body.data.carrier).or_else(|| Some(String::new())).unwrap(), &body.data.tracking_number, tracking.status_date, tracking.status_details)})).await?;
+            http.send_message(row.channel_id as u64, &json!({"content": format!("<@{}>: Your {} shipment {}{}was marked as delivered at {} with the following message: {}", row.author_id, carrier, &body.data.tracking_number, comment, tracking.status_date, tracking.status_details)})).await?;
         } else {
             println!("shipment not found {}", body.data.tracking_number);
         }
