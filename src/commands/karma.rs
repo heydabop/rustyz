@@ -22,7 +22,6 @@ pub async fn karma(ctx: &Context, interaction: &ApplicationCommandInteraction) -
         .get(0)
         .and_then(|o| {
             o.resolved.as_ref().map(|r| {
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 if let CommandDataOptionValue::Integer(l) = r {
                     *l
                 } else {
@@ -49,6 +48,7 @@ LIMIT $2"#,
         .await?
     };
 
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let mut lines = Vec::with_capacity(limit as usize);
 
     for row in &rows {
