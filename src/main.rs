@@ -13,9 +13,10 @@ use serenity::framework::standard::StandardFramework;
 use serenity::http::client::Http;
 use serenity::model::gateway::GatewayIntents;
 use serenity::prelude::*;
-use sqlx::postgres::PgPoolOptions;
-use sqlx::{Pool, Postgres};
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
+use sqlx::{ConnectOptions, Pool, Postgres};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::task::JoinSet;
 use tracing::{error, info};
@@ -39,29 +40,51 @@ async fn main() {
         }
     };
 
-    let old_pool = match PgPoolOptions::new()
-        .min_connections(1)
-        .max_connections(4)
-        .connect(cfg.psql.old_url.as_str())
-        .await
-    {
-        Ok(p) => p,
-        Err(e) => {
-            error!(%e, "Error connecting to old PSQL database");
-            return;
+    let old_pool = {
+        let mut old_options = match PgConnectOptions::from_str(cfg.psql.old_url.as_str()) {
+            Ok(s) => s,
+            Err(e) => {
+                error!(%e, "Error parsing old DB connection string");
+                return;
+            }
+        };
+        old_options.disable_statement_logging();
+
+        match PgPoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect_with(old_options)
+            .await
+        {
+            Ok(p) => p,
+            Err(e) => {
+                error!(%e, "Error connecting to old PSQL database");
+                return;
+            }
         }
     };
 
-    let pool = match PgPoolOptions::new()
-        .min_connections(1)
-        .max_connections(4)
-        .connect(cfg.psql.url.as_str())
-        .await
-    {
-        Ok(p) => p,
-        Err(e) => {
-            error!(%e, "Error connecting to PSQL database");
-            return;
+    let pool = {
+        let mut options = match PgConnectOptions::from_str(cfg.psql.url.as_str()) {
+            Ok(s) => s,
+            Err(e) => {
+                error!(%e, "Error parsing DB connection string");
+                return;
+            }
+        };
+        options.disable_statement_logging();
+
+        match PgPoolOptions::new()
+            .min_connections(1)
+            .max_connections(4)
+            .connect_with(options)
+            .await
+        {
+            Ok(p) => p,
+            Err(e) => {
+                error!(%e, "Error connecting to PSQL database");
+                return;
+            }
         }
     };
     let shippo_pool = pool.clone();
@@ -105,7 +128,6 @@ async fn main() {
 
     set.spawn(async move {
         let addr: std::net::SocketAddr = ([127, 0, 0, 1], 8125).into();
-        info!("HTTP listening on {:?}", addr);
         let health = warp::path("health")
             .map(warp::reply)
             .map(|reply| warp::reply::with_status(reply, StatusCode::NO_CONTENT));
