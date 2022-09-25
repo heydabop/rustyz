@@ -33,6 +33,7 @@ pub async fn karma(ctx: &Context, interaction: &ApplicationCommandInteraction) -
 
     let rows = {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         let db = data.get::<OldDB>().unwrap();
         sqlx::query(
             r#"
@@ -52,7 +53,7 @@ LIMIT $2"#,
     let mut lines = Vec::with_capacity(limit as usize);
 
     for row in &rows {
-        let user_id = UserId(row.get::<String, _>(0).parse::<u64>().unwrap());
+        let user_id = UserId(row.get::<String, _>(0).parse::<u64>()?);
         let karma: i32 = row.get(1);
         let username = util::get_username_userid(&ctx.http, &members, user_id).await;
         lines.push(format!("{} \u{2014} {}\n", username, karma));

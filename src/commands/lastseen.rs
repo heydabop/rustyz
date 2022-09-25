@@ -32,7 +32,19 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
         }
     };
 
-    if let Some(status) = util::get_user_status(ctx, interaction.guild_id.unwrap(), user.id).await {
+    let guild_id = match interaction.guild_id {
+        Some(g) => g,
+        None => {
+            interaction
+                .edit_original_interaction_response(&ctx.http, |response| {
+                    response.content("Command can only be used in a server")
+                })
+                .await?;
+            return Ok(());
+        }
+    };
+
+    if let Some(status) = util::get_user_status(ctx, guild_id, user.id).await {
         if status != OnlineStatus::Offline && status != OnlineStatus::Invisible {
             interaction
                 .edit_original_interaction_response(&ctx.http, |response| {
@@ -44,22 +56,25 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
     }
 
     #[allow(clippy::cast_possible_wrap)]
-    let row = {
+    let row = match {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
         sqlx::query(r#"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1"#).bind(i64::from(user.id)).fetch_optional(db).await?
+    } {
+        Some(r) => r,
+        None => {
+            interaction
+                .edit_original_interaction_response(&ctx.http, |response| {
+                    response.content(format!("I've never seen {}", user.name))
+                })
+                .await?;
+            return Ok(());
+        }
     };
-    if row.is_none() {
-        interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content(format!("I've never seen {}", user.name))
-            })
-            .await?;
-        return Ok(());
-    }
 
     let now = Local::now().with_timezone(Local::now().offset());
-    let last_seen = row.unwrap().get::<DateTime<FixedOffset>, _>(0);
+    let last_seen = row.get::<DateTime<FixedOffset>, _>(0);
     let since = now.signed_duration_since(last_seen);
 
     let since_str = if since.num_seconds() < 1 {

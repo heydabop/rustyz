@@ -9,13 +9,23 @@ use serenity::model::id::UserId;
 // Replies with the username or nickname of the supplied user ID
 // Takes a single required argument of a user ID
 pub async fn whois(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    if interaction.guild_id.is_none() {
-        return Ok(());
-    }
+    let guild_id = match interaction.guild_id {
+        Some(g) => g,
+        None => {
+            interaction
+                .edit_original_interaction_response(&ctx.http, |response| {
+                    response.content("Command can only be used in a server")
+                })
+                .await?;
+            return Ok(());
+        }
+    };
 
     let user_id = if let CommandDataOptionValue::String(u) =
-        interaction.data.options[0].resolved.as_ref().unwrap()
-    {
+        match interaction.data.options[0].resolved.as_ref() {
+            Some(u) => u,
+            None => return Err("missing user ID".into()),
+        } {
         if let Ok(id) = u.parse() {
             UserId(id)
         } else {
@@ -35,7 +45,7 @@ pub async fn whois(ctx: &Context, interaction: &ApplicationCommandInteraction) -
         return Ok(());
     };
 
-    let members = util::collect_members_guild_id(ctx, interaction.guild_id.unwrap()).await?;
+    let members = util::collect_members_guild_id(ctx, guild_id).await?;
 
     let username = util::get_username_userid(&ctx.http, &members, user_id).await;
 

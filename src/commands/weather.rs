@@ -39,6 +39,7 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
 
     let api_key = {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         data.get::<config::TomorrowIO>().unwrap().api_key.clone()
     };
     let conditions = match tomorrowio::get_current(&location, &api_key).await {
@@ -201,6 +202,7 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
 
     let api_key = {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         data.get::<config::TomorrowIO>().unwrap().api_key.clone()
     };
     let forecast = match tomorrowio::get_hourly(&location, &api_key, hours).await {
@@ -211,6 +213,7 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
     let timezone = {
         let maps_api_key = {
             let data = ctx.data.read().await;
+            #[allow(clippy::unwrap_used)]
             data.get::<config::Google>().unwrap().maps_api_key.clone()
         };
         match google::timezone(&location, forecast[0].start_time.timestamp(), &maps_api_key).await {
@@ -257,7 +260,7 @@ async fn parse_location(
     ctx: &Context,
     args: &str,
 ) -> Result<(Point, String), Box<dyn Error + Send + Sync>> {
-    let point_regex = regex::Regex::new(r#"^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$"#).unwrap();
+    let point_regex = regex::Regex::new(r#"^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$"#)?;
 
     if let Some(captures) = point_regex.captures(args) {
         let lat = captures.get(1).map_or("", |m| m.as_str());
@@ -276,6 +279,7 @@ async fn parse_location(
     } else if !args.is_empty() {
         let maps_api_key = {
             let data = ctx.data.read().await;
+            #[allow(clippy::unwrap_used)]
             data.get::<config::Google>().unwrap().maps_api_key.clone()
         };
         match google::geocode(args, &maps_api_key).await {
@@ -289,6 +293,7 @@ async fn parse_location(
     } else {
         let tomorrow_io_config = {
             let data = ctx.data.read().await;
+            #[allow(clippy::unwrap_used)]
             data.get::<config::TomorrowIO>().unwrap().clone()
         };
         let location = tomorrow_io_config.default_location;

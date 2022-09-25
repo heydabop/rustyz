@@ -36,6 +36,7 @@ pub async fn top(ctx: &Context, interaction: &ApplicationCommandInteraction) -> 
 
     let rows = {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         let db = data.get::<OldDB>().unwrap();
         sqlx::query(
             r#"
@@ -57,7 +58,10 @@ LIMIT $2"#,
     let mut lines = Vec::with_capacity(limit as usize);
 
     for row in &rows {
-        let user_id = UserId(row.get::<Decimal, _>(0).to_u64().unwrap());
+        let user_id = UserId(match row.get::<Decimal, _>(0).to_u64() {
+            Some(u) => u,
+            None => return Err("unable to convert user id from db".into()),
+        });
         let num_messages: i64 = row.get(1);
         let username = util::get_username_userid(&ctx.http, &members, user_id).await;
         lines.push(format!("{} \u{2014} {}\n", username, num_messages));

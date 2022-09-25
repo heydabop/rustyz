@@ -6,6 +6,7 @@ use sqlx::{Pool, Postgres};
 use std::convert::Infallible;
 use std::fmt;
 use std::sync::Arc;
+use tracing::{error, info, warn};
 use warp::http::StatusCode;
 
 pub enum TrackingNumber {
@@ -119,22 +120,23 @@ pub async fn handle_track_updated_webhook(
     http: Arc<Http>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if body.event != "track_updated" {
-        println!("non track_updated event: {}", body.event);
+        warn!(event = body.event, "non track_updated event");
         return Ok(());
     }
-    if body.data.tracking_status.is_none() {
-        println!("missing tracking_status");
-        return Ok(());
-    }
-    let tracking = body.data.tracking_status.unwrap();
+    let tracking = match body.data.tracking_status {
+        Some(t) => t,
+        None => {
+            warn!("missing tracking_status");
+            return Ok(());
+        }
+    };
     if tracking.status == Status::Delivered {
         let row = sqlx::query!("UPDATE shipment SET status = 'delivered' WHERE carrier = $1::shipment_carrier AND tracking_number = $2 AND status <> 'delivered' RETURNING author_id, channel_id, comment", body.carrier.clone().or_else(|| body.data.carrier.clone()) as _, body.data.tracking_number as _).fetch_optional(&db).await?;
         if let Some(row) = row {
-            let carrier = &body
-                .carrier
-                .or(body.data.carrier)
-                .or_else(|| Some(String::new()))
-                .unwrap();
+            let carrier = match body.carrier.or(body.data.carrier) {
+                Some(c) => c,
+                None => return Err("missing carrier".into()),
+            };
             let comment = if let Some(c) = row.comment {
                 format!(" ({}) ", c)
             } else {
@@ -143,7 +145,10 @@ pub async fn handle_track_updated_webhook(
             #[allow(clippy::cast_sign_loss)]
             http.send_message(row.channel_id as u64, &json!({"content": format!("<@{}>: Your {} shipment {}{}was marked as delivered at {} with the following message: {}", row.author_id, carrier, &body.data.tracking_number, comment, tracking.status_date, tracking.status_details)})).await?;
         } else {
-            println!("shipment not found {}", body.data.tracking_number);
+            warn!(
+                tracking_number = body.data.tracking_number,
+                "shipment not found"
+            );
         }
     }
     Ok(())
@@ -154,9 +159,9 @@ pub async fn handle_post(
     db: Pool<Postgres>,
     http: Arc<Http>,
 ) -> Result<impl warp::Reply, Infallible> {
-    println!("shippo webhook: {:?}", body);
+    info!(?body, "shippo webhook");
     if let Err(e) = handle_track_updated_webhook(body, db, http).await {
-        eprintln!("shippo webbook error: {}", e);
+        error!(%e, "shippo webbook error");
         return Ok(StatusCode::INTERNAL_SERVER_ERROR);
     }
     Ok(StatusCode::NO_CONTENT)

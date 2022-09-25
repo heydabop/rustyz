@@ -55,6 +55,7 @@ pub async fn get_user_status(
 ) -> Option<OnlineStatus> {
     let last_presence = {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         data.get::<LastUserPresence>().unwrap().clone()
     };
     if let Some(last_presence) = last_presence.read().await.get(&user_id) {

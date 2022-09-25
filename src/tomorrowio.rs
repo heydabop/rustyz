@@ -1,6 +1,5 @@
 use crate::model::Point;
 use chrono::{DateTime, Utc};
-use reqwest::Url;
 use serde::Deserialize;
 use std::fmt;
 
@@ -78,7 +77,7 @@ pub struct Values {
 pub async fn get_current(location: &Point, api_key: &str) -> Result<Values, Error> {
     let client = reqwest::Client::new();
 
-    let resp = client.get(Url::parse(&format!("https://api.tomorrow.io/v4/timelines?location={}&fields=temperature,temperatureApparent,humidity,dewPoint,windSpeed,windDirection,windGust,uvIndex,weatherCode,epaIndex,treeIndex,grassIndex,weedIndex&timesteps=current&units=imperial&apikey={}", location, api_key)).unwrap()).send().await?;
+    let resp = client.get(&format!("https://api.tomorrow.io/v4/timelines?location={}&fields=temperature,temperatureApparent,humidity,dewPoint,windSpeed,windDirection,windGust,uvIndex,weatherCode,epaIndex,treeIndex,grassIndex,weedIndex&timesteps=current&units=imperial&apikey={}", location, api_key)).send().await?;
     let api_response = match resp.error_for_status() {
         Ok(resp) => resp.json::<ApiResponse>().await?,
         Err(e) => return Err(Error::from(e)),
@@ -105,7 +104,7 @@ pub async fn get_hourly(
 ) -> Result<Vec<Interval>, Error> {
     let client = reqwest::Client::new();
 
-    let resp = client.get(Url::parse(&format!("https://api.tomorrow.io/v4/timelines?location={}&startTime=now&endTime=nowPlus{}h&fields=temperature,humidity,dewPoint,precipitationProbability&timesteps=1h&units=imperial&apikey={}", location, hours, api_key)).unwrap()).send().await?;
+    let resp = client.get(&format!("https://api.tomorrow.io/v4/timelines?location={}&startTime=now&endTime=nowPlus{}h&fields=temperature,humidity,dewPoint,precipitationProbability&timesteps=1h&units=imperial&apikey={}", location, hours, api_key)).send().await?;
     let api_response = match resp.error_for_status() {
         Ok(resp) => resp.json::<ApiResponse>().await?,
         Err(e) => return Err(Error::from(e)),

@@ -50,15 +50,16 @@ pub async fn tarkov(ctx: &Context, interaction: &ApplicationCommandInteraction) 
 
     let api_key = {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         data.get::<TarkovMarket>().unwrap().api_key.clone()
     };
 
     let client = reqwest::Client::new();
     let items: Vec<Item> = client
-        .get(
-            Url::parse_with_params("https://tarkov-market.com/api/v1/item", &[("q", search)])
-                .unwrap(),
-        )
+        .get(Url::parse_with_params(
+            "https://tarkov-market.com/api/v1/item",
+            &[("q", search)],
+        )?)
         .header("x-api-key", api_key)
         .send()
         .await?

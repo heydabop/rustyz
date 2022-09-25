@@ -1,4 +1,4 @@
-use reqwest::{StatusCode, Url};
+use reqwest::StatusCode;
 use serde::Deserialize;
 use serenity::client::Context;
 use serenity::framework::standard::{CommandError, CommandResult};
@@ -89,32 +89,36 @@ struct Dungeon {
 // Takes in the arg `<character>-<realm>` and replies with stats from raider.io
 pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
     let mut character = if let CommandDataOptionValue::String(c) =
-        interaction.data.options[0].resolved.as_ref().unwrap()
-    {
+        match interaction.data.options[0].resolved.as_ref() {
+            Some(r) => r,
+            None => return Err("Missing required argument".into()),
+        } {
         String::from(c.trim())
     } else {
-        String::new()
+        return Err("Missing required argument".into());
     };
     let mut realm = if let CommandDataOptionValue::String(r) =
-        interaction.data.options[1].resolved.as_ref().unwrap()
-    {
+        match interaction.data.options[1].resolved.as_ref() {
+            Some(r) => r,
+            None => return Err("Missing required argument".into()),
+        } {
         r.trim().replace(' ', "-").replace('\'', "")
     } else {
-        String::new()
+        return Err("Missing required argument".into());
     };
     character.make_ascii_lowercase();
     realm.make_ascii_lowercase();
 
     let client = reqwest::Client::new();
     let dungeons = client
-        .get(Url::parse("https://raider.io/api/v1/mythic-plus/static-data?expansion_id=8").unwrap())
+        .get("https://raider.io/api/v1/mythic-plus/static-data?expansion_id=8")
         .send()
         .await?
         .json::<StaticData>()
         .await?
         .dungeons;
 
-    let profile = match client.get(Url::parse(&format!("https://raider.io/api/v1/characters/profile?region=us&realm={}&name={}&fields=raid_progression%2Cmythic_plus_scores_by_season%3Acurrent%2Cmythic_plus_best_runs%3Aall%2Cmythic_plus_highest_level_runs%2Cmythic_plus_recent_runs", realm, character)).unwrap()).send().await?.error_for_status() {
+    let profile = match client.get(&format!("https://raider.io/api/v1/characters/profile?region=us&realm={}&name={}&fields=raid_progression%2Cmythic_plus_scores_by_season%3Acurrent%2Cmythic_plus_best_runs%3Aall%2Cmythic_plus_highest_level_runs%2Cmythic_plus_recent_runs", realm, character)).send().await?.error_for_status() {
         Ok(resp) => if let Ok(profile) = resp.json::<CharacterProfile>().await {
             profile
         } else {

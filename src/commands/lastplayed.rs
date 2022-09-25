@@ -35,6 +35,7 @@ pub async fn lastplayed(
 
     let last_presence = {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         data.get::<LastUserPresence>().unwrap().clone()
     };
 
@@ -55,32 +56,36 @@ pub async fn lastplayed(
     #[allow(clippy::cast_possible_wrap)]
     let db = {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         data.get::<DB>().unwrap().clone()
     };
-    let row = sqlx::query(r#"SELECT create_date, game_name FROM user_presence WHERE user_id = $1 AND status <> 'offline' AND status <> 'invisible' AND game_name IS NOT NULL ORDER BY create_date DESC LIMIT 1"#).bind(i64::from(user.id)).fetch_optional(&db).await?;
-    if row.is_none() {
-        interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content(format!("I've never seen {} play anything", user.name))
-            })
-            .await?;
-        return Ok(());
-    }
-    let row = row.unwrap();
+    let row = match sqlx::query(r#"SELECT create_date, game_name FROM user_presence WHERE user_id = $1 AND status <> 'offline' AND status <> 'invisible' AND game_name IS NOT NULL ORDER BY create_date DESC LIMIT 1"#).bind(i64::from(user.id)).fetch_optional(&db).await? {
+        Some(r) => r,
+        None => {
+            interaction
+                .edit_original_interaction_response(&ctx.http, |response| {
+                    response.content(format!("I've never seen {} play anything", user.name))
+                })
+                .await?;
+            return Ok(());
+        }
+    };
     let start = row.get::<DateTime<FixedOffset>, _>(0);
     let game_name = row.get::<String, _>(1);
     // get row without game_name inserted after the game row to determine when user stopped playing
-    let end_row = sqlx::query(r#"SELECT create_date FROM user_presence WHERE user_id = $1 AND game_name IS NULL AND create_date > $2 ORDER BY create_date ASC LIMIT 1"#).bind(i64::from(user.id)).bind(start).fetch_optional(&db).await?;
+    let end_row = match sqlx::query(r#"SELECT create_date FROM user_presence WHERE user_id = $1 AND game_name IS NULL AND create_date > $2 ORDER BY create_date ASC LIMIT 1"#).bind(i64::from(user.id)).bind(start).fetch_optional(&db).await? {
+        Some(er) => er,
+        None => {
+            interaction
+                .edit_original_interaction_response(&ctx.http, |response| {
+                    response.content(format!("{} is currently playing {}", user.name, game_name))
+                })
+                .await?;
+            return Ok(());
+        }
+    };
     drop(db);
-    if end_row.is_none() {
-        interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content(format!("{} is currently playing {}", user.name, game_name))
-            })
-            .await?;
-        return Ok(());
-    }
-    let stopped_playing = end_row.unwrap().get::<DateTime<FixedOffset>, _>(0);
+    let stopped_playing = end_row.get::<DateTime<FixedOffset>, _>(0);
 
     let now = Local::now().with_timezone(Local::now().offset());
     let since = now.signed_duration_since(stopped_playing);

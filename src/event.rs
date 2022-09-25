@@ -15,6 +15,7 @@ use serenity::model::{
     user::User,
 };
 use std::collections::HashSet;
+use tracing::{error, info, warn};
 
 pub struct Handler {
     twitch_regex: regex::Regex,
@@ -22,6 +23,7 @@ pub struct Handler {
 
 impl Handler {
     fn new() -> Self {
+        #[allow(clippy::unwrap_used)]
         Self {
             twitch_regex: regex::RegexBuilder::new(r#"https?://(www\.)?twitch.tv/(\w+)"#)
                 .case_insensitive(true)
@@ -40,7 +42,7 @@ impl Default for Handler {
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
-        println!("Bot {} is successfully connected.", ready.user.name);
+        info!("Bot {} is successfully connected.", ready.user.name);
 
         #[allow(clippy::unreadable_literal)]
         let g = GuildId(184428741450006528);
@@ -70,14 +72,13 @@ impl EventHandler for Handler {
             })
             .await
         {
-            Ok(guild_commands) => println!(
-                "guild commands set: {:?}",
-                guild_commands
+            Ok(guild_commands) => info!(guild_commands = ?guild_commands
                     .iter()
                     .map(|g| &g.name)
-                    .collect::<Vec<&String>>()
+                    .collect::<Vec<&String>>(),
+                "guild commands set",
             ),
-            Err(e) => eprintln!("error setting guild commands: {}", e),
+            Err(e) => error!(%e, "error setting guild commands"),
         }
 
         match Command::set_global_application_commands(&ctx.http, |commands| {
@@ -298,8 +299,8 @@ impl EventHandler for Handler {
                 })
         })
         .await {
-            Ok(commands) => println!("commands set: {:?}", commands.iter().map(|g| &g.name).collect::<Vec<&String>>()),
-            Err(e) => eprintln!("error setting commands: {}", e),
+            Ok(commands) => info!(commands = ?commands.iter().map(|g| &g.name).collect::<Vec<&String>>(), "commands set"),
+            Err(e) => error!(%e, "error setting commands"),
         }
     }
 
@@ -315,7 +316,7 @@ impl EventHandler for Handler {
                 })
                 .await
             {
-                eprintln!("Unable to defer response to interaction: {}", e);
+                error!(%e, "Unable to defer response to interaction");
                 return;
             }
             if let Err(e) = match command.data.name.as_str() {
@@ -345,26 +346,26 @@ impl EventHandler for Handler {
                 "whois" => commands::whois::whois(&ctx, &command).await,
                 "zalgo" => commands::zalgo::zalgo(&ctx, &command).await,
                 _ => {
-                    eprintln!("Missing command for {}", command.data.name);
+                    error!(command = command.data.name, "Missing command");
                     if let Err(e) = command
                         .edit_original_interaction_response(&ctx.http, |response| {
                             response.content("\u{26A0} `Unknown command`")
                         })
                         .await
                     {
-                        eprintln!("Unable to respond to interaction: {}", e);
+                        error!(%e, "Unable to respond to interaction");
                     }
                     Ok(())
                 }
             } {
-                eprintln!("Error running command {}: {}", command.data.name, e);
-                if let Err(e) = command
+                error!(%e, command = command.data.name, "Error running command");
+                if let Err(resp_e) = command
                     .edit_original_interaction_response(&ctx.http, |response| {
                         response.content(format!("\u{26A0} `Error: {}`", e))
                     })
                     .await
                 {
-                    eprintln!("Unable to respond to interaction: {}", e);
+                    error!(e = %resp_e, "Unable to respond to interaction");
                 }
             }
         }
@@ -386,6 +387,7 @@ impl EventHandler for Handler {
         // Check to see if we can still see this user in other guilds, if not mark them as offline in DB
         let guild_lists = {
             let data = ctx.data.read().await;
+            #[allow(clippy::unwrap_used)]
             data.get::<model::UserGuildList>().unwrap().clone()
         };
         let is_empty = {
@@ -401,6 +403,7 @@ impl EventHandler for Handler {
         };
         if is_empty {
             let data = ctx.data.read().await;
+            #[allow(clippy::unwrap_used)]
             let db = data.get::<model::DB>().unwrap();
             #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
                 r#"INSERT INTO user_presence (user_id, status) VALUES ($1, 'offline'::online_status)"#,
@@ -409,7 +412,7 @@ impl EventHandler for Handler {
                 .execute(db)
                 .await
             {
-                eprintln!("Error saving user_presence: {}", e);
+                error!(%e, "Error saving user_presence");
             }
         }
     }
@@ -421,7 +424,7 @@ impl EventHandler for Handler {
                 let (access_token, client_id) = match twitch::get_access_token(&ctx).await {
                     Ok(a) => a,
                     Err(e) => {
-                        eprintln!("error getting twitch auth: {}", e);
+                        error!(%e, "error getting twitch auth");
                         return;
                     }
                 };
@@ -441,11 +444,11 @@ impl EventHandler for Handler {
                                 })
                                 .await
                             {
-                                eprintln!("error sending twitch message: {}", e);
+                                error!(%e, "error sending twitch message");
                             }
                         }
                     }
-                    Err(e) => eprintln!("error getting twitch stream info: {}", e),
+                    Err(e) => error!(%e, "error getting twitch stream info"),
                 }
             }
         }
@@ -462,7 +465,7 @@ async fn handle_presence(ctx: &Context, guild_id: Option<GuildId>, presence: Pre
                 if let Ok(user) = ctx.http.get_user(user_id.0).await {
                     user.bot
                 } else {
-                    println!("Unable to determine if user {} is bot", user_id);
+                    warn!(user_id = user_id.0, "Unable to determine if user is bot");
                     false
                 }
             }
@@ -488,16 +491,14 @@ async fn handle_presence(ctx: &Context, guild_id: Option<GuildId>, presence: Pre
     });
 
     if guild_id.is_none() {
-        println!(
-            "Presence without guild: {} {:?} {:?}",
-            user_id, presence.status, game_name
-        );
+        warn!(user_id = user_id.0, status = ?presence.status, ?game_name, "Presence without guild");
     }
 
     // Check if we've already recorded that user is in this guild
     if let Some(guild_id) = guild_id {
         let guild_lists = {
             let data = ctx.data.read().await;
+            #[allow(clippy::unwrap_used)]
             data.get::<model::UserGuildList>().unwrap().clone()
         };
         let in_guild_list = {
@@ -523,6 +524,7 @@ async fn handle_presence(ctx: &Context, guild_id: Option<GuildId>, presence: Pre
     // Do nothing if presence's status and game name haven't changed since the last update we saw
     let last_presence_map = {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         if let Some(last_presence) = data
             .get::<model::LastUserPresence>()
             .unwrap()
@@ -536,6 +538,7 @@ async fn handle_presence(ctx: &Context, guild_id: Option<GuildId>, presence: Pre
             }
         }
 
+        #[allow(clippy::unwrap_used)]
         let db = data.get::<model::DB>().unwrap();
         #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
             r#"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)"#,
@@ -546,10 +549,11 @@ async fn handle_presence(ctx: &Context, guild_id: Option<GuildId>, presence: Pre
             .execute(db)
             .await
         {
-            println!("Error saving user_presence: {}", e);
+            error!(%e, "Error saving user_presence");
             return;
         }
 
+        #[allow(clippy::unwrap_used)]
         data.get::<model::LastUserPresence>().unwrap().clone()
     };
     let mut last_presence_map = last_presence_map.write().await;

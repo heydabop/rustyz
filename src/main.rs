@@ -1,11 +1,3 @@
-#![deny(clippy::all)]
-#![warn(clippy::pedantic)]
-#![allow(
-    clippy::too_many_lines,
-    clippy::module_name_repetitions,
-    clippy::enum_glob_use
-)]
-
 mod commands;
 mod config;
 mod event;
@@ -26,27 +18,52 @@ use sqlx::{Pool, Postgres};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::task::JoinSet;
+use tracing::{error, info};
 use warp::{http::StatusCode, Filter};
 
 #[tokio::main]
 async fn main() {
-    let cfg: config::Main =
-        toml::from_str(&std::fs::read_to_string("config.toml").expect("Error loading config.toml"))
-            .expect("Error parsing config.toml");
+    tracing_subscriber::fmt::init();
 
-    let old_pool = PgPoolOptions::new()
+    let cfg: config::Main = match std::fs::read_to_string("config.toml") {
+        Ok(s) => match toml::from_str(&s) {
+            Ok(t) => t,
+            Err(e) => {
+                error!(%e, "Error parsing config.toml");
+                return;
+            }
+        },
+        Err(e) => {
+            error!(%e, "Error loading config.toml");
+            return;
+        }
+    };
+
+    let old_pool = match PgPoolOptions::new()
         .min_connections(1)
         .max_connections(4)
         .connect(cfg.psql.old_url.as_str())
         .await
-        .expect("Error connecting to old PSQL database");
+    {
+        Ok(p) => p,
+        Err(e) => {
+            error!(%e, "Error connecting to old PSQL database");
+            return;
+        }
+    };
 
-    let pool = PgPoolOptions::new()
+    let pool = match PgPoolOptions::new()
         .min_connections(1)
         .max_connections(4)
         .connect(cfg.psql.url.as_str())
         .await
-        .expect("Error connecting to PSQL database");
+    {
+        Ok(p) => p,
+        Err(e) => {
+            error!(%e, "Error connecting to PSQL database");
+            return;
+        }
+    };
     let shippo_pool = pool.clone();
 
     let framework = StandardFramework::new();
@@ -56,7 +73,7 @@ async fn main() {
         | GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
-    let mut client = Client::builder(cfg.discord.bot_token, intents)
+    let mut client = match Client::builder(cfg.discord.bot_token, intents)
         .application_id(cfg.discord.application_id)
         .type_map_insert::<model::OldDB>(old_pool)
         .type_map_insert::<model::DB>(pool)
@@ -73,16 +90,22 @@ async fn main() {
         .event_handler(event::Handler::default())
         .framework(framework)
         .await
-        .expect("Error creating Discord client");
+    {
+        Ok(c) => c,
+        Err(e) => {
+            error!(%e, "Error creating Discord client");
+            return;
+        }
+    };
 
-    println!("Starting...");
+    info!("Starting...");
 
     let mut set = JoinSet::new();
     let shippo_http = client.cache_and_http.clone().http.clone();
 
     set.spawn(async move {
         let addr: std::net::SocketAddr = ([127, 0, 0, 1], 8125).into();
-        println!("HTTP listening on {:?}", addr);
+        info!("HTTP listening on {:?}", addr);
         let health = warp::path("health")
             .map(warp::reply)
             .map(|reply| warp::reply::with_status(reply, StatusCode::NO_CONTENT));
@@ -97,15 +120,15 @@ async fn main() {
 
     set.spawn(async move {
         if let Err(e) = client.start().await {
-            eprintln!("Error running Discord client: {:?}", e);
+            error!(%e, "Error running Discord client");
         }
     });
 
     if let Some(Err(e)) = set.join_next().await {
-        eprintln!("Error joining task: {:?}", e);
+        error!(%e, "Error joining task");
     }
 
-    println!("Exiting");
+    info!("Exiting");
 }
 
 fn with_db(

@@ -27,38 +27,40 @@ pub struct AuthResponse {
 pub async fn get_access_token(ctx: &Context) -> Result<(String, String), Error> {
     let mut config = {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         data.get::<config::Twitch>().unwrap().clone()
     };
     let client_id = config.client_id.clone();
-    if config.auth.is_none() || config.auth.as_ref().unwrap().expires_at < SystemTime::now() {
-        let client = Client::new();
-        let resp = client
-            .post("https://id.twitch.tv/oauth2/token")
-            .form(&[
-                ("client_id", &config.client_id),
-                ("client_secret", &config.client_secret),
-                ("grant_type", &"client_credentials".to_owned()),
-            ])
-            .send()
-            .await?;
-        let auth = match resp.error_for_status() {
-            Ok(resp) => resp.json::<AuthResponse>().await?,
-            Err(e) => return Err(e),
-        };
-        let mut data = ctx.data.write().await;
-        config.auth = Some(config::TwitchAuth {
-            access_token: auth.access_token.clone(),
-            expires_at: SystemTime::now()
-                + Duration::from_secs(if auth.expires_in > 60 {
-                    auth.expires_in - 60
-                } else {
-                    auth.expires_in
-                }),
-        });
-        data.insert::<config::Twitch>(config);
-        Ok((auth.access_token, client_id))
-    } else {
-        Ok((config.auth.unwrap().access_token, client_id))
+    match config.auth {
+        Some(a) => Ok((a.access_token, client_id)),
+        None => {
+            let client = Client::new();
+            let resp = client
+                .post("https://id.twitch.tv/oauth2/token")
+                .form(&[
+                    ("client_id", &config.client_id),
+                    ("client_secret", &config.client_secret),
+                    ("grant_type", &"client_credentials".to_owned()),
+                ])
+                .send()
+                .await?;
+            let auth = match resp.error_for_status() {
+                Ok(resp) => resp.json::<AuthResponse>().await?,
+                Err(e) => return Err(e),
+            };
+            let mut data = ctx.data.write().await;
+            config.auth = Some(config::TwitchAuth {
+                access_token: auth.access_token.clone(),
+                expires_at: SystemTime::now()
+                    + Duration::from_secs(if auth.expires_in > 60 {
+                        auth.expires_in - 60
+                    } else {
+                        auth.expires_in
+                    }),
+            });
+            data.insert::<config::Twitch>(config);
+            Ok((auth.access_token, client_id))
+        }
     }
 }
 

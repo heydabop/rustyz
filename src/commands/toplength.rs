@@ -41,6 +41,7 @@ pub async fn toplength(
 
     let rows = {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         let db = data.get::<OldDB>().unwrap();
         sqlx::query(
             r#"
@@ -58,7 +59,10 @@ AND content NOT LIKE '/%'"#,
     let mut words_per_user: HashMap<u64, usize> = HashMap::new();
 
     for row in &rows {
-        let user_id = row.get::<Decimal, _>(0).to_u64().unwrap();
+        let user_id = match row.get::<Decimal, _>(0).to_u64() {
+            Some(u) => u,
+            None => return Err("unable to convert user id from db".into()),
+        };
         let message = row.get::<String, _>(1);
         let num_words = message.split(' ').count();
         if let Some(messages) = messages_per_user.get_mut(&user_id) {
@@ -75,11 +79,17 @@ AND content NOT LIKE '/%'"#,
 
     let mut avg_per_user: Vec<(String, f64)> = vec![];
     for (user_id, messages) in &messages_per_user {
-        let words = words_per_user.get(user_id).unwrap();
+        let words = match words_per_user.get(user_id) {
+            Some(w) => w,
+            None => return Err("missing wordcount for user".into()),
+        };
         let username = util::get_username_userid(&ctx.http, &members, UserId(*user_id)).await;
         #[allow(clippy::cast_precision_loss)]
-        avg_per_user.push((username, *words as f64 / *messages as f64));
+        if *messages != 0 {
+            avg_per_user.push((username, *words as f64 / *messages as f64));
+        }
     }
+    #[allow(clippy::unwrap_used)]
     avg_per_user.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
     avg_per_user.truncate(limit as usize);
 

@@ -1,4 +1,3 @@
-use reqwest::Url;
 use serde::Deserialize;
 use serenity::client::Context;
 use serenity::framework::standard::CommandResult;
@@ -21,9 +20,7 @@ struct Affix {
 pub async fn affixes(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
     let client = reqwest::Client::new();
     let affixes = client
-        .get(
-            Url::parse("https://raider.io/api/v1/mythic-plus/affixes?region=us&locale=en").unwrap(),
-        )
+        .get("https://raider.io/api/v1/mythic-plus/affixes?region=us&locale=en")
         .send()
         .await?
         .json::<Affixes>()

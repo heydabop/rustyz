@@ -1,6 +1,5 @@
 use crate::model::Point;
 use chrono_tz::Tz;
-use reqwest::Url;
 use serde::Deserialize;
 use std::fmt;
 use std::str::FromStr;
@@ -67,13 +66,10 @@ pub async fn geocode(address: &str, api_key: &str) -> Result<(Point, Option<Stri
     let client = reqwest::Client::new();
 
     let resp = client
-        .get(
-            Url::parse(&format!(
-                "https://maps.googleapis.com/maps/api/geocode/json?&address={}&key={}",
-                address, api_key
-            ))
-            .unwrap(),
-        )
+        .get(&format!(
+            "https://maps.googleapis.com/maps/api/geocode/json?&address={}&key={}",
+            address, api_key
+        ))
         .send()
         .await?;
     let geo = match resp.error_for_status() {
@@ -102,13 +98,10 @@ pub async fn timezone(location: &Point, timestamp: i64, api_key: &str) -> Result
     let client = reqwest::Client::new();
 
     let resp = client
-        .get(
-            Url::parse(&format!(
-                "https://maps.googleapis.com/maps/api/timezone/json?location={}&timestamp={}&key={}",
-                location, timestamp, api_key
-            ))
-            .unwrap(),
-        )
+        .get(&format!(
+            "https://maps.googleapis.com/maps/api/timezone/json?location={}&timestamp={}&key={}",
+            location, timestamp, api_key
+        ))
         .send()
         .await?;
     let json = match resp.error_for_status() {
