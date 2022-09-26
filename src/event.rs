@@ -309,6 +309,13 @@ impl EventHandler for Handler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        #[allow(dead_code)]
+        #[derive(Debug)]
+        struct LogOption<'a> {
+            name: &'a str,
+            value: &'a Option<serenity::json::Value>,
+        }
+
         if let Interaction::ApplicationCommand(command) = interaction {
             if let Err(e) = command
                 .create_interaction_response(&ctx.http, |response| {
@@ -319,6 +326,7 @@ impl EventHandler for Handler {
                 error!(%e, "Unable to defer response to interaction");
                 return;
             }
+            info!(name = command.data.name, options = ?command.data.options.iter().map(|o| LogOption{name: &o.name, value: &o.value}).collect::<Vec<_>>(), "command called");
             if let Err(e) = match command.data.name.as_str() {
                 "affixes" => commands::affixes::affixes(&ctx, &command).await,
                 "birdtime" => commands::time::time(&ctx, &command, "Europe/Oslo").await,
