@@ -268,6 +268,15 @@ impl EventHandler for Handler {
                         })
                 })
                 .create_application_command(|c| {
+                    c.name("userinfo").description("Displays details about a user")
+                        .create_option(|o| {
+                            o.name("user")
+                                .description("User to display")
+                                .kind(CommandOptionType::User)
+                                .required(true)
+                        })
+                })
+                .create_application_command(|c| {
                     c.name("weather")
                         .description("Sends weather conditions for an area")
                         .create_option(|o| {
@@ -350,6 +359,7 @@ impl EventHandler for Handler {
                 "topcommand" => commands::topcommand::topcommand(&ctx, &command).await,
                 "toplength" => commands::toplength::toplength(&ctx, &command).await,
                 "track" => commands::shipping::track(&ctx, &command).await,
+                "userinfo" => commands::userinfo::userinfo(&ctx, &command).await,
                 "weather" => commands::weather::weather(&ctx, &command).await,
                 "whois" => commands::whois::whois(&ctx, &command).await,
                 "zalgo" => commands::zalgo::zalgo(&ctx, &command).await,

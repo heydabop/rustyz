@@ -14,6 +14,7 @@ pub mod time;
 pub mod top;
 pub mod topcommand;
 pub mod toplength;
+pub mod userinfo;
 pub mod weather;
 pub mod whois;
 pub mod zalgo;
