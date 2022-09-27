@@ -26,7 +26,6 @@ pub struct Handler {
 
 impl Handler {
     fn new() -> Self {
-        #[allow(clippy::unwrap_used)]
         Self {
             twitch_regex: regex::RegexBuilder::new(r#"https?://(www\.)?twitch.tv/(\w+)"#)
                 .case_insensitive(true)
