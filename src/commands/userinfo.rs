@@ -39,6 +39,8 @@ pub async fn userinfo(ctx: &Context, interaction: &ApplicationCommandInteraction
     };
 
     let member = ctx.http.get_member(guild_id.0, user.id.0).await?;
+    // fully populate user
+    let user = ctx.http.get_user(user.id.0).await?;
     let yes = "\u{2705}";
     let no = "\u{274C}";
 
@@ -81,11 +83,13 @@ pub async fn userinfo(ctx: &Context, interaction: &ApplicationCommandInteraction
                 if member.nick.is_some() {
                     e.description(user.tag());
                 }
-                if let Some(banner) = &user.banner {
+                if let Some(banner) = user.banner_url() {
                     e.image(banner);
                 }
                 if let Some(color) = user.accent_colour {
                     e.color(color);
+                } else if let Some(member_color) = member.colour(&ctx.cache) {
+                    e.color(member_color);
                 }
                 e
             })
