@@ -3,8 +3,11 @@ use crate::model;
 use crate::twitch;
 
 use num_format::{Locale, ToFormattedString};
+use serde::Serialize;
+use serde_json::json;
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
+use serenity::json::Value;
 use serenity::model::{
     application::command::{Command, CommandOptionType},
     application::interaction::{Interaction, InteractionResponseType},
@@ -319,10 +322,10 @@ impl EventHandler for Handler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         #[allow(dead_code)]
-        #[derive(Debug)]
+        #[derive(Debug, Serialize)]
         struct LogOption<'a> {
             name: &'a str,
-            value: &'a Option<serenity::json::Value>,
+            value: &'a Option<Value>,
         }
 
         if let Interaction::ApplicationCommand(command) = interaction {
@@ -335,7 +338,40 @@ impl EventHandler for Handler {
                 error!(%e, "Unable to defer response to interaction");
                 return;
             }
-            info!(name = command.data.name, options = ?command.data.options.iter().map(|o| LogOption{name: &o.name, value: &o.value}).collect::<Vec<_>>(), "command called");
+            let log_options: Vec<LogOption> = command
+                .data
+                .options
+                .iter()
+                .map(|o| LogOption {
+                    name: &o.name,
+                    value: &o.value,
+                })
+                .collect();
+            info!(name = command.data.name, options = ?log_options, "command called");
+            {
+                let data = ctx.data.read().await;
+                #[allow(clippy::unwrap_used)]
+                let db = data.get::<model::DB>().unwrap();
+                if let Err(e) = sqlx::query!(
+                    r#"
+INSERT INTO command(author_id, channel_id, guild_id, name, options)
+VALUES ($1, $2, $3, $4, $5)"#,
+                    command.user.id.0 as i64,
+                    command.channel_id.0 as i64,
+                    if let Some(guild_id) = command.guild_id {
+                        Some(guild_id.0 as i64)
+                    } else {
+                        None
+                    },
+                    command.data.name,
+                    json!(log_options)
+                )
+                .execute(db)
+                .await
+                {
+                    error!(%e, "error inserting command log into db");
+                }
+            }
             if let Err(e) = match command.data.name.as_str() {
                 "affixes" => commands::affixes::affixes(&ctx, &command).await,
                 "birdtime" => commands::time::time(&ctx, &command, "Europe/Oslo").await,

@@ -73,6 +73,41 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: command; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.command (
+    id integer NOT NULL,
+    create_date timestamp with time zone DEFAULT now() NOT NULL,
+    author_id bigint NOT NULL,
+    channel_id bigint NOT NULL,
+    guild_id bigint,
+    name character varying(32) NOT NULL,
+    options jsonb
+);
+
+
+--
+-- Name: command_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.command_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: command_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.command_id_seq OWNED BY public.command.id;
+
+
+--
 -- Name: playtime_button; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -178,6 +213,13 @@ ALTER SEQUENCE public.user_presence_id_seq OWNED BY public.user_presence.id;
 
 
 --
+-- Name: command id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.command ALTER COLUMN id SET DEFAULT nextval('public.command_id_seq'::regclass);
+
+
+--
 -- Name: playtime_button id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -196,6 +238,14 @@ ALTER TABLE ONLY public.shipment ALTER COLUMN id SET DEFAULT nextval('public.shi
 --
 
 ALTER TABLE ONLY public.user_presence ALTER COLUMN id SET DEFAULT nextval('public.user_presence_id_seq'::regclass);
+
+
+--
+-- Name: command command_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.command
+    ADD CONSTRAINT command_pkey PRIMARY KEY (id);
 
 
 --
@@ -227,6 +277,20 @@ ALTER TABLE ONLY public.user_presence
 --
 
 CREATE TRIGGER shipment_row_update_date BEFORE UPDATE ON public.shipment FOR EACH ROW EXECUTE FUNCTION public.row_update_date();
+
+
+--
+-- Name: TABLE command; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT ON TABLE public.command TO rustyz;
+
+
+--
+-- Name: SEQUENCE command_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT USAGE ON SEQUENCE public.command_id_seq TO rustyz;
 
 
 --
@@ -274,4 +338,3 @@ GRANT USAGE ON SEQUENCE public.user_presence_id_seq TO rustyz;
 --
 -- PostgreSQL database dump complete
 --
-

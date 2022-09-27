@@ -112,13 +112,16 @@ AND user_id = $2"#,
             r.embed(|e| {
                 e.title(member.nick.as_ref().unwrap_or(&user.tag()))
                     .thumbnail(member.face())
+                    .timestamp(serenity::model::timestamp::Timestamp::now())
                     .field("Bot?", if user.bot { yes } else { no }, true)
                     .field(
                         "Boosting Server?",
                         if let Some(since) = member.premium_since {
-                            NaiveDateTime::from_timestamp(since.unix_timestamp(), 0)
-                                .format("%b %e, %Y")
-                                .to_string()
+                            format!(
+                                "Since {}",
+                                NaiveDateTime::from_timestamp(since.unix_timestamp(), 0)
+                                    .format("%b %e, %Y")
+                            )
                         } else {
                             no.to_string()
                         },

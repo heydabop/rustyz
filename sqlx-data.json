@@ -1,5 +1,21 @@
 {
   "db": "PostgreSQL",
+  "77dba4936ccf9b17054b6e917681c530b7c90e699f96e93c484a8599c577e2f0": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8",
+          "Int8",
+          "Varchar",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO command(author_id, channel_id, guild_id, name, options)\nVALUES ($1, $2, $3, $4, $5)"
+  },
   "9af291637d159dde9e85f8bcb08876aab421cf6a7d97852d9f52aed7ffa5e7ea": {
     "describe": {
       "columns": [
