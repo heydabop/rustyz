@@ -352,6 +352,7 @@ impl EventHandler for Handler {
                 let data = ctx.data.read().await;
                 #[allow(clippy::unwrap_used)]
                 let db = data.get::<model::DB>().unwrap();
+                #[allow(clippy::panic, clippy::cast_possible_wrap)]
                 if let Err(e) = sqlx::query!(
                     r#"
 INSERT INTO command(author_id, channel_id, guild_id, name, options)

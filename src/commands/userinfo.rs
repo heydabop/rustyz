@@ -47,6 +47,7 @@ pub async fn userinfo(ctx: &Context, interaction: &ApplicationCommandInteraction
     let yes = "\u{2705}";
     let no = "\u{274C}";
 
+    #[allow(clippy::cast_possible_wrap)]
     let guild_channel_ids: Vec<i64> = guild_id
         .channels(&ctx.http)
         .await?
@@ -61,6 +62,7 @@ pub async fn userinfo(ctx: &Context, interaction: &ApplicationCommandInteraction
         db.clone()
     };
     let guild_messages: i64 = {
+        #[allow(clippy::cast_possible_wrap)]
         let row = sqlx::query(
             r#"
 SELECT count(id)
@@ -75,6 +77,7 @@ AND author_id = $2"#,
         row.get(0)
     };
     let channel_messages: i64 = {
+        #[allow(clippy::cast_possible_wrap)]
         let row = sqlx::query(
             r#"
 SELECT count(id)
