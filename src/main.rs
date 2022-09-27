@@ -51,7 +51,8 @@ async fn main() {
         old_options.disable_statement_logging();
 
         match PgPoolOptions::new()
-            .min_connections(1).max_connections(4)
+            .min_connections(1)
+            .max_connections(4)
             .connect_with(old_options)
             .await
         {
