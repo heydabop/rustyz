@@ -108,6 +108,40 @@ ALTER SEQUENCE public.command_id_seq OWNED BY public.command.id;
 
 
 --
+-- Name: message; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.message (
+    id bigint NOT NULL,
+    create_date timestamp with time zone DEFAULT now() NOT NULL,
+    discord_id numeric NOT NULL,
+    author_id bigint NOT NULL,
+    channel_id bigint NOT NULL,
+    guild_id bigint,
+    content text
+);
+
+
+--
+-- Name: message_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.message_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: message_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.message_id_seq OWNED BY public.message.id;
+
+
+--
 -- Name: playtime_button; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -220,6 +254,13 @@ ALTER TABLE ONLY public.command ALTER COLUMN id SET DEFAULT nextval('public.comm
 
 
 --
+-- Name: message id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.message ALTER COLUMN id SET DEFAULT nextval('public.message_id_seq'::regclass);
+
+
+--
 -- Name: playtime_button id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -246,6 +287,14 @@ ALTER TABLE ONLY public.user_presence ALTER COLUMN id SET DEFAULT nextval('publi
 
 ALTER TABLE ONLY public.command
     ADD CONSTRAINT command_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: message message_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.message
+    ADD CONSTRAINT message_pkey PRIMARY KEY (id);
 
 
 --
@@ -291,6 +340,20 @@ GRANT SELECT,INSERT ON TABLE public.command TO rustyz;
 --
 
 GRANT USAGE ON SEQUENCE public.command_id_seq TO rustyz;
+
+
+--
+-- Name: TABLE message; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.message TO rustyz;
+
+
+--
+-- Name: SEQUENCE message_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT USAGE ON SEQUENCE public.message_id_seq TO rustyz;
 
 
 --

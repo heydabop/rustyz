@@ -12,11 +12,13 @@ use serenity::model::{
     application::command::{Command, CommandOptionType},
     application::interaction::{Interaction, InteractionResponseType},
     channel::Message,
+    event::MessageUpdateEvent,
     gateway::{ActivityType, Presence, Ready},
     guild::{Guild, Member},
-    id::GuildId,
+    id::{ChannelId, GuildId, MessageId},
     user::User,
 };
+use sqlx::types::Decimal;
 use std::collections::HashSet;
 use tracing::{error, info, warn};
 
@@ -473,6 +475,29 @@ VALUES ($1, $2, $3, $4, $5)"#,
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
+        {
+            let db = {
+                let data = ctx.data.read().await;
+                #[allow(clippy::unwrap_used)]
+                data.get::<model::DB>().unwrap().clone()
+            };
+            #[allow(clippy::panic, clippy::cast_possible_wrap)]
+            if let Err(e) = sqlx::query!(
+                r#"
+INSERT INTO message(discord_id, author_id, channel_id, guild_id, content)
+VALUES ($1, $2, $3, $4, $5)"#,
+                Decimal::from(msg.id.0),
+                msg.author.id.0 as i64,
+                msg.channel_id.0 as i64,
+                msg.guild_id.map(|id| id.0 as i64),
+                msg.content
+            )
+            .execute(&db)
+            .await
+            {
+                error!(%e, "error inserting message into db");
+            }
+        }
         if let Some(caps) = self.twitch_regex.captures(&msg.content) {
             if let Some(channel_match) = caps.get(2) {
                 let channel_name = channel_match.as_str();
@@ -506,6 +531,91 @@ VALUES ($1, $2, $3, $4, $5)"#,
                     Err(e) => error!(%e, "error getting twitch stream info"),
                 }
             }
+        }
+    }
+
+    async fn message_delete(
+        &self,
+        ctx: Context,
+        channel_id: ChannelId,
+        message_id: MessageId,
+        _guild_id: Option<GuildId>,
+    ) {
+        let db = {
+            let data = ctx.data.read().await;
+            #[allow(clippy::unwrap_used)]
+            data.get::<model::DB>().unwrap().clone()
+        };
+        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        if let Err(e) = sqlx::query!(
+            r#"DELETE FROM message WHERE channel_id = $1 AND discord_id = $2"#,
+            channel_id.0 as i64,
+            Decimal::from(message_id.0)
+        )
+        .execute(&db)
+        .await
+        {
+            error!(%e, "error deleting message from db");
+        }
+    }
+
+    async fn message_delete_bulk(
+        &self,
+        ctx: Context,
+        channel_id: ChannelId,
+        message_ids: Vec<MessageId>,
+        _guild_id: Option<GuildId>,
+    ) {
+        let db = {
+            let data = ctx.data.read().await;
+            #[allow(clippy::unwrap_used)]
+            data.get::<model::DB>().unwrap().clone()
+        };
+        let decimal_message_ids: Vec<Decimal> = message_ids
+            .into_iter()
+            .map(|m| Decimal::from(m.0))
+            .collect();
+        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        if let Err(e) = sqlx::query!(
+            r#"DELETE FROM message WHERE channel_id = $1 AND discord_id = ANY($2)"#,
+            channel_id.0 as i64,
+            &decimal_message_ids
+        )
+        .execute(&db)
+        .await
+        {
+            error!(%e, "error bulk deleting messages from db");
+        }
+    }
+
+    async fn message_update(
+        &self,
+        ctx: Context,
+        _old: Option<Message>,
+        _new: Option<Message>,
+        update: MessageUpdateEvent,
+    ) {
+        let content: String = if let Some(c) = update.content {
+            c
+        } else {
+            return;
+        };
+        let db = {
+            let data = ctx.data.read().await;
+            #[allow(clippy::unwrap_used)]
+            data.get::<model::DB>().unwrap().clone()
+        };
+        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        if let Err(e) = sqlx::query!(
+            r#"UPDATE message SET content = $1 WHERE channel_id = $2 AND discord_id = $3"#,
+            content,
+            update.channel_id.0 as i64,
+            Decimal::from(update.id.0)
+        )
+        .execute(&db)
+        .await
+        {
+            error!(%e, "error editing message in db");
         }
     }
 }

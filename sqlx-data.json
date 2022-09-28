@@ -16,6 +16,19 @@
     },
     "query": "\nINSERT INTO command(author_id, channel_id, guild_id, name, options)\nVALUES ($1, $2, $3, $4, $5)"
   },
+  "8eec58bf5092b87ad664d4e4b7d52c060a0fb7f64cb6519ce81fe4fa83c1191b": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "NumericArray"
+        ]
+      }
+    },
+    "query": "DELETE FROM message WHERE channel_id = $1 AND discord_id = ANY($2)"
+  },
   "9af291637d159dde9e85f8bcb08876aab421cf6a7d97852d9f52aed7ffa5e7ea": {
     "describe": {
       "columns": [
@@ -60,6 +73,36 @@
     },
     "query": "UPDATE shipment SET status = 'delivered' WHERE carrier = $1::shipment_carrier AND tracking_number = $2 AND status <> 'delivered' RETURNING author_id, channel_id, comment"
   },
+  "e1b154b2af2ad3174acfb6e2d80af240b5bf4f708379aa0866690783a75d7643": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Numeric",
+          "Int8",
+          "Int8",
+          "Int8",
+          "Text"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO message(discord_id, author_id, channel_id, guild_id, content)\nVALUES ($1, $2, $3, $4, $5)"
+  },
+  "e9bf428324b1e1903f753a6e919fcd357f7a820b474e1d247a6fd9a540089957": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int8",
+          "Numeric"
+        ]
+      }
+    },
+    "query": "UPDATE message SET content = $1 WHERE channel_id = $2 AND discord_id = $3"
+  },
   "edda879da40c69fec7063cac9a7b6b2d722f86582cf301e26fc22c92435256a4": {
     "describe": {
       "columns": [],
@@ -101,5 +144,18 @@
       }
     },
     "query": "INSERT INTO shipment(carrier, tracking_number, author_id, channel_id, status, comment) VALUES ($1::shipment_carrier, $2, $3, $4, $5::shipment_tracking_status, $6) ON CONFLICT ON CONSTRAINT shipment_uk_carrier_number DO NOTHING"
+  },
+  "f2f4abb74b3e80b3ef94a362a8f53bc3b04d2191d24ee1dfe31e096fc1c360ff": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Numeric"
+        ]
+      }
+    },
+    "query": "DELETE FROM message WHERE channel_id = $1 AND discord_id = $2"
   }
 }
