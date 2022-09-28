@@ -87,7 +87,6 @@ async fn main() {
             }
         }
     };
-    let shippo_pool = pool.clone();
 
     let framework = StandardFramework::new();
     let intents = GatewayIntents::GUILDS
@@ -99,7 +98,7 @@ async fn main() {
     let mut client = match Client::builder(cfg.discord.bot_token, intents)
         .application_id(cfg.discord.application_id)
         .type_map_insert::<model::OldDB>(old_pool)
-        .type_map_insert::<model::DB>(pool)
+        .type_map_insert::<model::DB>(pool.clone())
         .type_map_insert::<config::Google>(cfg.google)
         .type_map_insert::<config::Shippo>(cfg.shippo)
         .type_map_insert::<config::TarkovMarket>(cfg.tarkov_market)
@@ -110,7 +109,7 @@ async fn main() {
         .type_map_insert::<model::LastUserPresence>(Arc::new(RwLock::new(HashMap::new())))
         .type_map_insert::<model::UserGuildList>(Arc::new(RwLock::new(HashMap::new())))
         .type_map_insert::<model::LastCommandMessages>(Arc::new(RwLock::new(HashMap::new())))
-        .event_handler(event::Handler::default())
+        .event_handler(event::Handler::new(pool.clone()))
         .framework(framework)
         .await
     {
@@ -134,7 +133,7 @@ async fn main() {
         let shippo_tracking = warp::post()
             .and(warp::path!("shippo" / "tracking"))
             .and(warp::body::json())
-            .and(with_db(shippo_pool))
+            .and(with_db(pool))
             .and(with_http(shippo_http))
             .and_then(shippo::handle_post);
         warp::serve(health.or(shippo_tracking)).run(addr).await;

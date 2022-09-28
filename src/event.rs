@@ -19,28 +19,25 @@ use serenity::model::{
     user::User,
 };
 use sqlx::types::Decimal;
+use sqlx::{Pool, Postgres};
 use std::collections::HashSet;
 use tracing::{error, info, warn};
 
 pub struct Handler {
+    db: Pool<Postgres>,
     twitch_regex: regex::Regex,
 }
 
 impl Handler {
-    fn new() -> Self {
+    pub fn new(db: Pool<Postgres>) -> Self {
         #[allow(clippy::unwrap_used)]
         Self {
+            db,
             twitch_regex: regex::RegexBuilder::new(r#"https?://(www\.)?twitch.tv/(\w+)"#)
                 .case_insensitive(true)
                 .build()
                 .unwrap(),
         }
-    }
-}
-
-impl Default for Handler {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -319,7 +316,7 @@ impl EventHandler for Handler {
     }
 
     async fn presence_update(&self, ctx: Context, update: Presence) {
-        handle_presence(&ctx, update.guild_id, update).await;
+        handle_presence(&ctx, &self.db, update.guild_id, update).await;
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
@@ -350,30 +347,25 @@ impl EventHandler for Handler {
                 })
                 .collect();
             info!(name = command.data.name, options = ?log_options, "command called");
-            {
-                let data = ctx.data.read().await;
-                #[allow(clippy::unwrap_used)]
-                let db = data.get::<model::DB>().unwrap();
-                #[allow(clippy::panic, clippy::cast_possible_wrap)]
-                if let Err(e) = sqlx::query!(
-                    r#"
+            #[allow(clippy::panic, clippy::cast_possible_wrap)]
+            if let Err(e) = sqlx::query!(
+                r#"
 INSERT INTO command(author_id, channel_id, guild_id, name, options)
 VALUES ($1, $2, $3, $4, $5)"#,
-                    command.user.id.0 as i64,
-                    command.channel_id.0 as i64,
-                    if let Some(guild_id) = command.guild_id {
-                        Some(guild_id.0 as i64)
-                    } else {
-                        None
-                    },
-                    command.data.name,
-                    json!(log_options)
-                )
-                .execute(db)
-                .await
-                {
-                    error!(%e, "error inserting command log into db");
-                }
+                command.user.id.0 as i64,
+                command.channel_id.0 as i64,
+                if let Some(guild_id) = command.guild_id {
+                    Some(guild_id.0 as i64)
+                } else {
+                    None
+                },
+                command.data.name,
+                json!(log_options)
+            )
+            .execute(&self.db)
+            .await
+            {
+                error!(%e, "error inserting command log into db");
             }
             if let Err(e) = match command.data.name.as_str() {
                 "affixes" => commands::affixes::affixes(&ctx, &command).await,
@@ -430,7 +422,7 @@ VALUES ($1, $2, $3, $4, $5)"#,
 
     async fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
         for (_, presence) in guild.presences {
-            handle_presence(&ctx, Some(guild.id), presence).await;
+            handle_presence(&ctx, &self.db, Some(guild.id), presence).await;
         }
     }
 
@@ -459,14 +451,11 @@ VALUES ($1, $2, $3, $4, $5)"#,
             }
         };
         if is_empty {
-            let data = ctx.data.read().await;
-            #[allow(clippy::unwrap_used)]
-            let db = data.get::<model::DB>().unwrap();
             #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
                 r#"INSERT INTO user_presence (user_id, status) VALUES ($1, 'offline'::online_status)"#,
             )
             .bind(user.id.0 as i64)
-                .execute(db)
+                .execute(&self.db)
                 .await
             {
                 error!(%e, "Error saving user_presence");
@@ -476,11 +465,6 @@ VALUES ($1, $2, $3, $4, $5)"#,
 
     async fn message(&self, ctx: Context, msg: Message) {
         {
-            let db = {
-                let data = ctx.data.read().await;
-                #[allow(clippy::unwrap_used)]
-                data.get::<model::DB>().unwrap().clone()
-            };
             #[allow(clippy::panic, clippy::cast_possible_wrap)]
             if let Err(e) = sqlx::query!(
                 r#"
@@ -492,7 +476,7 @@ VALUES ($1, $2, $3, $4, $5)"#,
                 msg.guild_id.map(|id| id.0 as i64),
                 msg.content
             )
-            .execute(&db)
+            .execute(&self.db)
             .await
             {
                 error!(%e, "error inserting message into db");
@@ -536,23 +520,18 @@ VALUES ($1, $2, $3, $4, $5)"#,
 
     async fn message_delete(
         &self,
-        ctx: Context,
+        _ctx: Context,
         channel_id: ChannelId,
         message_id: MessageId,
         _guild_id: Option<GuildId>,
     ) {
-        let db = {
-            let data = ctx.data.read().await;
-            #[allow(clippy::unwrap_used)]
-            data.get::<model::DB>().unwrap().clone()
-        };
         #[allow(clippy::panic, clippy::cast_possible_wrap)]
         if let Err(e) = sqlx::query!(
             r#"DELETE FROM message WHERE channel_id = $1 AND discord_id = $2"#,
             channel_id.0 as i64,
             Decimal::from(message_id.0)
         )
-        .execute(&db)
+        .execute(&self.db)
         .await
         {
             error!(%e, "error deleting message from db");
@@ -561,16 +540,11 @@ VALUES ($1, $2, $3, $4, $5)"#,
 
     async fn message_delete_bulk(
         &self,
-        ctx: Context,
+        _ctx: Context,
         channel_id: ChannelId,
         message_ids: Vec<MessageId>,
         _guild_id: Option<GuildId>,
     ) {
-        let db = {
-            let data = ctx.data.read().await;
-            #[allow(clippy::unwrap_used)]
-            data.get::<model::DB>().unwrap().clone()
-        };
         let decimal_message_ids: Vec<Decimal> = message_ids
             .into_iter()
             .map(|m| Decimal::from(m.0))
@@ -581,7 +555,7 @@ VALUES ($1, $2, $3, $4, $5)"#,
             channel_id.0 as i64,
             &decimal_message_ids
         )
-        .execute(&db)
+        .execute(&self.db)
         .await
         {
             error!(%e, "error bulk deleting messages from db");
@@ -590,7 +564,7 @@ VALUES ($1, $2, $3, $4, $5)"#,
 
     async fn message_update(
         &self,
-        ctx: Context,
+        _ctx: Context,
         _old: Option<Message>,
         _new: Option<Message>,
         update: MessageUpdateEvent,
@@ -600,11 +574,6 @@ VALUES ($1, $2, $3, $4, $5)"#,
         } else {
             return;
         };
-        let db = {
-            let data = ctx.data.read().await;
-            #[allow(clippy::unwrap_used)]
-            data.get::<model::DB>().unwrap().clone()
-        };
         #[allow(clippy::panic, clippy::cast_possible_wrap)]
         if let Err(e) = sqlx::query!(
             r#"UPDATE message SET content = $1 WHERE channel_id = $2 AND discord_id = $3"#,
@@ -612,7 +581,7 @@ VALUES ($1, $2, $3, $4, $5)"#,
             update.channel_id.0 as i64,
             Decimal::from(update.id.0)
         )
-        .execute(&db)
+        .execute(&self.db)
         .await
         {
             error!(%e, "error editing message in db");
@@ -620,7 +589,12 @@ VALUES ($1, $2, $3, $4, $5)"#,
     }
 }
 
-async fn handle_presence(ctx: &Context, guild_id: Option<GuildId>, presence: Presence) {
+async fn handle_presence(
+    ctx: &Context,
+    db: &Pool<Postgres>,
+    guild_id: Option<GuildId>,
+    presence: Presence,
+) {
     let user_id = presence.user.id;
     if match presence.user.bot {
         Some(bot) => bot,
@@ -703,8 +677,6 @@ async fn handle_presence(ctx: &Context, guild_id: Option<GuildId>, presence: Pre
             }
         }
 
-        #[allow(clippy::unwrap_used)]
-        let db = data.get::<model::DB>().unwrap();
         #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
             r#"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)"#,
         )
