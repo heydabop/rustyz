@@ -1,6 +1,6 @@
+use crate::error::CommandResult;
 use serde::Deserialize;
 use serenity::client::Context;
-use serenity::framework::standard::CommandResult;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 
 #[derive(Debug, Deserialize)]

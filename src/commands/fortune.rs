@@ -1,5 +1,5 @@
+use crate::error::CommandResult;
 use serenity::client::Context;
-use serenity::framework::standard::CommandResult;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use std::process::Command;
 use std::str;

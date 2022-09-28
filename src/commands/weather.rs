@@ -1,10 +1,14 @@
-use crate::{config, google, model::Point, tomorrowio};
+use crate::{
+    config,
+    error::{CommandError, CommandResult},
+    google,
+    model::Point,
+    tomorrowio,
+};
 use serenity::client::Context;
-use serenity::framework::standard::{CommandError, CommandResult};
 use serenity::model::application::interaction::application_command::{
     ApplicationCommandInteraction, CommandDataOptionValue,
 };
-use std::error::Error;
 use std::fmt::Write as _;
 
 // Replies to msg with the weather for either the bot's location or the supplied location
@@ -44,7 +48,7 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
     };
     let conditions = match tomorrowio::get_current(&location, &api_key).await {
         Ok(c) => c,
-        Err(e) => return Err(CommandError::from(e)),
+        Err(e) => return Err(e.into()),
     };
 
     let aqi_health = match conditions.epa_index {
@@ -207,7 +211,7 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
     };
     let forecast = match tomorrowio::get_hourly(&location, &api_key, hours).await {
         Ok(c) => c,
-        Err(e) => return Err(CommandError::from(e)),
+        Err(e) => return Err(e.into()),
     };
 
     let timezone = {
@@ -218,7 +222,7 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
         };
         match google::timezone(&location, forecast[0].start_time.timestamp(), &maps_api_key).await {
             Ok(tz) => tz,
-            Err(e) => return Err(CommandError::from(e)),
+            Err(e) => return Err(e.into()),
         }
     };
 
@@ -256,10 +260,7 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
     Ok(())
 }
 
-async fn parse_location(
-    ctx: &Context,
-    args: &str,
-) -> Result<(Point, String), Box<dyn Error + Send + Sync>> {
+async fn parse_location(ctx: &Context, args: &str) -> Result<(Point, String), CommandError> {
     let point_regex = regex::Regex::new(r#"^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$"#)?;
 
     if let Some(captures) = point_regex.captures(args) {
@@ -267,11 +268,11 @@ async fn parse_location(
         let lng = captures.get(2).map_or("", |m| m.as_str());
         let lat = match lat.parse::<f64>() {
             Ok(l) => l,
-            Err(e) => return Err(Box::new(e)),
+            Err(e) => return Err(e.into()),
         };
         let lng = match lng.parse::<f64>() {
             Ok(l) => l,
-            Err(e) => return Err(Box::new(e)),
+            Err(e) => return Err(e.into()),
         };
         let location = Point { lat, lng };
         let location_name = format!("{}, {}", lat, lng);
@@ -288,7 +289,7 @@ async fn parse_location(
                 let location_name = n.unwrap_or_else(|| args.to_owned()).to_ascii_lowercase();
                 Ok((location, location_name))
             }
-            Err(e) => Err(Box::new(e)),
+            Err(e) => Err(e.into()),
         }
     } else {
         let tomorrow_io_config = {

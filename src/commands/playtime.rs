@@ -1,9 +1,9 @@
+use crate::error::{CommandError, CommandResult};
 use crate::model::DB;
 use crate::util;
 use chrono::{prelude::*, Duration};
 use regex::{Match, Regex};
 use serenity::client::Context;
-use serenity::framework::standard::CommandResult;
 use serenity::model::application::interaction::application_command::{
     ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
 };
@@ -174,7 +174,7 @@ async fn user_ids_and_name_from_option(
     ctx: &Context,
     guild_id: GuildId,
     option: Option<&CommandDataOption>,
-) -> CommandResult<Option<(Vec<i64>, Option<String>)>> {
+) -> Result<Option<(Vec<i64>, Option<String>)>, CommandError> {
     let mut username: Option<String> = None;
     #[allow(clippy::cast_possible_wrap)]
     let user_ids: Vec<i64> = if option.is_none() {
@@ -221,7 +221,7 @@ pub async fn gen_playtime_message(
     start_date: Option<DateTime<FixedOffset>>,
     end_date: DateTime<FixedOffset>,
     offset: usize,
-) -> CommandResult<String> {
+) -> Result<String, CommandError> {
     // get all rows with a user id in the channel
     let rows = {
         let data = ctx.data.read().await;
@@ -372,7 +372,7 @@ async fn send_message_with_buttons(
     user_ids: &[i64],
     username: &Option<String>,
     start_date: Option<DateTime<FixedOffset>>,
-) -> CommandResult<()> {
+) -> CommandResult {
     let now = Local::now();
     let now = now.with_timezone(now.offset());
     let content = gen_playtime_message(ctx, user_ids, username, start_date, now, 0).await?;

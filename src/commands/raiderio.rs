@@ -1,7 +1,7 @@
+use crate::error::CommandResult;
 use reqwest::StatusCode;
 use serde::Deserialize;
 use serenity::client::Context;
-use serenity::framework::standard::{CommandError, CommandResult};
 use serenity::model::application::interaction::application_command::{
     ApplicationCommandInteraction, CommandDataOptionValue,
 };
@@ -139,7 +139,7 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
                     .await?;
                 return Ok(());
             }
-            return Err(CommandError::from(e));
+            return Err(e.into());
         }
     };
 

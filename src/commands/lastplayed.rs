@@ -1,7 +1,7 @@
+use crate::error::CommandResult;
 use crate::model::{LastUserPresence, DB};
 use chrono::prelude::*;
 use serenity::client::Context;
-use serenity::framework::standard::CommandResult;
 use serenity::model::application::interaction::application_command::{
     ApplicationCommandInteraction, CommandDataOptionValue,
 };

@@ -1,7 +1,7 @@
+use crate::error::CommandResult;
 use chrono::prelude::*;
 use chrono_tz::{ParseError, Tz};
 use serenity::client::Context;
-use serenity::framework::standard::CommandResult;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 
 pub async fn time(

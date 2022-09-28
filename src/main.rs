@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod error;
 mod event;
 mod google;
 mod model;
@@ -9,7 +10,6 @@ mod twitch;
 mod util;
 
 use serenity::client::Client;
-use serenity::framework::standard::StandardFramework;
 use serenity::http::client::Http;
 use serenity::model::gateway::GatewayIntents;
 use serenity::prelude::*;
@@ -88,7 +88,6 @@ async fn main() {
         }
     };
 
-    let framework = StandardFramework::new();
     let intents = GatewayIntents::GUILDS
         | GatewayIntents::GUILD_MEMBERS
         | GatewayIntents::GUILD_PRESENCES
@@ -110,7 +109,6 @@ async fn main() {
         .type_map_insert::<model::UserGuildList>(Arc::new(RwLock::new(HashMap::new())))
         .type_map_insert::<model::LastCommandMessages>(Arc::new(RwLock::new(HashMap::new())))
         .event_handler(event::Handler::new(pool.clone()))
-        .framework(framework)
         .await
     {
         Ok(c) => c,

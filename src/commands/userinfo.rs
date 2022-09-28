@@ -1,8 +1,8 @@
+use crate::error::CommandResult;
 use crate::model::OldDB;
 use chrono::naive::NaiveDateTime;
 use num_format::{Locale, ToFormattedString};
 use serenity::client::Context;
-use serenity::framework::standard::CommandResult;
 use serenity::model::application::interaction::application_command::{
     ApplicationCommandInteraction, CommandDataOptionValue,
 };

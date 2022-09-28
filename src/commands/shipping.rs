@@ -1,8 +1,8 @@
+use crate::error::CommandResult;
 use crate::model::DB;
 use crate::shippo::{Status, TrackingNumber::*};
 use crate::{config, shippo};
 use serenity::client::Context;
-use serenity::framework::standard::{CommandError, CommandResult};
 use serenity::model::application::interaction::application_command::{
     ApplicationCommandInteraction, CommandDataOptionValue,
 };
@@ -35,12 +35,7 @@ pub async fn track(ctx: &Context, interaction: &ApplicationCommandInteraction) -
         "fedex" => FedEx(number.to_string()),
         "ups" => Ups(number.to_string()),
         "usps" => Usps(number.to_string()),
-        &_ => {
-            return Err(CommandError::from(format!(
-                "Unrecognized carrier: {}",
-                carrier
-            )))
-        }
+        &_ => return Err(format!("Unrecognized carrier: {}", carrier).into()),
     };
 
     let shippo_api_key = {

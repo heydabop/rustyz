@@ -1,7 +1,7 @@
+use crate::error::CommandResult;
 use crate::model::OldDB;
 use crate::util;
 use serenity::client::Context;
-use serenity::framework::standard::CommandResult;
 use serenity::model::application::interaction::application_command::{
     ApplicationCommandInteraction, CommandDataOptionValue,
 };

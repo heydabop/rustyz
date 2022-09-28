@@ -1,6 +1,6 @@
+use crate::error::CommandError;
 use crate::model::LastUserPresence;
 use serenity::client::Context;
-use serenity::framework::standard::CommandResult;
 use serenity::http::client::Http;
 use serenity::model::{
     guild::Member,
@@ -18,7 +18,7 @@ use std::sync::Arc;
 pub async fn collect_members_guild_id(
     ctx: &Context,
     guild_id: GuildId,
-) -> CommandResult<HashMap<UserId, Member>> {
+) -> Result<HashMap<UserId, Member>, CommandError> {
     let members_by_id: HashMap<UserId, Member> = match ctx.cache.guild(guild_id) {
         Some(g) => g.members,
         None => {
