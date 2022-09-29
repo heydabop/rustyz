@@ -1,18 +1,19 @@
-use crate::{
-    config,
-    util::{record_say, record_sent_message},
-};
+use crate::config;
+use crate::error::CommandResult;
 use chrono::{DateTime, Local, TimeZone, Utc};
-use image::{imageops, codecs::png::PngEncoder, ColorType, ImageFormat};
-use reqwest::{StatusCode, Url};
+use image::{codecs::png::PngEncoder, imageops, ColorType, ImageEncoder, ImageFormat};
+use reqwest::StatusCode;
 use serde::Deserialize;
 use serenity::client::Context;
-use serenity::framework::standard::{macros::command, Args, CommandError, CommandResult};
-use serenity::model::channel::{AttachmentType, Message};
-use serenity::utils::{Colour, MessageBuilder};
+use serenity::model::application::interaction::application_command::{
+    ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
+};
+use serenity::model::channel::AttachmentType;
+use serenity::utils::Colour;
 use std::borrow::Cow;
 use std::fmt;
 use std::time::{Duration, SystemTime};
+use tracing::{error, warn};
 
 const CLASS_COLOURS: [Colour; 12] = [
     Colour::from_rgb(199, 156, 110),
@@ -240,20 +241,27 @@ struct Search {
 async fn get_access_token(ctx: &Context) -> Result<String, reqwest::Error> {
     let mut wow_config = {
         let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
         data.get::<config::Wow>().unwrap().clone()
     };
-    if wow_config.auth.is_none() || wow_config.auth.as_ref().unwrap().expires_at < SystemTime::now()
-    {
-        // Fetch new access token if we currently have no auth info or auth has expired
+    // If we already have auth and it hasn't expired yet
+    if let Some(auth) = wow_config.auth.and_then(|a| {
+        if a.expires_at > SystemTime::now() {
+            Some(a)
+        } else {
+            None
+        }
+    }) {
+        // Return existing saved token
+        Ok(auth.access_token)
+    } else {
+        // Otherwise, fetch new access token since we currently have no auth info or auth has expired
         let new_auth = auth(&wow_config.client_id, &wow_config.client_secret).await?;
         let access_token = new_auth.access_token.clone();
         let mut data = ctx.data.write().await;
         wow_config.auth = Some(new_auth);
         data.insert::<config::Wow>(wow_config);
         Ok(access_token)
-    } else {
-        // Otherwise return existing saved token
-        Ok(wow_config.auth.unwrap().access_token)
     }
 }
 
@@ -265,7 +273,7 @@ async fn get_character(
     let client = reqwest::Client::new();
 
     // Get character last login time (and check if they exist)
-    let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token)).unwrap())
+    let resp = client.get(format!("https://us.api.blizzard.com/profile/wow/character/{}/{}?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token))
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => Ok(resp.json::<Character>().await?),
@@ -282,6 +290,7 @@ async fn get_character_media(
 ) -> Result<CharacterMedia, reqwest::Error> {
     let client = reqwest::Client::new();
 
+    #[allow(clippy::unwrap_used)]
     let alt_avatar = if race_id.is_some() && gender_type.is_some() {
         format!(
             "&alt=/shadow/avatar/{}-{}.jpg",
@@ -293,7 +302,7 @@ async fn get_character_media(
     };
 
     // Get JSON info of character's appearance and last modified time of images
-    let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/character-media?namespace=profile-us&locale=en_US&access_token={}{}", realm_name, character_name, access_token, alt_avatar)).unwrap())
+    let resp = client.get(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/character-media?namespace=profile-us&locale=en_US&access_token={}{}", realm_name, character_name, access_token, alt_avatar))
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => {
@@ -304,7 +313,7 @@ async fn get_character_media(
                         if let Ok(last_modified) = DateTime::parse_from_rfc2822(val) {
                             Some(last_modified.with_timezone(&Local))
                         } else {
-                            println!("Unable to parse last-modified: {}", val);
+                            warn!(last_modified = val, "Unable to parse last-modified");
                             None
                         }
                     }
@@ -327,7 +336,7 @@ async fn get_character_statistics(
 ) -> Result<CharacterStats, reqwest::Error> {
     let client = reqwest::Client::new();
 
-    let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/statistics?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token)).unwrap())
+    let resp = client.get(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/statistics?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token))
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => Ok(resp.json::<CharacterStats>().await?),
@@ -342,7 +351,7 @@ async fn get_character_titles(
 ) -> Result<CharacterTitles, reqwest::Error> {
     let client = reqwest::Client::new();
 
-    let resp = client.get(Url::parse(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/titles?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token)).unwrap())
+    let resp = client.get(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/titles?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token))
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => Ok(resp.json::<CharacterTitles>().await?),
@@ -371,28 +380,40 @@ async fn auth(client_id: &str, client_secret: &str) -> Result<config::WowAuth, r
     })
 }
 
-// Takes in the arg `<character>-<realm>` and replies with an image from WoW's armory
 // Tries to get transparency png image and crop it, otherwise returns "deafult" jpg image with background
-#[command]
-#[aliases("drip")]
-pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    // Parse out character and realm names from single string arg `<character>-<realm>`
-    let mut arg = args.rest().to_string();
-    arg.make_ascii_lowercase();
-    let char_realm: Vec<&str> = arg.splitn(2, '-').collect();
-    if char_realm.len() != 2 {
-        record_say(ctx, msg, "`Usage: !wow [drip|mog] name-realm`").await?;
-        return Ok(());
+pub async fn transmog(
+    ctx: &Context,
+    interaction: &ApplicationCommandInteraction,
+    options: &Vec<CommandDataOption>,
+) -> CommandResult {
+    let mut realm = String::new();
+    let mut character = String::new();
+    for o in options {
+        match &o.name[..] {
+            "realm" => {
+                if let Some(CommandDataOptionValue::String(r)) = o.resolved.as_ref() {
+                    realm = r
+                        .trim()
+                        .to_ascii_lowercase()
+                        .replace(' ', "-")
+                        .replace('\'', "");
+                }
+            }
+            "character" => {
+                if let Some(CommandDataOptionValue::String(c)) = o.resolved.as_ref() {
+                    character = c.trim().to_ascii_lowercase();
+                }
+            }
+            _ => {}
+        }
     }
-    let character = char_realm[0].trim();
-    let realm = char_realm[1].trim().replace(' ', "-").replace('\'', "");
 
     let access_token = get_access_token(ctx).await?;
 
     let date_format = "%a, %b %-d %Y at %-I:%M%P";
 
     // Get character last login time (and check if they exist)
-    let last_login: String = match get_character(&realm, character, &access_token).await {
+    let last_login: String = match get_character(&realm, &character, &access_token).await {
         Ok(c) => format!(
             "Player last seen on {}",
             c.last_login_local().format(date_format)
@@ -401,31 +422,32 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             if e.status() == Some(StatusCode::NOT_FOUND)
                 || e.status() == Some(StatusCode::FORBIDDEN) =>
         {
-            record_say(
-                ctx,
-                msg,
-                format!("Unable to find {} on {}", character, realm),
-            )
-            .await?;
+            interaction
+                .edit_original_interaction_response(&ctx.http, |response| {
+                    response.content(format!("Unable to find {} on {}", character, realm))
+                })
+                .await?;
             return Ok(());
         }
-        Err(e) => return Err(CommandError::from(e)),
+        Err(e) => return Err(e.into()),
     };
 
     // Get JSON info of character's appearance
     let media: CharacterMedia =
-        match get_character_media(&realm, character, &access_token, None, None).await {
+        match get_character_media(&realm, &character, &access_token, None, None).await {
             Ok(m) => m,
             Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
-                record_say(
-                    ctx,
-                    msg,
-                    format!("Unable to find images for {} on {}", character, realm),
-                )
-                .await?;
+                interaction
+                    .edit_original_interaction_response(&ctx.http, |response| {
+                        response.content(format!(
+                            "Unable to find images for {} on {}",
+                            character, realm
+                        ))
+                    })
+                    .await?;
                 return Ok(());
             }
-            Err(e) => return Err(CommandError::from(e)),
+            Err(e) => return Err(e.into()),
         };
     let last_modified: Option<String> = media
         .last_modified
@@ -453,23 +475,25 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     if image_url.is_none() {
         image_url = media.render_url;
     }
-    if image_url.is_none() {
-        return Err(CommandError::from("Unable to find character imagery"));
-    }
+    let image_url = if let Some(url) = image_url {
+        url
+    } else {
+        return Err("Unable to find character imagery".into());
+    };
     // If we didn't find a transparent-background PNG image, just send the URL for whatever image we do have (discord will convert it)
     if !found_raw {
-        record_say(ctx, msg, msg_content).await?;
-        record_say(ctx, msg, image_url.unwrap()).await?;
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content(format!("{}\n{}", msg_content, image_url))
+            })
+            .await?;
         return Ok(());
     }
 
     // Otherwise, fetch, decode, crop, and attach PNG image
 
     // Fetch and decode image, assume it's a PNG
-    let image_bytes = reqwest::get(Url::parse(&image_url.unwrap()).unwrap())
-        .await?
-        .bytes()
-        .await?;
+    let image_bytes = reqwest::get(&image_url).await?.bytes().await?;
     let mut image =
         image::load_from_memory_with_format(&image_bytes, ImageFormat::Png)?.into_rgba8();
     let (width, height) = image.dimensions();
@@ -527,7 +551,7 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let cropped_image =
         imageops::crop(&mut image, left, top, right - left, bottom - top).to_image();
     let mut cropped_buffer = Vec::new();
-    PngEncoder::new(&mut cropped_buffer).encode(
+    PngEncoder::new(&mut cropped_buffer).write_image(
         &cropped_image,
         right - left,
         bottom - top,
@@ -535,61 +559,75 @@ pub async fn mog(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     )?;
 
     // Send message with attached cropped image
-    let sent_message_id = msg
+    interaction
+        .edit_original_interaction_response(&ctx.http, |response| response.content(msg_content))
+        .await?;
+    interaction
         .channel_id
         .send_message(&ctx.http, |m| {
             m.add_file(AttachmentType::Bytes {
                 data: Cow::from(cropped_buffer),
-                filename: format!("{}.png", arg),
-            });
-            m.content(msg_content);
-            m
+                filename: format!("{}-{}.png", realm, character),
+            })
         })
-        .await?
-        .id;
-    record_sent_message(ctx, msg, sent_message_id).await;
+        .await?;
 
     Ok(())
 }
 
-// Takes in the arg `<character>-<realm>` and replies with an embed containing WoW character info
-#[command]
-#[aliases("char")]
-pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    // Parse out character and realm names from single string arg `<character>-<realm>`
-    let mut arg = args.rest().to_string();
-    arg.make_ascii_lowercase();
-    let char_realm: Vec<&str> = arg.splitn(2, '-').collect();
-    if char_realm.len() != 2 {
-        record_say(ctx, msg, "`Usage: !wow char name-realm`").await?;
-        return Ok(());
+// Replies with an embed containing WoW character info
+pub async fn character(
+    ctx: &Context,
+    interaction: &ApplicationCommandInteraction,
+    options: &Vec<CommandDataOption>,
+) -> CommandResult {
+    let mut realm_name = String::new();
+    let mut character_name = String::new();
+    for o in options {
+        match &o.name[..] {
+            "realm" => {
+                if let Some(CommandDataOptionValue::String(r)) = o.resolved.as_ref() {
+                    realm_name = r
+                        .trim()
+                        .to_ascii_lowercase()
+                        .replace(' ', "-")
+                        .replace('\'', "");
+                }
+            }
+            "character" => {
+                if let Some(CommandDataOptionValue::String(c)) = o.resolved.as_ref() {
+                    character_name = c.trim().to_ascii_lowercase();
+                }
+            }
+            _ => {}
+        }
     }
-    let character_name = char_realm[0].trim();
-    let realm_name = char_realm[1].trim().replace(' ', "-").replace('\'', "");
 
     let access_token = get_access_token(ctx).await?;
 
-    let character: Character = match get_character(&realm_name, character_name, &access_token).await
-    {
-        Ok(c) => c,
-        Err(e)
-            if e.status() == Some(StatusCode::NOT_FOUND)
-                || e.status() == Some(StatusCode::FORBIDDEN) =>
-        {
-            record_say(
-                ctx,
-                msg,
-                format!("Unable to find {} on {}", character_name, realm_name),
-            )
-            .await?;
-            return Ok(());
-        }
-        Err(e) => return Err(CommandError::from(e)),
-    };
+    let character: Character =
+        match get_character(&realm_name, &character_name, &access_token).await {
+            Ok(c) => c,
+            Err(e)
+                if e.status() == Some(StatusCode::NOT_FOUND)
+                    || e.status() == Some(StatusCode::FORBIDDEN) =>
+            {
+                interaction
+                    .edit_original_interaction_response(&ctx.http, |response| {
+                        response.content(format!(
+                            "Unable to find {} on {}",
+                            character_name, realm_name
+                        ))
+                    })
+                    .await?;
+                return Ok(());
+            }
+            Err(e) => return Err(e.into()),
+        };
 
     let inset_url: Option<String> = match get_character_media(
         &realm_name,
-        character_name,
+        &character_name,
         &access_token,
         Some(character.race.id),
         Some(&character.gender.t),
@@ -603,7 +641,7 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
                         if let Ok(t) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
                             t.as_secs()
                         } else {
-                            println!("WARN: SystemTime before UNIX_EPOCH");
+                            warn!(time = ?SystemTime::now(), "SystemTime before UNIX_EPOCH");
                             0
                         };
                     Some(a.value.clone() + &format!("?{}", seconds))
@@ -613,15 +651,15 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
             })
         }),
         Err(e) => {
-            println!("Error getting character media: {}", e);
+            error!(%e, "Error getting character media");
             None
         }
     };
 
     let stats: CharacterStats =
-        get_character_statistics(&realm_name, character_name, &access_token).await?;
+        get_character_statistics(&realm_name, &character_name, &access_token).await?;
     let titles: CharacterTitles =
-        get_character_titles(&realm_name, character_name, &access_token).await?;
+        get_character_titles(&realm_name, &character_name, &access_token).await?;
 
     let titled_name = titles
         .active_title
@@ -650,10 +688,9 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
         String::from("")
     };
 
-    let sent_message_id = msg
-        .channel_id
-        .send_message(&ctx.http, |m| {
-            m.embed(|e| {
+    interaction
+        .edit_original_interaction_response(&ctx.http, |response| {
+            response.embed(|e| {
                 e.title(format!("{}{}", titled_name, guild_name))
                     .timestamp(character.last_login_utc().to_rfc3339())
                     .description(format!(
@@ -698,32 +735,38 @@ pub async fn character(ctx: &Context, msg: &Message, args: Args) -> CommandResul
                     e.image(inset_url);
                 }
                 e
-            });
-            m
+            })
         })
-        .await?
-        .id;
-    record_sent_message(ctx, msg, sent_message_id).await;
+        .await?;
 
     Ok(())
 }
 
-// Takes in the arg `<character>` and replies with a list of matching character names and their realms
-#[command]
-pub async fn search(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let mut name = args.rest().to_string();
-    name.make_ascii_lowercase();
+// Replies with a list of matching character names and their realms
+pub async fn search(
+    ctx: &Context,
+    interaction: &ApplicationCommandInteraction,
+    options: &[CommandDataOption],
+) -> CommandResult {
+    let character = if let Some(o) = options.get(0) {
+        if let Some(CommandDataOptionValue::String(c)) = o.resolved.as_ref() {
+            c.trim().to_ascii_lowercase()
+        } else {
+            return Err("Invalid character name argument".into());
+        }
+    } else {
+        return Err("Missing required character name argument".into());
+    };
 
     let builder = reqwest::Client::builder()
         .gzip(true)
         .brotli(true)
-        .build()
-        .unwrap()
+        .build()?
         .request(
             reqwest::Method::GET,
             &format!(
                 "https://worldofwarcraft.com/en-us/search/character?q={}",
-                name
+                character
             ),
         )
         .header("Host", "worldofwarcraft.com")
@@ -742,53 +785,74 @@ pub async fn search(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .header("Upgrade-Insecure-Requests", "1")
         .header("Pragma", "no-cache")
         .header("Cache-Control", "no-cache");
+    #[allow(clippy::unwrap_used)]
     let char_regex = regex::Regex::new(r#"href="/en-us/character/us/([\w-]+)/(\w+)""#).unwrap();
 
     let html = match builder.send().await {
         Ok(r) => match r.text().await {
             Ok(t) => t,
             Err(e) => {
-                return Err(CommandError::from(e));
+                return Err(e.into());
             }
         },
         Err(e) => {
-            return Err(CommandError::from(e));
+            return Err(e.into());
         }
     };
 
-    let mut content = MessageBuilder::new();
+    let mut content = vec![];
 
     for caps in char_regex.captures_iter(&html) {
+        #[allow(clippy::unwrap_used)]
         content.push(format!(
-            "{}-{}\n",
+            "{}-{}",
             caps.get(2).unwrap().as_str(),
             caps.get(1).unwrap().as_str()
         ));
     }
 
-    content.build();
-
-    record_say(ctx, msg, content).await?;
+    interaction
+        .edit_original_interaction_response(&ctx.http, |response| {
+            response.content(content.join("\n"))
+        })
+        .await?;
 
     Ok(())
 }
 
-#[command]
-pub async fn realm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    // Parse out character and realm names from single string arg `<character>-<realm>`
-    let mut arg = args.rest().to_string();
-    arg.make_ascii_lowercase();
-    let realm_slug = arg.trim().replace(' ', "-").replace('\'', "");
+pub async fn realm(
+    ctx: &Context,
+    interaction: &ApplicationCommandInteraction,
+    options: &[CommandDataOption],
+) -> CommandResult {
+    let arg = if let Some(o) = options.get(0) {
+        if let Some(CommandDataOptionValue::String(r)) = o.resolved.as_ref() {
+            r
+        } else {
+            return Err("Invalid realm name argument".into());
+        }
+    } else {
+        return Err("Missing required realm name argument".into());
+    };
+    let realm_slug = arg
+        .trim()
+        .to_ascii_lowercase()
+        .replace(' ', "-")
+        .replace('\'', "");
 
     let access_token = get_access_token(ctx).await?;
 
     let client = reqwest::Client::new();
 
-    let search: Search = client.get(Url::parse(&format!("https://us.api.blizzard.com/data/wow/search/connected-realm?namespace=dynamic-us&locale=en_US&realms.slug={}&orderby=id&_page=1&access_token={}", realm_slug, access_token)).unwrap())
+    let search: Search = client.get(&format!("https://us.api.blizzard.com/data/wow/search/connected-realm?namespace=dynamic-us&locale=en_US&realms.slug={}&orderby=id&_page=1&access_token={}", realm_slug, access_token))
         .send().await?.json().await?;
 
     if search.results.is_empty() || search.results[0].data.realms.is_empty() {
-        record_say(ctx, msg, format!("Unable to find {}", arg)).await?;
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content(format!("Unable to find {}", arg))
+            })
+            .await?;
         return Ok(());
     }
 
@@ -800,11 +864,15 @@ pub async fn realm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     {
         r
     } else {
-        record_say(ctx, msg, format!("Unable to find {}", arg)).await?;
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content(format!("Unable to find {}", arg))
+            })
+            .await?;
         return Ok(());
     };
 
-    let realm_name = realm.name.en_us.as_ref().or(Some(&arg)).unwrap();
+    let realm_name = realm.name.en_us.as_ref().unwrap_or(arg);
     let realm_data = &search.results[0].data;
 
     let content = if realm_data.status.t == "UP" {
@@ -817,7 +885,9 @@ pub async fn realm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         format!("{} is offline", realm_name)
     };
 
-    record_say(ctx, msg, content).await?;
+    interaction
+        .edit_original_interaction_response(&ctx.http, |response| response.content(content))
+        .await?;
 
     Ok(())
 }

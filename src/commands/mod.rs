@@ -17,4 +17,5 @@ pub mod toplength;
 pub mod userinfo;
 pub mod weather;
 pub mod whois;
+pub mod wow;
 pub mod zalgo;

@@ -10,7 +10,9 @@ use serenity::client::{Context, EventHandler};
 use serenity::json::Value;
 use serenity::model::{
     application::command::{Command, CommandOptionType},
-    application::interaction::{Interaction, InteractionResponseType},
+    application::interaction::{
+        application_command::ApplicationCommandInteraction, Interaction, InteractionResponseType,
+    },
     channel::Message,
     event::MessageUpdateEvent,
     gateway::{ActivityType, Presence, Ready},
@@ -37,6 +39,63 @@ impl Handler {
                 .case_insensitive(true)
                 .build()
                 .unwrap(),
+        }
+    }
+
+    async fn record_command(&self, command: &ApplicationCommandInteraction) {
+        #[allow(dead_code)]
+        #[derive(Debug, Serialize)]
+        struct LogOption<'a> {
+            name: &'a str,
+            value: &'a Option<Value>,
+        }
+
+        let mut command_name = command.data.name.clone();
+        let log_options: Vec<LogOption> = if let Some(option) = command.data.options.get(0) {
+            if option.kind == CommandOptionType::SubCommand {
+                command_name = format!("{} {}", command_name, option.name);
+                option
+                    .options
+                    .iter()
+                    .map(|o| LogOption {
+                        name: &o.name,
+                        value: &o.value,
+                    })
+                    .collect()
+            } else {
+                command
+                    .data
+                    .options
+                    .iter()
+                    .map(|o| LogOption {
+                        name: &o.name,
+                        value: &o.value,
+                    })
+                    .collect()
+            }
+        } else {
+            vec![]
+        };
+        info!(name = command_name, options = ?log_options, "command called");
+        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        if let Err(e) = sqlx::query!(
+            r#"
+INSERT INTO command(author_id, channel_id, guild_id, name, options)
+VALUES ($1, $2, $3, $4, $5)"#,
+            command.user.id.0 as i64,
+            command.channel_id.0 as i64,
+            if let Some(guild_id) = command.guild_id {
+                Some(guild_id.0 as i64)
+            } else {
+                None
+            },
+            command_name,
+            json!(log_options)
+        )
+        .execute(&self.db)
+        .await
+        {
+            error!(%e, "error inserting command log into db");
         }
     }
 }
@@ -299,6 +358,66 @@ impl EventHandler for Handler {
                         })
                 })
                 .create_application_command(|c| {
+                    c.name("wow")
+                        .description("World of Warcraft commands")
+                        .create_option(|o| {
+                            o.name("character")
+                                .description("WoW character details")
+                                .kind(CommandOptionType::SubCommand)
+                                .create_sub_option(|s| {
+                                    s.name("character")
+                                        .description("Character name")
+                                        .kind(CommandOptionType::String)
+                                        .required(true)
+                                })
+                                .create_sub_option(|s| {
+                                    s.name("realm")
+                                        .description("Character's realm")
+                                        .kind(CommandOptionType::String)
+                                        .required(true)
+                                })
+                        })
+                        .create_option(|o| {
+                            o.name("realm")
+                                .description("Status of WoW realm")
+                                .kind(CommandOptionType::SubCommand)
+                                .create_sub_option(|s| {
+                                    s.name("realm")
+                                        .description("Realm name")
+                                        .kind(CommandOptionType::String)
+                                        .required(true)
+                                })
+                        })
+                        .create_option(|o| {
+                            o.name("search")
+                                .description("Search all realms for WoW character by name")
+                                .kind(CommandOptionType::SubCommand)
+                                .create_sub_option(|s| {
+                                    s.name("character")
+                                        .description("Character name")
+                                        .kind(CommandOptionType::String)
+                                        .required(true)
+                                })
+                        })
+                        .create_option(|o| {
+                            o.name("transmog")
+                                .description("Image of character from WoW armory")
+                                .kind(CommandOptionType::SubCommand)
+                                .create_sub_option(|s| {
+                                    s.name("character")
+                                        .description("Character name")
+                                        .kind(CommandOptionType::String)
+                                        .required(true)
+                                })
+                                .create_sub_option(|s| {
+                                    s.name("realm")
+                                        .description("Character's realm")
+                                        .kind(CommandOptionType::String)
+                                        .required(true)
+                                })
+                        })
+                })
+                .create_application_command(|c| {
                     c.name("zalgo")
                         .description("HE COMES")
                         .create_option(|o| {
@@ -320,13 +439,6 @@ impl EventHandler for Handler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        #[allow(dead_code)]
-        #[derive(Debug, Serialize)]
-        struct LogOption<'a> {
-            name: &'a str,
-            value: &'a Option<Value>,
-        }
-
         if let Interaction::ApplicationCommand(command) = interaction {
             if let Err(e) = command
                 .create_interaction_response(&ctx.http, |response| {
@@ -337,36 +449,7 @@ impl EventHandler for Handler {
                 error!(%e, "Unable to defer response to interaction");
                 return;
             }
-            let log_options: Vec<LogOption> = command
-                .data
-                .options
-                .iter()
-                .map(|o| LogOption {
-                    name: &o.name,
-                    value: &o.value,
-                })
-                .collect();
-            info!(name = command.data.name, options = ?log_options, "command called");
-            #[allow(clippy::panic, clippy::cast_possible_wrap)]
-            if let Err(e) = sqlx::query!(
-                r#"
-INSERT INTO command(author_id, channel_id, guild_id, name, options)
-VALUES ($1, $2, $3, $4, $5)"#,
-                command.user.id.0 as i64,
-                command.channel_id.0 as i64,
-                if let Some(guild_id) = command.guild_id {
-                    Some(guild_id.0 as i64)
-                } else {
-                    None
-                },
-                command.data.name,
-                json!(log_options)
-            )
-            .execute(&self.db)
-            .await
-            {
-                error!(%e, "error inserting command log into db");
-            }
+            self.record_command(&command).await;
             if let Err(e) = match command.data.name.as_str() {
                 "affixes" => commands::affixes::affixes(&ctx, &command).await,
                 "birdtime" => commands::time::time(&ctx, &command, "Europe/Oslo").await,
@@ -394,6 +477,27 @@ VALUES ($1, $2, $3, $4, $5)"#,
                 "weather" => commands::weather::weather(&ctx, &command).await,
                 "whois" => commands::whois::whois(&ctx, &command).await,
                 "zalgo" => commands::zalgo::zalgo(&ctx, &command).await,
+                "wow" => {
+                    if let Some(subcommand) = command.data.options.get(0) {
+                        match subcommand.name.as_str() {
+                            "character" => {
+                                commands::wow::character(&ctx, &command, &subcommand.options).await
+                            }
+                            "realm" => {
+                                commands::wow::realm(&ctx, &command, &subcommand.options).await
+                            }
+                            "search" => {
+                                commands::wow::search(&ctx, &command, &subcommand.options).await
+                            }
+                            "transmog" => {
+                                commands::wow::transmog(&ctx, &command, &subcommand.options).await
+                            }
+                            _ => Err("Unrecognized wow subcommand".into()),
+                        }
+                    } else {
+                        Err("Missing wow subcommand".into())
+                    }
+                }
                 _ => {
                     error!(command = command.data.name, "Missing command");
                     if let Err(e) = command
