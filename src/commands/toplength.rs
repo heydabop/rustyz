@@ -1,7 +1,6 @@
 use crate::error::CommandResult;
 use crate::model::DB;
 use crate::util;
-use num_traits::cast::ToPrimitive;
 use serenity::client::Context;
 use serenity::model::application::interaction::application_command::{
     ApplicationCommandInteraction, CommandDataOptionValue,
@@ -21,34 +20,28 @@ pub async fn toplength(
     };
 
     let members = util::collect_members_guild_id(ctx, guild_id).await?;
-    let limit: u32 = interaction
-        .data
-        .options
-        .get(0)
-        .and_then(|o| {
-            o.resolved.as_ref().map(|r| {
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                if let CommandDataOptionValue::Integer(l) = r {
-                    *l as u32
-                } else {
-                    5
-                }
-            })
-        })
-        .unwrap_or(5);
+    let limit: u32 = if let Some(o) = interaction.data.options.get(0) {
+        if let Some(CommandDataOptionValue::Integer(l)) = o.resolved {
+            u32::try_from(l)?
+        } else {
+            5
+        }
+    } else {
+        5
+    };
 
     let rows = {
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
-        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        #[allow(clippy::panic)]
         sqlx::query!(
             r#"
 SELECT author_id, content
 FROM message
 WHERE channel_id = $1
 AND content NOT LIKE '/%'"#,
-            interaction.channel_id.0 as i64
+            i64::try_from(interaction.channel_id.0)?
         )
         .fetch_all(db)
         .await?
@@ -58,10 +51,7 @@ AND content NOT LIKE '/%'"#,
     let mut words_per_user: HashMap<u64, usize> = HashMap::new();
 
     for row in &rows {
-        let user_id = match row.author_id.to_u64() {
-            Some(u) => u,
-            None => return Err("unable to convert user id from db".into()),
-        };
+        let user_id = u64::try_from(row.author_id)?;
         let message = match &row.content {
             Some(c) => c,
             None => return Err("missing message content from db".into()),

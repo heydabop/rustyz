@@ -56,8 +56,8 @@ pub async fn track(ctx: &Context, interaction: &ApplicationCommandInteraction) -
             let data = ctx.data.read().await;
             #[allow(clippy::unwrap_used)]
             let db = data.get::<DB>().unwrap();
-            #[allow(clippy::cast_possible_wrap, clippy::panic)]
-            sqlx::query!("INSERT INTO shipment(carrier, tracking_number, author_id, channel_id, status, comment) VALUES ($1::shipment_carrier, $2, $3, $4, $5::shipment_tracking_status, $6) ON CONFLICT ON CONSTRAINT shipment_uk_carrier_number DO NOTHING", tracking_number.carrier() as _, tracking_number.number(), interaction.user.id.0 as i64, interaction.channel_id.0 as i64, format!("{}", status.status) as _, comment).execute(db).await?;
+            #[allow(clippy::panic)]
+            sqlx::query!("INSERT INTO shipment(carrier, tracking_number, author_id, channel_id, status, comment) VALUES ($1::shipment_carrier, $2, $3, $4, $5::shipment_tracking_status, $6) ON CONFLICT ON CONSTRAINT shipment_uk_carrier_number DO NOTHING", tracking_number.carrier() as _, tracking_number.number(), i64::try_from(interaction.user.id.0)?, i64::try_from(interaction.channel_id.0)?, format!("{}", status.status) as _, comment).execute(db).await?;
         }
         status.status_details
     } else {

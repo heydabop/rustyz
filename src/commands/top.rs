@@ -35,7 +35,7 @@ pub async fn top(ctx: &Context, interaction: &ApplicationCommandInteraction) -> 
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
-        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        #[allow(clippy::panic)]
         sqlx::query!(
             r#"
 SELECT author_id, count(author_id) AS num_messages
@@ -45,19 +45,17 @@ AND content NOT LIKE '/%'
 GROUP BY author_id
 ORDER BY count(author_id) DESC
 LIMIT $2"#,
-            interaction.channel_id.0 as i64,
+            i64::try_from(interaction.channel_id.0)?,
             limit
         )
         .fetch_all(db)
         .await?
     };
 
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let mut lines = Vec::with_capacity(limit as usize);
+    let mut lines = Vec::with_capacity(usize::try_from(limit)?);
 
     for row in &rows {
-        #[allow(clippy::cast_sign_loss)]
-        let user_id = UserId(row.author_id as u64);
+        let user_id = UserId(u64::try_from(row.author_id)?);
         let username = util::get_username_userid(&ctx.http, &members, user_id).await;
         lines.push(format!(
             "{} \u{2014} {}\n",

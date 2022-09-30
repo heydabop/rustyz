@@ -55,12 +55,11 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
         }
     }
 
-    #[allow(clippy::cast_possible_wrap)]
     let row = match {
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
-        sqlx::query(r#"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1"#).bind(i64::from(user.id)).fetch_optional(db).await?
+        sqlx::query(r#"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1"#).bind(i64::try_from(user.id)?).fetch_optional(db).await?
     } {
         Some(r) => r,
         None => {

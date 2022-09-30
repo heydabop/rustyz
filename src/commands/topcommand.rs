@@ -1,7 +1,6 @@
 use crate::error::CommandResult;
 use crate::model::DB;
 use crate::util;
-use num_traits::cast::ToPrimitive;
 use serenity::client::Context;
 use serenity::model::application::interaction::application_command::{
     ApplicationCommandInteraction, CommandDataOptionValue,
@@ -42,7 +41,7 @@ pub async fn topcommand(
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
-        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        #[allow(clippy::panic)]
         sqlx::query!(
             r#"
 SELECT author_id, count(author_id) AS num_messages
@@ -53,7 +52,7 @@ GROUP BY author_id
 ORDER BY count(author_id) DESC
 LIMIT 10"#,
             format!("/{}%", command),
-            interaction.channel_id.0 as i64
+            i64::try_from(interaction.channel_id.0)?
         )
         .fetch_all(db)
         .await?
@@ -62,10 +61,7 @@ LIMIT 10"#,
     let mut lines = Vec::with_capacity(10_usize);
 
     for row in &rows {
-        let user_id = UserId(match row.author_id.to_u64() {
-            Some(u) => u,
-            None => return Err("unable to convert user id from db".into()),
-        });
+        let user_id = UserId(u64::try_from(row.author_id)?);
         let num_messages = row.num_messages.unwrap_or(0);
         let username = util::get_username_userid(&ctx.http, &members, user_id).await;
         lines.push(format!("{} \u{2014} {}\n", username, num_messages));

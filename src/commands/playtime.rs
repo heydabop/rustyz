@@ -176,11 +176,13 @@ async fn user_ids_and_name_from_option(
     option: Option<&CommandDataOption>,
 ) -> Result<Option<(Vec<i64>, Option<String>)>, CommandError> {
     let mut username: Option<String> = None;
-    #[allow(clippy::cast_possible_wrap)]
     let user_ids: Vec<i64> = if option.is_none() {
         // get list of user IDs in channel
         let members = util::collect_members_guild_id(ctx, guild_id).await?;
-        members.iter().map(|m| *m.0.as_u64() as i64).collect()
+        members
+            .iter()
+            .map(|m| i64::try_from(*m.0.as_u64()))
+            .collect::<Result<Vec<_>, _>>()?
     } else {
         let user_id = match option {
             Some(o) => {
@@ -208,7 +210,7 @@ async fn user_ids_and_name_from_option(
                 return Ok(None);
             };
         }
-        vec![user_id.0 as i64]
+        vec![i64::try_from(user_id.0)?]
     };
 
     Ok(Some((user_ids, username)))

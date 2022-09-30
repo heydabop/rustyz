@@ -77,18 +77,39 @@ impl Handler {
             vec![]
         };
         info!(name = command_name, options = ?log_options, "command called");
-        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        let user_id = match i64::try_from(command.user.id.0) {
+            Ok(u) => u,
+            Err(e) => {
+                error!(%e, "unable to fit user id in i64");
+                return;
+            }
+        };
+        let channel_id = match i64::try_from(command.channel_id.0) {
+            Ok(c) => c,
+            Err(e) => {
+                error!(%e, "unable to fit channel id in i64");
+                return;
+            }
+        };
+        let guild_id = if let Some(g) = command.guild_id {
+            match i64::try_from(g.0) {
+                Ok(g) => Some(g),
+                Err(e) => {
+                    error!(%e, "unable to fit guild id in i64");
+                    return;
+                }
+            }
+        } else {
+            None
+        };
+        #[allow(clippy::panic)]
         if let Err(e) = sqlx::query!(
             r#"
 INSERT INTO command(author_id, channel_id, guild_id, name, options)
 VALUES ($1, $2, $3, $4, $5)"#,
-            command.user.id.0 as i64,
-            command.channel_id.0 as i64,
-            if let Some(guild_id) = command.guild_id {
-                Some(guild_id.0 as i64)
-            } else {
-                None
-            },
+            user_id,
+            channel_id,
+            guild_id,
             command_name,
             json!(log_options)
         )
@@ -254,6 +275,7 @@ impl EventHandler for Handler {
                                 .kind(CommandOptionType::Integer)
                                 .required(false)
                                 .min_int_value(1)
+                                .max_int_value(u32::MAX)
                         })
                 })
                 .create_application_command(|c| {
@@ -555,10 +577,17 @@ impl EventHandler for Handler {
             }
         };
         if is_empty {
-            #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
+            let user_id = match i64::try_from(user.id.0) {
+                Ok(u) => u,
+                Err(e) => {
+                    error!(%e, "unable to fit user id in i64");
+                    return;
+                }
+            };
+            if let Err(e) = sqlx::query(
                 r#"INSERT INTO user_presence (user_id, status) VALUES ($1, 'offline'::online_status)"#,
             )
-            .bind(user.id.0 as i64)
+            .bind(user_id)
                 .execute(&self.db)
                 .await
             {
@@ -569,15 +598,41 @@ impl EventHandler for Handler {
 
     async fn message(&self, ctx: Context, msg: Message) {
         {
-            #[allow(clippy::panic, clippy::cast_possible_wrap)]
+            let author_id = match i64::try_from(msg.author.id.0) {
+                Ok(a) => a,
+                Err(e) => {
+                    error!(%e, "unable to fit author id in i64");
+                    return;
+                }
+            };
+            let channel_id = match i64::try_from(msg.channel_id.0) {
+                Ok(c) => c,
+                Err(e) => {
+                    error!(%e, "unable to fit channel id in i64");
+                    return;
+                }
+            };
+            let guild_id = if let Some(g) = msg.guild_id {
+                match i64::try_from(g.0) {
+                    Ok(g) => Some(g),
+                    Err(e) => {
+                        error!(%e, "unable to fit guild id in i64");
+                        return;
+                    }
+                }
+            } else {
+                None
+            };
+
+            #[allow(clippy::panic)]
             if let Err(e) = sqlx::query!(
                 r#"
 INSERT INTO message(discord_id, author_id, channel_id, guild_id, content)
 VALUES ($1, $2, $3, $4, $5)"#,
                 Decimal::from(msg.id.0),
-                msg.author.id.0 as i64,
-                msg.channel_id.0 as i64,
-                msg.guild_id.map(|id| id.0 as i64),
+                author_id,
+                channel_id,
+                guild_id,
                 msg.content
             )
             .execute(&self.db)
@@ -629,10 +684,17 @@ VALUES ($1, $2, $3, $4, $5)"#,
         message_id: MessageId,
         _guild_id: Option<GuildId>,
     ) {
-        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        let channel_id = match i64::try_from(channel_id.0) {
+            Ok(c) => c,
+            Err(e) => {
+                error!(%e, "unable to fit channel id in i64");
+                return;
+            }
+        };
+        #[allow(clippy::panic)]
         if let Err(e) = sqlx::query!(
             r#"DELETE FROM message WHERE channel_id = $1 AND discord_id = $2"#,
-            channel_id.0 as i64,
+            channel_id,
             Decimal::from(message_id.0)
         )
         .execute(&self.db)
@@ -649,14 +711,21 @@ VALUES ($1, $2, $3, $4, $5)"#,
         message_ids: Vec<MessageId>,
         _guild_id: Option<GuildId>,
     ) {
+        let channel_id = match i64::try_from(channel_id.0) {
+            Ok(c) => c,
+            Err(e) => {
+                error!(%e, "unable to fit channel id in i64");
+                return;
+            }
+        };
         let decimal_message_ids: Vec<Decimal> = message_ids
             .into_iter()
             .map(|m| Decimal::from(m.0))
             .collect();
-        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        #[allow(clippy::panic)]
         if let Err(e) = sqlx::query!(
             r#"DELETE FROM message WHERE channel_id = $1 AND discord_id = ANY($2)"#,
-            channel_id.0 as i64,
+            channel_id,
             &decimal_message_ids
         )
         .execute(&self.db)
@@ -678,11 +747,18 @@ VALUES ($1, $2, $3, $4, $5)"#,
         } else {
             return;
         };
-        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        let channel_id = match i64::try_from(update.channel_id.0) {
+            Ok(c) => c,
+            Err(e) => {
+                error!(%e, "unable to fit channel id in i64");
+                return;
+            }
+        };
+        #[allow(clippy::panic)]
         if let Err(e) = sqlx::query!(
             r#"UPDATE message SET content = $1 WHERE channel_id = $2 AND discord_id = $3"#,
             content,
-            update.channel_id.0 as i64,
+            channel_id,
             Decimal::from(update.id.0)
         )
         .execute(&self.db)
@@ -781,10 +857,18 @@ async fn handle_presence(
             }
         }
 
-        #[allow(clippy::cast_possible_wrap)] if let Err(e) = sqlx::query(
+        let user_id = match i64::try_from(user_id.0) {
+            Ok(u) => u,
+            Err(e) => {
+                error!(%e, "unable to fit user id in i64");
+                return;
+            }
+        };
+
+        if let Err(e) = sqlx::query(
             r#"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)"#,
         )
-        .bind(user_id.0 as i64)
+        .bind(user_id)
             .bind(presence.status.name())
             .bind(&game_name)
             .execute(db)

@@ -49,8 +49,7 @@ LIMIT $2"#,
         .await?
     };
 
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let mut lines = Vec::with_capacity(limit as usize);
+    let mut lines = Vec::with_capacity(usize::try_from(limit)?);
 
     for row in &rows {
         let user_id = UserId(row.get::<String, _>(0).parse::<u64>()?);

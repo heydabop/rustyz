@@ -142,8 +142,7 @@ pub async fn handle_track_updated_webhook(
             } else {
                 String::new()
             };
-            #[allow(clippy::cast_sign_loss)]
-            http.send_message(row.channel_id as u64, &json!({"content": format!("<@{}>: Your {} shipment {}{}was marked as delivered at {} with the following message: {}", row.author_id, carrier, &body.data.tracking_number, comment, tracking.status_date, tracking.status_details)})).await?;
+            http.send_message(u64::try_from(row.channel_id)?, &json!({"content": format!("<@{}>: Your {} shipment {}{}was marked as delivered at {} with the following message: {}", row.author_id, carrier, &body.data.tracking_number, comment, tracking.status_date, tracking.status_details)})).await?;
         } else {
             warn!(
                 tracking_number = body.data.tracking_number,

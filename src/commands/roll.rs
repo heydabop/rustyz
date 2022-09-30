@@ -6,21 +6,12 @@ use serenity::model::application::interaction::application_command::{
 };
 
 pub async fn roll(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let sides: u32 = interaction
-        .data
-        .options
-        .get(0)
-        .and_then(|o| {
-            o.resolved.as_ref().map(|r| {
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                if let CommandDataOptionValue::Integer(s) = r {
-                    *s as u32
-                } else {
-                    100
-                }
-            })
-        })
-        .unwrap_or(100);
+    let mut sides: u32 = 100;
+    if let Some(o) = interaction.data.options.get(0) {
+        if let Some(CommandDataOptionValue::Integer(s)) = o.resolved {
+            sides = u32::try_from(s)?;
+        }
+    }
 
     let result = {
         let mut rng = thread_rng();

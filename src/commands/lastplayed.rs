@@ -53,13 +53,12 @@ pub async fn lastplayed(
         }
     }
 
-    #[allow(clippy::cast_possible_wrap)]
     let db = {
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
         data.get::<DB>().unwrap().clone()
     };
-    let row = match sqlx::query(r#"SELECT create_date, game_name FROM user_presence WHERE user_id = $1 AND status <> 'offline' AND status <> 'invisible' AND game_name IS NOT NULL ORDER BY create_date DESC LIMIT 1"#).bind(i64::from(user.id)).fetch_optional(&db).await? {
+    let row = match sqlx::query(r#"SELECT create_date, game_name FROM user_presence WHERE user_id = $1 AND status <> 'offline' AND status <> 'invisible' AND game_name IS NOT NULL ORDER BY create_date DESC LIMIT 1"#).bind(i64::try_from(user.id)?).fetch_optional(&db).await? {
         Some(r) => r,
         None => {
             interaction
@@ -73,7 +72,7 @@ pub async fn lastplayed(
     let start = row.get::<DateTime<FixedOffset>, _>(0);
     let game_name = row.get::<String, _>(1);
     // get row without game_name inserted after the game row to determine when user stopped playing
-    let end_row = match sqlx::query(r#"SELECT create_date FROM user_presence WHERE user_id = $1 AND game_name IS NULL AND create_date > $2 ORDER BY create_date ASC LIMIT 1"#).bind(i64::from(user.id)).bind(start).fetch_optional(&db).await? {
+    let end_row = match sqlx::query(r#"SELECT create_date FROM user_presence WHERE user_id = $1 AND game_name IS NULL AND create_date > $2 ORDER BY create_date ASC LIMIT 1"#).bind(i64::try_from(user.id)?).bind(start).fetch_optional(&db).await? {
         Some(er) => er,
         None => {
             interaction

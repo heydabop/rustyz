@@ -55,29 +55,29 @@ pub async fn userinfo(ctx: &Context, interaction: &ApplicationCommandInteraction
             data.get::<DB>().unwrap().clone(),
         )
     };
-    #[allow(clippy::cast_possible_wrap)]
+    #[allow(clippy::panic)]
     let guild_messages: i64 = sqlx::query!(
         r#"
 SELECT count(id)
 FROM message
 WHERE guild_id = $1
 AND author_id = $2"#,
-        guild_id.0 as i64,
-        user.id.0 as i64
+        i64::try_from(guild_id.0)?,
+        i64::try_from(user.id.0)?
     )
     .fetch_one(&db)
     .await?
     .count
     .unwrap_or(0);
-    #[allow(clippy::cast_possible_wrap)]
+    #[allow(clippy::panic)]
     let channel_messages: i64 = sqlx::query!(
         r#"
 SELECT count(id)
 FROM message
 WHERE channel_id = $1
 AND author_id = $2"#,
-        interaction.channel_id.0 as i64,
-        user.id.0 as i64,
+        i64::try_from(interaction.channel_id.0)?,
+        i64::try_from(user.id.0)?,
     )
     .fetch_one(&db)
     .await?
