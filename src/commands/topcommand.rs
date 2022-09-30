@@ -1,5 +1,5 @@
 use crate::error::CommandResult;
-use crate::model::OldDB;
+use crate::model::DB;
 use crate::util;
 use num_traits::cast::ToPrimitive;
 use serenity::client::Context;
@@ -7,8 +7,6 @@ use serenity::model::application::interaction::application_command::{
     ApplicationCommandInteraction, CommandDataOptionValue,
 };
 use serenity::model::id::UserId;
-use sqlx::types::Decimal;
-use sqlx::Row;
 
 pub async fn topcommand(
     ctx: &Context,
@@ -43,19 +41,20 @@ pub async fn topcommand(
     let rows = {
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
-        let db = data.get::<OldDB>().unwrap();
-        sqlx::query(
+        let db = data.get::<DB>().unwrap();
+        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        sqlx::query!(
             r#"
 SELECT author_id, count(author_id) AS num_messages
 FROM message
 WHERE content LIKE $1
-AND chan_id = $2
+AND channel_id = $2
 GROUP BY author_id
 ORDER BY count(author_id) DESC
 LIMIT 10"#,
+            format!("/{}%", command),
+            interaction.channel_id.0 as i64
         )
-        .bind(format!("/{}%", command))
-        .bind(Decimal::from(interaction.channel_id.0))
         .fetch_all(db)
         .await?
     };
@@ -63,11 +62,11 @@ LIMIT 10"#,
     let mut lines = Vec::with_capacity(10_usize);
 
     for row in &rows {
-        let user_id = UserId(match row.get::<Decimal, _>(0).to_u64() {
+        let user_id = UserId(match row.author_id.to_u64() {
             Some(u) => u,
             None => return Err("unable to convert user id from db".into()),
         });
-        let num_messages: i64 = row.get(1);
+        let num_messages = row.num_messages.unwrap_or(0);
         let username = util::get_username_userid(&ctx.http, &members, user_id).await;
         lines.push(format!("{} \u{2014} {}\n", username, num_messages));
     }

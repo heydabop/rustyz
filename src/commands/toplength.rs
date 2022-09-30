@@ -1,5 +1,5 @@
 use crate::error::CommandResult;
-use crate::model::OldDB;
+use crate::model::DB;
 use crate::util;
 use num_traits::cast::ToPrimitive;
 use serenity::client::Context;
@@ -7,8 +7,6 @@ use serenity::model::application::interaction::application_command::{
     ApplicationCommandInteraction, CommandDataOptionValue,
 };
 use serenity::model::id::UserId;
-use sqlx::types::Decimal;
-use sqlx::Row;
 use std::collections::HashMap;
 
 // Replies to msg with users in channel sorted by average length of sent messages
@@ -42,15 +40,16 @@ pub async fn toplength(
     let rows = {
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
-        let db = data.get::<OldDB>().unwrap();
-        sqlx::query(
+        let db = data.get::<DB>().unwrap();
+        #[allow(clippy::panic, clippy::cast_possible_wrap)]
+        sqlx::query!(
             r#"
 SELECT author_id, content
 FROM message
-WHERE chan_id = $1
+WHERE channel_id = $1
 AND content NOT LIKE '/%'"#,
+            interaction.channel_id.0 as i64
         )
-        .bind(Decimal::from(interaction.channel_id.0))
         .fetch_all(db)
         .await?
     };
@@ -59,11 +58,14 @@ AND content NOT LIKE '/%'"#,
     let mut words_per_user: HashMap<u64, usize> = HashMap::new();
 
     for row in &rows {
-        let user_id = match row.get::<Decimal, _>(0).to_u64() {
+        let user_id = match row.author_id.to_u64() {
             Some(u) => u,
             None => return Err("unable to convert user id from db".into()),
         };
-        let message = row.get::<String, _>(1);
+        let message = match &row.content {
+            Some(c) => c,
+            None => return Err("missing message content from db".into()),
+        };
         let num_words = message.split(' ').count();
         if let Some(messages) = messages_per_user.get_mut(&user_id) {
             *messages += 1;

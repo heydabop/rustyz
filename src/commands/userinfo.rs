@@ -1,5 +1,5 @@
 use crate::error::CommandResult;
-use crate::model::OldDB;
+use crate::model::{OldDB, DB};
 use chrono::naive::NaiveDateTime;
 use num_format::{Locale, ToFormattedString};
 use serenity::client::Context;
@@ -47,50 +47,42 @@ pub async fn userinfo(ctx: &Context, interaction: &ApplicationCommandInteraction
     let yes = "\u{2705}";
     let no = "\u{274C}";
 
-    #[allow(clippy::cast_possible_wrap)]
-    let guild_channel_ids: Vec<i64> = guild_id
-        .channels(&ctx.http)
-        .await?
-        .iter()
-        .map(|(k, _)| k.0 as i64)
-        .collect();
-
-    let db = {
+    let (old_db, db) = {
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
-        let db = data.get::<OldDB>().unwrap();
-        db.clone()
+        (
+            data.get::<OldDB>().unwrap().clone(),
+            data.get::<DB>().unwrap().clone(),
+        )
     };
-    let guild_messages: i64 = {
-        #[allow(clippy::cast_possible_wrap)]
-        let row = sqlx::query(
-            r#"
+    #[allow(clippy::cast_possible_wrap)]
+    let guild_messages: i64 = sqlx::query!(
+        r#"
 SELECT count(id)
 FROM message
-WHERE chan_id = ANY($1)
+WHERE guild_id = $1
 AND author_id = $2"#,
-        )
-        .bind(guild_channel_ids)
-        .bind(user.id.0 as i64)
-        .fetch_one(&db)
-        .await?;
-        row.get(0)
-    };
-    let channel_messages: i64 = {
-        #[allow(clippy::cast_possible_wrap)]
-        let row = sqlx::query(
-            r#"
+        guild_id.0 as i64,
+        user.id.0 as i64
+    )
+    .fetch_one(&db)
+    .await?
+    .count
+    .unwrap_or(0);
+    #[allow(clippy::cast_possible_wrap)]
+    let channel_messages: i64 = sqlx::query!(
+        r#"
 SELECT count(id)
 FROM message
-WHERE chan_id = $1
+WHERE channel_id = $1
 AND author_id = $2"#,
-        )
-        .bind(interaction.channel_id.0 as i64)
-        .bind(user.id.0 as i64)
-        .fetch_one(&db)
-        .await?;
-        row.get(0)
-    };
+        interaction.channel_id.0 as i64,
+        user.id.0 as i64,
+    )
+    .fetch_one(&db)
+    .await?
+    .count
+    .unwrap_or(0);
     let karma: i32 = {
         let row = sqlx::query(
             r#"
@@ -101,7 +93,7 @@ AND user_id = $2"#,
         )
         .bind(guild_id.0.to_string())
         .bind(user.id.0.to_string())
-        .fetch_optional(&db)
+        .fetch_optional(&old_db)
         .await?;
         if let Some(r) = row {
             r.get(0)

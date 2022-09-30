@@ -1,5 +1,100 @@
 {
   "db": "PostgreSQL",
+  "1b3038fb2f18c66659e744837127dfd49ade6e9b5c25a331104f95c56b2c923e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "author_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "content",
+          "ordinal": 1,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT author_id, content\nFROM message\nWHERE channel_id = $1\nAND content NOT LIKE '/%'"
+  },
+  "330d919f3c7823c46e700338b1977ff2e55a146e722a381a90443c7b4c271445": {
+    "describe": {
+      "columns": [
+        {
+          "name": "count",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT count(id)\nFROM message\nWHERE channel_id = $1\nAND author_id = $2"
+  },
+  "554fc271216e42db4ec837a8df571938ee604fa5c546a5a526f530b47ce0c9da": {
+    "describe": {
+      "columns": [
+        {
+          "name": "count",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT count(id)\nFROM message\nWHERE guild_id = $1\nAND author_id = $2"
+  },
+  "668baad46517e3ee53a0bffad99f340b7d388cc4b117859f057ca53f056b7805": {
+    "describe": {
+      "columns": [
+        {
+          "name": "author_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "num_messages",
+          "ordinal": 1,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT author_id, count(author_id) AS num_messages\nFROM message\nWHERE channel_id = $1\nAND content NOT LIKE '/%'\nGROUP BY author_id\nORDER BY count(author_id) DESC\nLIMIT $2"
+  },
   "77dba4936ccf9b17054b6e917681c530b7c90e699f96e93c484a8599c577e2f0": {
     "describe": {
       "columns": [],
@@ -72,6 +167,33 @@
       }
     },
     "query": "UPDATE shipment SET status = 'delivered' WHERE carrier = $1::shipment_carrier AND tracking_number = $2 AND status <> 'delivered' RETURNING author_id, channel_id, comment"
+  },
+  "be5e7d2a91ed5804acbff31a1c4cd35103cb0e06ccfbd06e5519823bfa41f9c4": {
+    "describe": {
+      "columns": [
+        {
+          "name": "author_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "num_messages",
+          "ordinal": 1,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT author_id, count(author_id) AS num_messages\nFROM message\nWHERE content LIKE $1\nAND channel_id = $2\nGROUP BY author_id\nORDER BY count(author_id) DESC\nLIMIT 10"
   },
   "e1b154b2af2ad3174acfb6e2d80af240b5bf4f708379aa0866690783a75d7643": {
     "describe": {
