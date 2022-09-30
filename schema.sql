@@ -118,7 +118,8 @@ CREATE TABLE public.message (
     author_id bigint NOT NULL,
     channel_id bigint NOT NULL,
     guild_id bigint,
-    content text
+    content text,
+    update_date timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -319,6 +320,13 @@ ALTER TABLE ONLY public.shipment
 
 ALTER TABLE ONLY public.user_presence
     ADD CONSTRAINT user_presence_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: message message_row_update_date; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER message_row_update_date BEFORE UPDATE ON public.message FOR EACH ROW EXECUTE FUNCTION public.row_update_date();
 
 
 --
