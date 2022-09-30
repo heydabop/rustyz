@@ -9,6 +9,7 @@ mod tomorrowio;
 mod twitch;
 mod util;
 
+use log::LevelFilter;
 use serenity::client::Client;
 use serenity::http::client::Http;
 use serenity::model::gateway::GatewayIntents;
@@ -18,6 +19,7 @@ use sqlx::{ConnectOptions, Pool, Postgres};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::task::JoinSet;
 use tracing::{error, info};
 use warp::{http::StatusCode, Filter};
@@ -72,7 +74,8 @@ async fn main() {
                 return;
             }
         };
-        options.disable_statement_logging();
+        options.log_statements(LevelFilter::Trace);
+        options.log_slow_statements(LevelFilter::Warn, Duration::from_secs_f32(0.5));
 
         match PgPoolOptions::new()
             .min_connections(1)

@@ -1624,6 +1624,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "image",
+ "log",
  "num-format",
  "num-traits",
  "rand",
