@@ -16,7 +16,7 @@ use serenity::model::{
     channel::Message,
     event::MessageUpdateEvent,
     gateway::{ActivityType, Presence, Ready},
-    guild::{Guild, Member},
+    guild::{Guild, Member, UnavailableGuild},
     id::{ChannelId, GuildId, MessageId},
     user::User,
 };
@@ -169,6 +169,9 @@ impl EventHandler for Handler {
                     c.name("affixes").description("Sends this week's US Mythic+ affixes")
                 })
                 .create_application_command(|c| {
+                    c.name("botinfo").description("Displays details about the bot")
+                })
+                .create_application_command(|c| {
                     c.name("forecast")
                         .description("Sends hourly weather conditions over the next 12 hours for an area")
                         .create_option(|o| {
@@ -188,6 +191,12 @@ impl EventHandler for Handler {
                 })
                 .create_application_command(|c| {
                     c.name("fortune").description("Sends a random adage")
+                })
+                .create_application_command(|c| {
+                    c.name("serverinfo").description("Displays details about this server")
+                })
+                .create_application_command(|c| {
+                    c.name("invite").description("Generates link to add bot to a server you administrate")
                 })
                 .create_application_command(|c| {
                     c.name("karma")
@@ -475,8 +484,10 @@ impl EventHandler for Handler {
             if let Err(e) = match command.data.name.as_str() {
                 "affixes" => commands::affixes::affixes(&ctx, &command).await,
                 "birdtime" => commands::time::time(&ctx, &command, "Europe/Oslo").await,
+                "botinfo" => commands::botinfo::botinfo(&ctx, &command).await,
                 "forecast" => commands::weather::forecast(&ctx, &command).await,
                 "fortune" => commands::fortune::fortune(&ctx, &command).await,
+                "invite" => commands::invite::invite(&ctx, &command).await,
                 "karma" => commands::karma::karma(&ctx, &command).await,
                 "lastseen" => commands::lastseen::lastseen(&ctx, &command).await,
                 "lastplayed" => commands::lastplayed::lastplayed(&ctx, &command).await,
@@ -489,6 +500,7 @@ impl EventHandler for Handler {
                 "recentplaytime" => commands::playtime::recent_playtime(&ctx, &command).await,
                 "roll" => commands::roll::roll(&ctx, &command).await,
                 "sebbitime" => commands::time::time(&ctx, &command, "Europe/Copenhagen").await,
+                "serverinfo" => commands::serverinfo::serverinfo(&ctx, &command).await,
                 "source" => commands::source::source(&ctx, &command).await,
                 "tarkov" => commands::tarkov::tarkov(&ctx, &command).await,
                 "top" => commands::top::top(&ctx, &command).await,
@@ -546,10 +558,22 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
+    async fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
+        if is_new {
+            info!(
+                id = guild.id.0,
+                members = guild.member_count,
+                name = guild.name,
+                "joined guild"
+            );
+        }
         for (_, presence) in guild.presences {
             handle_presence(&ctx, &self.db, Some(guild.id), presence).await;
         }
+    }
+
+    async fn guild_delete(&self, _: Context, guild: UnavailableGuild, _: Option<Guild>) {
+        warn!(id = guild.id.0, offline = guild.unavailable, "left guild");
     }
 
     async fn guild_member_removal(

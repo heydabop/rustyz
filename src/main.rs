@@ -19,7 +19,7 @@ use sqlx::{ConnectOptions, Pool, Postgres};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::task::JoinSet;
 use tracing::{error, info};
 use warp::{http::StatusCode, Filter};
@@ -111,6 +111,7 @@ async fn main() {
         .type_map_insert::<model::LastUserPresence>(Arc::new(RwLock::new(HashMap::new())))
         .type_map_insert::<model::UserGuildList>(Arc::new(RwLock::new(HashMap::new())))
         .type_map_insert::<model::LastCommandMessages>(Arc::new(RwLock::new(HashMap::new())))
+        .type_map_insert::<model::StartInstant>(Instant::now())
         .event_handler(event::Handler::new(pool.clone()))
         .await
     {

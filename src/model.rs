@@ -8,6 +8,7 @@ use sqlx::{Pool, Postgres};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
+use std::time::Instant;
 
 pub struct OldDB;
 
@@ -61,4 +62,10 @@ impl fmt::Display for Point {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{},{}", self.lat, self.lng)
     }
+}
+
+pub struct StartInstant;
+
+impl TypeMapKey for StartInstant {
+    type Value = Instant;
 }

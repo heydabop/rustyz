@@ -122,7 +122,6 @@ AND user_id = $2"#,
                         },
                         true,
                     )
-                    .field("\u{200B}", "\u{200B}", false)
                     .field(
                         "Joined Discord",
                         NaiveDateTime::from_timestamp(user.created_at().unix_timestamp(), 0)
@@ -141,7 +140,6 @@ AND user_id = $2"#,
                         },
                         true,
                     )
-                    .field("\u{200B}", "\u{200B}", false)
                     .field(
                         "Server Messages",
                         guild_messages.to_formatted_string(&Locale::en),
