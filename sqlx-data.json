@@ -124,6 +124,26 @@
     },
     "query": "DELETE FROM message WHERE channel_id = $1 AND discord_id = ANY($2)"
   },
+  "999d57977754292675156625165587188d51a2a60da6862d1edb87db5b81d585": {
+    "describe": {
+      "columns": [
+        {
+          "name": "count",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT count(id)\nFROM message\nWHERE guild_id = $1"
+  },
   "9af291637d159dde9e85f8bcb08876aab421cf6a7d97852d9f52aed7ffa5e7ea": {
     "describe": {
       "columns": [
