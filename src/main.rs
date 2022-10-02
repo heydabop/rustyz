@@ -141,6 +141,14 @@ async fn main() {
         warp::serve(health.or(shippo_tracking)).run(addr).await;
     });
 
+    let shard_manager = client.shard_manager.clone();
+    tokio::spawn(async move {
+        if let Err(e) = tokio::signal::ctrl_c().await {
+            error!(error = %e, "error setting sigint handler");
+        }
+        shard_manager.lock().await.shutdown_all().await;
+    });
+
     set.spawn(async move {
         if let Err(e) = client.start().await {
             error!(%e, "Error running Discord client");
