@@ -3,7 +3,6 @@ use crate::model;
 use crate::twitch;
 
 use num_format::{Locale, ToFormattedString};
-use serde::Serialize;
 use serde_json::json;
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
@@ -22,6 +21,7 @@ use serenity::model::{
 };
 use sqlx::types::Decimal;
 use sqlx::{Pool, Postgres};
+use std::collections::HashMap;
 use std::collections::HashSet;
 use tracing::{error, info, warn};
 
@@ -43,39 +43,23 @@ impl Handler {
     }
 
     async fn record_command(&self, command: &ApplicationCommandInteraction) {
-        #[allow(dead_code)]
-        #[derive(Debug, Serialize)]
-        struct LogOption<'a> {
-            name: &'a str,
-            value: &'a Option<Value>,
-        }
-
         let mut command_name = command.data.name.clone();
-        let log_options: Vec<LogOption> = if let Some(option) = command.data.options.get(0) {
-            if option.kind == CommandOptionType::SubCommand {
-                command_name = format!("{} {}", command_name, option.name);
-                option
-                    .options
-                    .iter()
-                    .map(|o| LogOption {
-                        name: &o.name,
-                        value: &o.value,
-                    })
-                    .collect()
+        let log_options: HashMap<&String, &Option<Value>> =
+            if let Some(option) = command.data.options.get(0) {
+                if option.kind == CommandOptionType::SubCommand {
+                    command_name = format!("{} {}", command_name, option.name);
+                    option.options.iter().map(|o| (&o.name, &o.value)).collect()
+                } else {
+                    command
+                        .data
+                        .options
+                        .iter()
+                        .map(|o| (&o.name, &o.value))
+                        .collect()
+                }
             } else {
-                command
-                    .data
-                    .options
-                    .iter()
-                    .map(|o| LogOption {
-                        name: &o.name,
-                        value: &o.value,
-                    })
-                    .collect()
-            }
-        } else {
-            vec![]
-        };
+                HashMap::new()
+            };
         info!(name = command_name, options = ?log_options, "command called");
         let user_id = match i64::try_from(command.user.id.0) {
             Ok(u) => u,
