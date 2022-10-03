@@ -17,7 +17,7 @@ use serenity::model::{
     event::MessageUpdateEvent,
     gateway::{ActivityType, Presence, Ready},
     guild::{Guild, Member, UnavailableGuild},
-    id::{ChannelId, GuildId, MessageId},
+    id::{ChannelId, GuildId, MessageId, UserId},
     user::User,
 };
 use sqlx::types::Decimal;
@@ -478,6 +478,11 @@ impl EventHandler for Handler {
                 .await
             {
                 error!(%e, "Unable to defer response to interaction");
+                report_interaction_error(
+                    &ctx,
+                    format!("unable to defer response to interaction: `{}`", e),
+                )
+                .await;
                 return;
             }
             self.record_command(&command).await;
@@ -534,6 +539,11 @@ impl EventHandler for Handler {
                 }
                 _ => {
                     error!(command = command.data.name, "Missing command");
+                    report_interaction_error(
+                        &ctx,
+                        format!("missing command: {}", command.data.name),
+                    )
+                    .await;
                     if let Err(e) = command
                         .edit_original_interaction_response(&ctx.http, |response| {
                             response.content("\u{26A0} `Unknown command`")
@@ -541,11 +551,21 @@ impl EventHandler for Handler {
                         .await
                     {
                         error!(%e, "Unable to respond to interaction");
+                        report_interaction_error(
+                            &ctx,
+                            format!("unable to respond to interaction: `{}`", e),
+                        )
+                        .await;
                     }
                     Ok(())
                 }
             } {
                 error!(%e, command = command.data.name, "Error running command");
+                report_interaction_error(
+                    &ctx,
+                    format!("error running {}: `{}`", command.data.name, e),
+                )
+                .await;
                 if let Err(resp_e) = command
                     .edit_original_interaction_response(&ctx.http, |response| {
                         response.content(format!("\u{26A0} `Error: {}`", e))
@@ -553,6 +573,11 @@ impl EventHandler for Handler {
                     .await
                 {
                     error!(e = %resp_e, "Unable to respond to interaction");
+                    report_interaction_error(
+                        &ctx,
+                        format!("unable to respond to interaction: `{}`", resp_e),
+                    )
+                    .await;
                 }
             }
         }
@@ -913,4 +938,22 @@ async fn handle_presence(
             game_name,
         },
     );
+}
+
+async fn report_interaction_error(ctx: &Context, error: String) {
+    let owner_id = {
+        let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
+        UserId::from(*data.get::<model::OwnerId>().unwrap())
+    };
+    let channel = match owner_id.create_dm_channel(&ctx.http).await {
+        Ok(c) => c,
+        Err(e) => {
+            error!(error = %e, "error creating owner DM channel");
+            return;
+        }
+    };
+    if let Err(e) = channel.say(&ctx.http, error).await {
+        error!(error = %e, "error messaging owner DM channel");
+    }
 }
