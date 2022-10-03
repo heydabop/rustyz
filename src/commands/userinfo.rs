@@ -46,6 +46,7 @@ pub async fn userinfo(ctx: &Context, interaction: &ApplicationCommandInteraction
     let user = ctx.http.get_user(user.id.0).await?;
     let yes = "\u{2705}";
     let no = "\u{274C}";
+    let date_format_str = "%b %e, %Y";
 
     let (old_db, db) = {
         let data = ctx.data.read().await;
@@ -101,6 +102,23 @@ AND user_id = $2"#,
             0
         }
     };
+    #[allow(clippy::panic)]
+    let first_message_date: String = match sqlx::query!(
+        r#"
+SELECT min(create_date) as min_date
+FROM message
+WHERE guild_id = $1
+AND author_id = $2"#,
+        i64::try_from(guild_id.0)?,
+        i64::try_from(user.id.0)?
+    )
+    .fetch_one(&db)
+    .await?
+    .min_date
+    {
+        Some(date) => date.format(date_format_str).to_string(),
+        None => String::from("Unavailable"),
+    };
 
     interaction
         .edit_original_interaction_response(&ctx.http, |r| {
@@ -115,7 +133,7 @@ AND user_id = $2"#,
                             format!(
                                 "Since {}",
                                 NaiveDateTime::from_timestamp(since.unix_timestamp(), 0)
-                                    .format("%b %e, %Y")
+                                    .format(date_format_str)
                             )
                         } else {
                             no.to_string()
@@ -125,7 +143,7 @@ AND user_id = $2"#,
                     .field(
                         "Joined Discord",
                         NaiveDateTime::from_timestamp(user.created_at().unix_timestamp(), 0)
-                            .format("%b %e, %Y")
+                            .format(date_format_str)
                             .to_string(),
                         true,
                     )
@@ -133,13 +151,14 @@ AND user_id = $2"#,
                         "Joined Server",
                         if let Some(joined_at) = member.joined_at {
                             NaiveDateTime::from_timestamp(joined_at.unix_timestamp(), 0)
-                                .format("%b %e, %Y")
+                                .format(date_format_str)
                                 .to_string()
                         } else {
                             String::from("`Unknown`")
                         },
                         true,
                     )
+                    .field("First Message", first_message_date, true)
                     .field(
                         "Server Messages",
                         guild_messages.to_formatted_string(&Locale::en),

@@ -95,6 +95,27 @@
     },
     "query": "\nSELECT author_id, count(author_id) AS num_messages\nFROM message\nWHERE channel_id = $1\nAND content NOT LIKE '/%'\nGROUP BY author_id\nORDER BY count(author_id) DESC\nLIMIT $2"
   },
+  "6e4aa2aecb0aa5093987add6777528174978215dd8068999151ae4e8a371cca7": {
+    "describe": {
+      "columns": [
+        {
+          "name": "min_date",
+          "ordinal": 0,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT min(create_date) as min_date\nFROM message\nWHERE guild_id = $1\nAND author_id = $2"
+  },
   "77dba4936ccf9b17054b6e917681c530b7c90e699f96e93c484a8599c577e2f0": {
     "describe": {
       "columns": [],
