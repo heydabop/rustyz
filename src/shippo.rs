@@ -1,13 +1,11 @@
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serenity::http::client::Http;
-use serenity::json::json;
+use serenity::model::id::ChannelId;
 use sqlx::{Pool, Postgres};
-use std::convert::Infallible;
 use std::fmt;
 use std::sync::Arc;
-use tracing::{error, info, warn};
-use warp::http::StatusCode;
+use tracing::{error, info};
 
 pub enum TrackingNumber {
     FedEx(String),
@@ -114,54 +112,82 @@ pub async fn get_tracking_status(
     }
 }
 
-pub async fn handle_track_updated_webhook(
-    body: TrackUpdatedRequest,
-    db: Pool<Postgres>,
-    http: Arc<Http>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if body.event != "track_updated" {
-        warn!(event = body.event, "non track_updated event");
-        return Ok(());
-    }
-    let tracking = match body.data.tracking_status {
-        Some(t) => t,
-        None => {
-            warn!("missing tracking_status");
-            return Ok(());
-        }
-    };
-    if tracking.status == Status::Delivered {
-        let row = sqlx::query!("UPDATE shipment SET status = 'delivered' WHERE carrier = $1::shipment_carrier AND tracking_number = $2 AND status <> 'delivered' RETURNING author_id, channel_id, comment", body.carrier.clone().or_else(|| body.data.carrier.clone()) as _, body.data.tracking_number as _).fetch_optional(&db).await?;
-        if let Some(row) = row {
-            let carrier = match body.carrier.or(body.data.carrier) {
-                Some(c) => c,
-                None => return Err("missing carrier".into()),
-            };
-            let comment = if let Some(c) = row.comment {
-                format!(" ({}) ", c)
-            } else {
-                String::new()
-            };
-            http.send_message(u64::try_from(row.channel_id)?, &json!({"content": format!("<@{}>: Your {} shipment {}{}was marked as delivered at {} with the following message: {}", row.author_id, carrier, &body.data.tracking_number, comment, tracking.status_date, tracking.status_details)})).await?;
-        } else {
-            warn!(
-                tracking_number = body.data.tracking_number,
-                "shipment not found"
-            );
-        }
-    }
-    Ok(())
-}
+pub async fn poll_shipments_loop(discord_http: Arc<Http>, db: Pool<Postgres>, api_key: String) {
+    info!("starting shipment poller");
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(60 * 15));
 
-pub async fn handle_post(
-    body: TrackUpdatedRequest,
-    db: Pool<Postgres>,
-    http: Arc<Http>,
-) -> Result<impl warp::Reply, Infallible> {
-    info!(?body, "shippo webhook");
-    if let Err(e) = handle_track_updated_webhook(body, db, http).await {
-        error!(%e, "shippo webbook error");
-        return Ok(StatusCode::INTERNAL_SERVER_ERROR);
+    loop {
+        interval.tick().await;
+
+        let rows = match sqlx::query!("SELECT carrier::text AS carrier, tracking_number, status::text AS status, author_id, channel_id, comment FROM shipment WHERE status = ANY('{transit, pre_transit, unknown}')").fetch_all(&db).await {
+            Ok(r) => r,
+            Err(e) => {
+                error!(error = %e, "error getting shipments from db");
+                continue;
+            }
+        };
+        info!(shipments = rows.len(), "polling for shipments");
+        for row in rows {
+            use TrackingNumber::*;
+            let old_status = if let Some(s) = &row.status {
+                s
+            } else {
+                error!(?row, "missing status in shipment polling");
+                continue;
+            };
+            let carrier = if let Some(c) = &row.carrier {
+                c
+            } else {
+                error!(?row, "missing carrier on shipment row");
+                continue;
+            };
+            let tracking_number = match carrier.as_str() {
+                "fedex" => FedEx(row.tracking_number.clone()),
+                "ups" => Ups(row.tracking_number.clone()),
+                "usps" => Usps(row.tracking_number.clone()),
+                _ => {
+                    error!(
+                        carrier = row.carrier,
+                        "unrecognized carrier in shipment polling"
+                    );
+                    continue;
+                }
+            };
+            let new_status = match get_tracking_status(&tracking_number, &api_key).await {
+                Ok(s) => s,
+                Err(e) => {
+                    error!(error = %e, %tracking_number, "error polling shipment");
+                    continue;
+                }
+            };
+            if let Some(tracking_status) = new_status.tracking_status {
+                if old_status != &tracking_status.status.to_string() {
+                    if tracking_status.status == Status::Delivered {
+                        let comment = if let Some(c) = row.comment {
+                            format!(" ({}) ", c)
+                        } else {
+                            String::from(" ")
+                        };
+                        let channel_id = match u64::try_from(row.channel_id) {
+                            Ok(c) => ChannelId(c),
+                            Err(e) => {
+                                error!(error = %e, channel_id = row.channel_id, "unable to convert channel id");
+                                continue;
+                            }
+                        };
+                        if let Err(e) = channel_id.say(&discord_http, format!("<@{}>: Your {} shipment {}{}was marked as delivered at {} with the following message: {}", row.author_id, carrier, row.tracking_number, comment, tracking_status.status_date, tracking_status.status_details)).await {
+                            error!(error = %e, "error alerting user of shipment");
+                            continue;
+                        }
+                    }
+
+                    #[allow(clippy::panic)]
+                    if let Err(e) = sqlx::query!("UPDATE shipment SET status = 'delivered' WHERE carrier = $1::shipment_carrier AND tracking_number = $2 AND status <> 'delivered'", &row.carrier as _, row.tracking_number).fetch_optional(&db).await {
+                        error!(error = %e, "error updating polled shipment");
+                        continue;
+                    }
+                }
+            }
+        }
     }
-    Ok(StatusCode::NO_CONTENT)
 }

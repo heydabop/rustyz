@@ -11,18 +11,16 @@ mod util;
 
 use log::LevelFilter;
 use serenity::client::Client;
-use serenity::http::client::Http;
 use serenity::model::gateway::GatewayIntents;
 use serenity::prelude::*;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
-use sqlx::{ConnectOptions, Pool, Postgres};
+use sqlx::ConnectOptions;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::task::JoinSet;
 use tracing::{error, info};
-use warp::{http::StatusCode, Filter};
 
 #[tokio::main]
 async fn main() {
@@ -91,6 +89,8 @@ async fn main() {
         }
     };
 
+    let shippo_api_key = cfg.shippo.api_key.clone();
+
     let intents = GatewayIntents::GUILDS
         | GatewayIntents::GUILD_MEMBERS
         | GatewayIntents::GUILD_PRESENCES
@@ -127,20 +127,6 @@ async fn main() {
     let mut set = JoinSet::new();
     let shippo_http = client.cache_and_http.clone().http.clone();
 
-    set.spawn(async move {
-        let addr: std::net::SocketAddr = ([127, 0, 0, 1], 8125).into();
-        let health = warp::path("health")
-            .map(warp::reply)
-            .map(|reply| warp::reply::with_status(reply, StatusCode::NO_CONTENT));
-        let shippo_tracking = warp::post()
-            .and(warp::path!("shippo" / "tracking"))
-            .and(warp::body::json())
-            .and(with_db(pool))
-            .and(with_http(shippo_http))
-            .and_then(shippo::handle_post);
-        warp::serve(health.or(shippo_tracking)).run(addr).await;
-    });
-
     let shard_manager = client.shard_manager.clone();
     tokio::spawn(async move {
         if let Err(e) = tokio::signal::ctrl_c().await {
@@ -155,21 +141,15 @@ async fn main() {
         }
     });
 
+    set.spawn(shippo::poll_shipments_loop(
+        shippo_http,
+        pool,
+        shippo_api_key,
+    ));
+
     if let Some(Err(e)) = set.join_next().await {
         error!(%e, "Error joining task");
     }
 
     info!("Exiting");
-}
-
-fn with_db(
-    db: Pool<Postgres>,
-) -> impl Filter<Extract = (Pool<Postgres>,), Error = std::convert::Infallible> + Clone {
-    warp::any().map(move || db.clone())
-}
-
-fn with_http(
-    http: Arc<Http>,
-) -> impl Filter<Extract = (Arc<Http>,), Error = std::convert::Infallible> + Clone {
-    warp::any().map(move || http.clone())
 }
