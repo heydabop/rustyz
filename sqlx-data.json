@@ -47,6 +47,30 @@
     },
     "query": "\nSELECT count(id)\nFROM message\nWHERE channel_id = $1\nAND author_id = $2"
   },
+  "48c730ce1c152398786067f18d19d5a92cc68ef03b9136633669928490c0be00": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "fedex",
+                  "ups",
+                  "usps"
+                ]
+              },
+              "name": "shipment_carrier"
+            }
+          },
+          "Text"
+        ]
+      }
+    },
+    "query": "UPDATE shipment SET status = 'delivered' WHERE carrier = $1::shipment_carrier AND tracking_number = $2 AND status <> 'delivered'"
+  },
   "554fc271216e42db4ec837a8df571938ee604fa5c546a5a526f530b47ce0c9da": {
     "describe": {
       "columns": [
@@ -165,50 +189,6 @@
     },
     "query": "\nSELECT count(id)\nFROM message\nWHERE guild_id = $1"
   },
-  "9af291637d159dde9e85f8bcb08876aab421cf6a7d97852d9f52aed7ffa5e7ea": {
-    "describe": {
-      "columns": [
-        {
-          "name": "author_id",
-          "ordinal": 0,
-          "type_info": "Int8"
-        },
-        {
-          "name": "channel_id",
-          "ordinal": 1,
-          "type_info": "Int8"
-        },
-        {
-          "name": "comment",
-          "ordinal": 2,
-          "type_info": "Varchar"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        true
-      ],
-      "parameters": {
-        "Left": [
-          {
-            "Custom": {
-              "kind": {
-                "Enum": [
-                  "fedex",
-                  "ups",
-                  "usps"
-                ]
-              },
-              "name": "shipment_carrier"
-            }
-          },
-          "Text"
-        ]
-      }
-    },
-    "query": "UPDATE shipment SET status = 'delivered' WHERE carrier = $1::shipment_carrier AND tracking_number = $2 AND status <> 'delivered' RETURNING author_id, channel_id, comment"
-  },
   "be5e7d2a91ed5804acbff31a1c4cd35103cb0e06ccfbd06e5519823bfa41f9c4": {
     "describe": {
       "columns": [
@@ -235,6 +215,54 @@
       }
     },
     "query": "\nSELECT author_id, count(author_id) AS num_messages\nFROM message\nWHERE content LIKE $1\nAND channel_id = $2\nGROUP BY author_id\nORDER BY count(author_id) DESC\nLIMIT 10"
+  },
+  "d17b0fc6a825a72914602da09e95c40d61990f35bd3d99a2bf91ac3c7cdeed16": {
+    "describe": {
+      "columns": [
+        {
+          "name": "carrier",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "tracking_number",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "status",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "author_id",
+          "ordinal": 3,
+          "type_info": "Int8"
+        },
+        {
+          "name": "channel_id",
+          "ordinal": 4,
+          "type_info": "Int8"
+        },
+        {
+          "name": "comment",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        null,
+        false,
+        null,
+        false,
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT carrier::text AS carrier, tracking_number, status::text AS status, author_id, channel_id, comment FROM shipment WHERE status = ANY('{transit, pre_transit, unknown}')"
   },
   "e1b154b2af2ad3174acfb6e2d80af240b5bf4f708379aa0866690783a75d7643": {
     "describe": {
