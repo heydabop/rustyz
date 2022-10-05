@@ -276,7 +276,7 @@ impl EventHandler for Handler {
                 .create_application_command(|c| {
                     c.name("source").description("Sends link to bot source code")
                 })
-                .create_application_command(|c| {
+                /*.create_application_command(|c| {
                     c.name("tarkov")
                         .description("Sends flea market and vendor info for item")
                         .create_option(|o| {
@@ -285,7 +285,7 @@ impl EventHandler for Handler {
                                 .kind(CommandOptionType::String)
                                 .required(true)
                         })
-                })
+                })*/
                 .create_application_command(|c| {
                     c.name("top")
                         .description("Lists members by number of sent messages")
