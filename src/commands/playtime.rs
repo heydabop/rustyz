@@ -3,17 +3,20 @@ use crate::model::DB;
 use crate::util;
 use chrono::{prelude::*, Duration};
 use regex::{Match, Regex};
+use serenity::builder::CreateComponents;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-    ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
+use serenity::model::application::{
+    component::ButtonStyle,
+    interaction::application_command::{
+        ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
+    },
 };
 use serenity::model::id::GuildId;
-use sqlx::Row;
 use std::collections::HashMap;
 use std::str::FromStr;
 
 struct GameDate {
-    date: DateTime<FixedOffset>,
+    date: DateTime<Utc>,
     game: String,
 }
 
@@ -21,6 +24,8 @@ struct GameTime {
     time: Duration,
     game: String,
 }
+
+pub const OFFSET_INC: u16 = 25;
 
 // Replies to msg with the cumulative playtime of all users in the guild
 // Takes a single optional argument of a username to filter playtime for
@@ -85,9 +90,8 @@ pub async fn recent_playtime(
     let duration_regex = Regex::new(
         r#"(?i)(?:(?:(?:(\d+)\s+years?)|(?:(\d+)\s+months?)|(?:(\d+)\s+weeks?)|(?:(\d+)\s+days?)|(?:(\d+)\s+hours?)|(?:(\d+)\s+minutes?)|(?:(\d+)\s+seconds?))\s?)+"#,
     )?;
-    let now = Local::now();
-    let now = now.with_timezone(now.offset());
-    let start_date: DateTime<FixedOffset> = if let Some(captures) = duration_regex.captures(&arg) {
+    let now = Utc::now();
+    let start_date: DateTime<Utc> = if let Some(captures) = duration_regex.captures(&arg) {
         let years = get_digit_from_match(captures.get(1))?;
         let months = get_digit_from_match(captures.get(2))?;
         let weeks = get_digit_from_match(captures.get(3))?;
@@ -138,7 +142,7 @@ fn get_digit_from_match(mat: Option<Match>) -> Result<i64, std::num::ParseIntErr
 }
 
 // takes months and turns it to days by counting the days of each month, supports + or - months
-fn months_to_days(now: DateTime<FixedOffset>, mut months: i64) -> Option<i64> {
+fn months_to_days(now: DateTime<Utc>, mut months: i64) -> Option<i64> {
     let mut end = now;
     loop {
         if months == 0 {
@@ -220,8 +224,8 @@ pub async fn gen_playtime_message(
     ctx: &Context,
     user_ids: &[i64],
     username: &Option<String>,
-    start_date: Option<DateTime<FixedOffset>>,
-    end_date: DateTime<FixedOffset>,
+    start_date: Option<DateTime<Utc>>,
+    end_date: DateTime<Utc>,
     offset: usize,
 ) -> Result<String, CommandError> {
     // get all rows with a user id in the channel
@@ -229,7 +233,8 @@ pub async fn gen_playtime_message(
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
-        sqlx::query(r#"SELECT create_date, user_id, game_name FROM user_presence WHERE user_id = any($1) AND (create_date > $2) IS NOT FALSE AND create_date <= $3 ORDER BY create_date"#).bind(user_ids).bind(start_date).bind(end_date).fetch_all(db).await?
+        #[allow(clippy::panic)]
+        sqlx::query!(r#"SELECT create_date, user_id, game_name FROM user_presence WHERE user_id = any($1) AND (create_date > $2) IS NOT FALSE AND create_date <= $3 ORDER BY create_date"#, user_ids, start_date, end_date).fetch_all(db).await?
     };
     if rows.is_empty() {
         return Ok(format!(
@@ -244,11 +249,11 @@ pub async fn gen_playtime_message(
 
     let mut gametimes: HashMap<String, Duration> = HashMap::new(); // stores how long each game has been played
     let mut last_user_game: HashMap<i64, GameDate> = HashMap::new(); // tracks the last game a user was "seen" playing as we iterate through the rows
-    let first_time = rows[0].get::<DateTime<FixedOffset>, _>(0); // used to display in message how long players have been tracked
-    for row in &rows {
-        let date = row.get::<DateTime<FixedOffset>, _>(0);
-        let user_id = row.get::<i64, _>(1);
-        let game = row.get::<Option<String>, _>(2);
+    let first_time: DateTime<Utc> = rows[0].create_date; // used to display in message how long players have been tracked
+    for row in rows {
+        let date: DateTime<Utc> = row.create_date;
+        let user_id: i64 = row.user_id;
+        let game: Option<String> = row.game_name;
 
         let last = match last_user_game.get(&user_id) {
             Some(l) => l,
@@ -332,7 +337,7 @@ pub async fn gen_playtime_message(
     });
     gametimes.sort_by(|a, b| b.time.cmp(&a.time));
     let min_offset = offset.max(0);
-    let max_offset = (offset + 15).min(gametimes.len());
+    let max_offset = (offset + usize::from(OFFSET_INC)).min(gametimes.len());
     let gametimes = &gametimes[min_offset..max_offset];
     let longest_game_name = gametimes.iter().map(|g| g.game.len()).max().unwrap_or(0); // get longest game name so we can pad shorter game names and lineup times
 
@@ -355,15 +360,14 @@ pub async fn gen_playtime_message(
     };
 
     Ok(format!(
-        "```{} {}\n\n{}```",
+        "```{} {} - Page {}\n\n{}```",
         if let Some(username) = username {
             format!("{} since", username)
         } else {
             String::from("Since")
         },
-        first_time
-            .with_timezone(end_date.offset())
-            .format(time_format_string),
+        first_time.with_timezone(&Local).format(time_format_string),
+        offset / usize::from(OFFSET_INC),
         lines.concat()
     ))
 }
@@ -373,15 +377,52 @@ async fn send_message_with_buttons(
     interaction: &ApplicationCommandInteraction,
     user_ids: &[i64],
     username: &Option<String>,
-    start_date: Option<DateTime<FixedOffset>>,
+    start_date: Option<DateTime<Utc>>,
 ) -> CommandResult {
-    let now = Local::now();
-    let now = now.with_timezone(now.offset());
+    let now = Utc::now();
     let content = gen_playtime_message(ctx, user_ids, username, start_date, now, 0).await?;
 
+    let button_id = {
+        let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
+        let db = data.get::<DB>().unwrap();
+        #[allow(clippy::panic)]
+        sqlx::query!(r#"INSERT INTO playtime_button(author_id, user_ids, username, start_date, end_date, start_offset) VALUES ($1, $2, $3, $4, $5, 0) RETURNING id"#, i64::try_from(interaction.user.id.0)?, user_ids, username as _, start_date, now).fetch_one(db).await?.id
+    };
+
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| response.content(&content))
+        .edit_original_interaction_response(&ctx.http, |response| {
+            response
+                .content(&content)
+                .components(|c| create_components(c, 0, &content, button_id))
+        })
         .await?;
 
     Ok(())
+}
+
+pub fn create_components<'a>(
+    components: &'a mut CreateComponents,
+    offset: i32,
+    content: &str,
+    button_id: i32,
+) -> &'a mut CreateComponents {
+    components.create_action_row(|a| {
+        a.create_button(|b| {
+            b.custom_id(format!("playtime:prev:{}", button_id))
+                .style(ButtonStyle::Primary)
+                .label("Prev")
+                .disabled(offset < 1);
+            b
+        });
+        a.create_button(|b| {
+            b.custom_id(format!("playtime:next:{}", button_id))
+                .style(ButtonStyle::Primary)
+                .label("Next")
+                .disabled(content.matches('\n').count() < usize::from(OFFSET_INC) + 2);
+            b
+        });
+        a
+    });
+    components
 }

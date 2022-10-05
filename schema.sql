@@ -153,7 +153,7 @@ CREATE TABLE public.playtime_button (
     user_ids bigint[] NOT NULL,
     username character varying(32),
     start_date timestamp with time zone,
-    end_date timestamp with time zone,
+    end_date timestamp with time zone NOT NULL,
     start_offset integer NOT NULL
 );
 

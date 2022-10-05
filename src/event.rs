@@ -2,6 +2,7 @@ use crate::commands;
 use crate::model;
 use crate::twitch;
 
+use chrono::prelude::*;
 use num_format::{Locale, ToFormattedString};
 use serde_json::json;
 use serenity::async_trait;
@@ -11,8 +12,9 @@ use serenity::model::{
     application::command::{Command, CommandOptionType},
     application::interaction::{
         application_command::ApplicationCommandInteraction, Interaction, InteractionResponseType,
+        MessageFlags as InteractionFlags,
     },
-    channel::Message,
+    channel::{Message, MessageFlags},
     event::MessageUpdateEvent,
     gateway::{ActivityType, Presence, Ready},
     guild::{Guild, Member, UnavailableGuild},
@@ -562,6 +564,133 @@ impl EventHandler for Handler {
                         format!("unable to respond to interaction: `{}`", resp_e),
                     )
                     .await;
+                }
+            }
+        } else if let Interaction::MessageComponent(interaction) = interaction {
+            let fields: Vec<&str> = interaction.data.custom_id.split(':').collect();
+            let command = fields[0];
+            if command != "playtime" {
+                return;
+            }
+            let prev_next = fields[1];
+            let button_id = match fields[2].parse::<i32>() {
+                Ok(id) => id,
+                Err(e) => {
+                    error!(error = %e, "error parsing button_id from playtime interaction");
+                    return;
+                }
+            };
+            let row = {
+                let data = ctx.data.read().await;
+                #[allow(clippy::unwrap_used)]
+                let db = data.get::<model::DB>().unwrap();
+                #[allow(clippy::panic)]
+                match sqlx::query!(r#"SELECT author_id, user_ids, username, start_date, end_date, start_offset FROM playtime_button WHERE id = $1"#, button_id).fetch_one(db).await {
+                        Ok(row) => row,
+                        Err(e) => {
+                            error!(error = %e, "error getting playtime interaction buttons");
+                            return;
+                        }
+                    }
+            };
+            let author_id = row.author_id;
+
+            #[allow(clippy::cast_possible_wrap)]
+            if author_id != interaction.user.id.0 as i64 {
+                if let Err(e) = interaction
+                    .create_interaction_response(ctx, |r| {
+                        r.interaction_response_data(|d| {
+                            d.flags(InteractionFlags::EPHEMERAL);
+                            d.content(
+                                "Sorry, only the original command user can change the message",
+                            );
+                            d
+                        });
+                        r
+                    })
+                    .await
+                {
+                    error!(error = %e, "error alerting non-owner of restricted playtime interaction");
+                }
+                return;
+            }
+
+            let user_ids: Vec<i64> = row.user_ids;
+            let username: Option<String> = row.username;
+            let start_date: Option<DateTime<Utc>> = row.start_date;
+            let end_date: DateTime<Utc> = row.end_date;
+            let offset: i32 = {
+                if prev_next == "prev" {
+                    (row.start_offset - i32::from(commands::playtime::OFFSET_INC)).max(0)
+                } else if prev_next == "next" {
+                    row.start_offset + i32::from(commands::playtime::OFFSET_INC)
+                } else {
+                    return;
+                }
+            };
+
+            #[allow(clippy::unwrap_used)] // offset isn't negative
+            let new_content = match commands::playtime::gen_playtime_message(
+                &ctx,
+                &user_ids,
+                &username,
+                start_date,
+                end_date,
+                usize::try_from(offset).unwrap(),
+            )
+            .await
+            {
+                Ok(c) => c,
+                Err(e) => {
+                    error!(error = %e, "error generating new content for playtime interaction");
+                    return;
+                }
+            };
+            if let Some(flags) = interaction.message.flags {
+                if flags.contains(MessageFlags::EPHEMERAL) {
+                    return;
+                }
+            }
+            let mut message = interaction.message.clone();
+            if let Err(e) = message
+                .edit(&ctx, |m| {
+                    m.content(&new_content);
+                    m.components(|c| {
+                        commands::playtime::create_components(c, offset, &new_content, button_id)
+                    });
+                    m
+                })
+                .await
+            {
+                error!(error = %e, "error updating playtime messge components");
+                return;
+            }
+
+            if let Err(e) = interaction
+                .create_interaction_response(&ctx, |r| {
+                    r.kind(InteractionResponseType::UpdateMessage);
+                    r
+                })
+                .await
+            {
+                error!(error = %e, "error creating playtime interaction response");
+                return;
+            }
+
+            {
+                let data = ctx.data.read().await;
+                #[allow(clippy::unwrap_used)]
+                let db = data.get::<model::DB>().unwrap();
+                #[allow(clippy::panic)]
+                if let Err(e) = sqlx::query!(
+                    r#"UPDATE playtime_button SET start_offset = $2 WHERE id = $1"#,
+                    button_id,
+                    offset
+                )
+                .execute(db)
+                .await
+                {
+                    error!(error = %e, "error updating playtime_button table after interaction");
                 }
             }
         }
