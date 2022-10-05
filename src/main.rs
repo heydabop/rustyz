@@ -26,7 +26,7 @@ use tracing::{error, info};
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let cfg: config::Main = match std::fs::read_to_string("config.toml") {
+    let cfg: config::Main = match tokio::fs::read_to_string("config.toml").await {
         Ok(s) => match toml::from_str(&s) {
             Ok(t) => t,
             Err(e) => {

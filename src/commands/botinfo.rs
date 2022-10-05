@@ -3,9 +3,9 @@ use crate::model::StartInstant;
 use chrono::naive::NaiveDateTime;
 use serenity::client::Context;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
-use std::process::Command;
 use std::str;
 use std::time::Instant;
+use tokio::process::Command;
 
 pub async fn botinfo(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
     let guild_id = match interaction.guild_id {
@@ -24,7 +24,7 @@ pub async fn botinfo(ctx: &Context, interaction: &ApplicationCommandInteraction)
     let member = ctx.http.get_member(guild_id.0, bot.id.0).await?;
     let user = ctx.http.get_user(bot.id.0).await?;
     let num_guilds = bot.guilds(&ctx.http).await?.len();
-    let uptime_output = Command::new("uptime").arg("-p").output()?;
+    let uptime_output = Command::new("uptime").arg("-p").output().await?;
     let server_uptime = str::from_utf8(&uptime_output.stdout)?[3..].replace(", ", "\n");
     let since_start = {
         let data = ctx.data.read().await;
