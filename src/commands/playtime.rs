@@ -367,7 +367,7 @@ pub async fn gen_playtime_message(
             String::from("Since")
         },
         first_time.with_timezone(&Local).format(time_format_string),
-        offset / usize::from(OFFSET_INC),
+        (offset / usize::from(OFFSET_INC)).min(1),
         lines.concat()
     ))
 }
