@@ -338,6 +338,7 @@ pub async fn gen_playtime_message(
     gametimes.sort_by(|a, b| b.time.cmp(&a.time));
     let min_offset = offset.max(0);
     let max_offset = (offset + usize::from(OFFSET_INC)).min(gametimes.len());
+    let total_lines = gametimes.len();
     let gametimes = &gametimes[min_offset..max_offset];
     let longest_game_name = gametimes.iter().map(|g| g.game.len()).max().unwrap_or(0); // get longest game name so we can pad shorter game names and lineup times
 
@@ -360,14 +361,15 @@ pub async fn gen_playtime_message(
     };
 
     Ok(format!(
-        "```{} {} - Page {}\n\n{}```",
+        "```{} {} - Page {}/{}\n\n{}```",
         if let Some(username) = username {
             format!("{} since", username)
         } else {
             String::from("Since")
         },
         first_time.with_timezone(&Local).format(time_format_string),
-        (offset / usize::from(OFFSET_INC)).max(1),
+        (offset / usize::from(OFFSET_INC)) + 1,
+        (total_lines / usize::from(OFFSET_INC)) + 1,
         lines.concat()
     ))
 }
