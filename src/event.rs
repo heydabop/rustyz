@@ -12,7 +12,6 @@ use serenity::model::{
     application::command::{Command, CommandOptionType},
     application::interaction::{
         application_command::ApplicationCommandInteraction, Interaction, InteractionResponseType,
-        MessageFlags as InteractionFlags,
     },
     channel::{Message, MessageFlags},
     event::MessageUpdateEvent,
@@ -593,27 +592,6 @@ impl EventHandler for Handler {
                         }
                     }
             };
-            let author_id = row.author_id;
-
-            #[allow(clippy::cast_possible_wrap)]
-            if author_id != interaction.user.id.0 as i64 {
-                if let Err(e) = interaction
-                    .create_interaction_response(ctx, |r| {
-                        r.interaction_response_data(|d| {
-                            d.flags(InteractionFlags::EPHEMERAL);
-                            d.content(
-                                "Sorry, only the original command user can change the message",
-                            );
-                            d
-                        });
-                        r
-                    })
-                    .await
-                {
-                    error!(error = %e, "error alerting non-owner of restricted playtime interaction");
-                }
-                return;
-            }
 
             let user_ids: Vec<i64> = row.user_ids;
             let username: Option<String> = row.username;
@@ -656,7 +634,13 @@ impl EventHandler for Handler {
                 .edit(&ctx, |m| {
                     m.content(&new_content);
                     m.components(|c| {
-                        commands::playtime::create_components(c, offset, &new_content, button_id)
+                        commands::playtime::create_components(
+                            c,
+                            offset,
+                            &new_content,
+                            button_id,
+                            true,
+                        )
                     });
                     m
                 })
@@ -692,6 +676,28 @@ impl EventHandler for Handler {
                 {
                     error!(error = %e, "error updating playtime_button table after interaction");
                 }
+            }
+
+            // leave buttons disabled for 5 seconds, then send the message again with buttons enabled
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+            if let Err(e) = message
+                .edit(&ctx, |m| {
+                    m.components(|c| {
+                        commands::playtime::create_components(
+                            c,
+                            offset,
+                            &new_content,
+                            button_id,
+                            false,
+                        )
+                    });
+                    m
+                })
+                .await
+            {
+                error!(error = %e, "error updating playtime messge components");
+                return;
             }
         }
     }

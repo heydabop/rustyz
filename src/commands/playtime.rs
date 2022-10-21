@@ -25,7 +25,7 @@ struct GameTime {
     game: String,
 }
 
-pub const OFFSET_INC: u16 = 25;
+pub const OFFSET_INC: u16 = 15;
 
 // Replies to msg with the cumulative playtime of all users in the guild
 // Takes a single optional argument of a username to filter playtime for
@@ -394,7 +394,16 @@ async fn send_message_with_buttons(
         .edit_original_interaction_response(&ctx.http, |response| {
             response
                 .content(&content)
-                .components(|c| create_components(c, 0, &content, button_id))
+                .components(|c| create_components(c, 0, &content, button_id, true))
+        })
+        .await?;
+
+    // leave buttons disabled for 5 seconds, then send the message again with buttons enabled
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    interaction
+        .edit_original_interaction_response(&ctx.http, |response| {
+            response.components(|c| create_components(c, 0, &content, button_id, false))
         })
         .await?;
 
@@ -406,20 +415,21 @@ pub fn create_components<'a>(
     offset: i32,
     content: &str,
     button_id: i32,
+    disabled: bool,
 ) -> &'a mut CreateComponents {
     components.create_action_row(|a| {
         a.create_button(|b| {
             b.custom_id(format!("playtime:prev:{}", button_id))
                 .style(ButtonStyle::Primary)
                 .label("Prev")
-                .disabled(offset < 1);
+                .disabled(disabled || offset < 1);
             b
         });
         a.create_button(|b| {
             b.custom_id(format!("playtime:next:{}", button_id))
                 .style(ButtonStyle::Primary)
                 .label("Next")
-                .disabled(content.matches('\n').count() < usize::from(OFFSET_INC) + 2);
+                .disabled(disabled || content.matches('\n').count() < usize::from(OFFSET_INC) + 2);
             b
         });
         a
