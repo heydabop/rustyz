@@ -1,0 +1,131 @@
+use crate::model;
+use serenity::client::Context;
+use serenity::model::{
+    gateway::{ActivityType, Presence},
+    id::GuildId,
+};
+use sqlx::{Pool, Postgres};
+use std::collections::HashSet;
+use tracing::{error, warn};
+
+pub async fn update(
+    ctx: &Context,
+    db: &Pool<Postgres>,
+    guild_id: Option<GuildId>,
+    presence: Presence,
+) {
+    let user_id = presence.user.id;
+    if match presence.user.bot {
+        Some(bot) => bot,
+        None => match ctx.cache.user(user_id) {
+            Some(user) => user.bot,
+            None => {
+                if let Ok(user) = ctx.http.get_user(user_id.0).await {
+                    user.bot
+                } else {
+                    warn!(user_id = user_id.0, "Unable to determine if user is bot");
+                    false
+                }
+            }
+        },
+    } {
+        // ignore updates from bots
+        return;
+    }
+    let game_name = presence.activities.iter().find_map(|a| {
+        if a.kind == ActivityType::Playing {
+            // clients reporting ® and ™ seems inconsistent, so the same game gets different names overtime
+            let mut game_name = a.name.replace(&['®', '™'][..], "");
+            game_name.truncate(512);
+            if game_name.starts_with(char::is_whitespace)
+                || game_name.ends_with(char::is_whitespace)
+            {
+                game_name = game_name.trim().to_owned();
+            }
+            Some(game_name)
+        } else {
+            None
+        }
+    });
+
+    if guild_id.is_none() {
+        warn!(user_id = user_id.0, status = ?presence.status, ?game_name, "Presence without guild");
+    }
+
+    // Check if we've already recorded that user is in this guild
+    if let Some(guild_id) = guild_id {
+        let guild_lists = {
+            let data = ctx.data.read().await;
+            #[allow(clippy::unwrap_used)]
+            data.get::<model::UserGuildList>().unwrap().clone()
+        };
+        let in_guild_list = {
+            let in_guild_list = match guild_lists.read().await.get(&user_id) {
+                Some(g) => g.contains(&guild_id),
+                None => false,
+            };
+            in_guild_list
+        };
+        // Add guild ID to user's list, creating list for user if they're new
+        if !in_guild_list {
+            let mut guild_lists = guild_lists.write().await;
+            if let Some(l) = guild_lists.get_mut(&user_id) {
+                l.insert(guild_id);
+            } else {
+                let mut new_list = HashSet::new();
+                new_list.insert(guild_id);
+                guild_lists.insert(user_id, new_list);
+            }
+        }
+    }
+
+    // Do nothing if presence's status and game name haven't changed since the last update we saw
+    let last_presence_map = {
+        let data = ctx.data.read().await;
+        #[allow(clippy::unwrap_used)]
+        if let Some(last_presence) = data
+            .get::<model::LastUserPresence>()
+            .unwrap()
+            .clone()
+            .read()
+            .await
+            .get(&user_id)
+        {
+            if last_presence.status == presence.status && last_presence.game_name == game_name {
+                return;
+            }
+        }
+
+        let user_id = match i64::try_from(user_id.0) {
+            Ok(u) => u,
+            Err(e) => {
+                error!(%e, "unable to fit user id in i64");
+                return;
+            }
+        };
+
+        if let Err(e) = sqlx::query(
+            r#"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)"#,
+        )
+        .bind(user_id)
+            .bind(presence.status.name())
+            .bind(&game_name)
+            .execute(db)
+            .await
+        {
+            error!(%e, "Error saving user_presence");
+            return;
+        }
+
+        #[allow(clippy::unwrap_used)]
+        data.get::<model::LastUserPresence>().unwrap().clone()
+    };
+    let mut last_presence_map = last_presence_map.write().await;
+    last_presence_map.insert(
+        user_id,
+        model::UserPresence {
+            status: presence.status,
+            game_name,
+        },
+    );
+}
