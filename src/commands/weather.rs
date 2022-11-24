@@ -133,27 +133,25 @@ pollen | {}"#,
         conditions
             .temperature
             .map_or_else(|| "--".to_string(), |t| format!("{:.0} \u{b0}F", t)),
-        conditions.temperature_apparent.map_or_else(
-            || "".to_string(),
-            |t| format!("(feels like {:.0} \u{b0}F)", t)
-        ),
+        conditions
+            .temperature_apparent
+            .map_or_else(String::new, |t| format!("(feels like {:.0} \u{b0}F)", t)),
         conditions_str,
         conditions
             .humidity
             .map_or_else(|| "--".to_string(), |h| format!("{:.0}%", h)),
-        conditions.dew_point.map_or_else(
-            || "".to_string(),
-            |t| format!("(dew point: {:.0} \u{b0}F)", t)
-        ),
+        conditions
+            .dew_point
+            .map_or_else(String::new, |t| format!("(dew point: {:.0} \u{b0}F)", t)),
         conditions
             .wind_speed
             .map_or_else(|| "--".to_string(), |w| format!("{:.1} mph", w)),
         conditions
             .wind_direction
-            .map_or_else(|| "".to_string(), |d| format!("from {:.0}\u{b0}", d)),
+            .map_or_else(String::new, |d| format!("from {:.0}\u{b0}", d)),
         conditions
             .wind_gust
-            .map_or_else(|| "".to_string(), |w| format!("(gusts: {:.1} mph)", w)),
+            .map_or_else(String::new, |w| format!("(gusts: {:.1} mph)", w)),
         conditions
             .uv_index
             .map_or_else(|| "--".to_string(), |u| format!("{}", u)),

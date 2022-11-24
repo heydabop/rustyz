@@ -298,7 +298,7 @@ async fn get_character_media(
             if gender_type.unwrap() == "MALE" { 0 } else { 1 }
         )
     } else {
-        String::from("")
+        String::new()
     };
 
     // Get JSON info of character's appearance and last modified time of images
@@ -670,7 +670,7 @@ pub async fn character(
     let guild_name = if let Some(guild) = &character.guild {
         format!("\n\u{276e}{}\u{276f}", guild.name)
     } else {
-        String::from("")
+        String::new()
     };
 
     let covenant_info = if let Some(covenant) = &character.covenant_progress {
@@ -679,13 +679,13 @@ pub async fn character(
             covenant.chosen_covenant.name, covenant.renown_level
         )
     } else {
-        String::from("")
+        String::new()
     };
 
     let active_spec = if let Some(spec) = &character.active_spec {
         format!(" {}", spec)
     } else {
-        String::from("")
+        String::new()
     };
 
     interaction
@@ -714,8 +714,8 @@ pub async fn character(
                         ),
                         true,
                     )
-                    .field("Health", &stats.health, true)
-                    .field(&stats.power_type, &stats.power, true)
+                    .field("Health", stats.health, true)
+                    .field(&stats.power_type, stats.power, true)
                     .field("\u{200B}", "\u{200B}", false)
                     .field("Strength", &stats.strength, true)
                     .field("Agility", &stats.agility, true)
