@@ -5,7 +5,7 @@ use serenity::model::id::ChannelId;
 use sqlx::{Pool, Postgres};
 use std::fmt;
 use std::sync::Arc;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 pub enum TrackingNumber {
     FedEx(String),
@@ -126,7 +126,7 @@ pub async fn poll_shipments_loop(discord_http: Arc<Http>, db: Pool<Postgres>, ap
                 continue;
             }
         };
-        info!(shipments = rows.len(), "polling for shipments");
+        debug!(shipments = rows.len(), "polling for shipments");
         for row in rows {
             use TrackingNumber::*;
             let old_status = if let Some(s) = &row.status {

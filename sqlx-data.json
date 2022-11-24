@@ -1,5 +1,23 @@
 {
   "db": "PostgreSQL",
+  "0264aa481b3e957014cb0a225d9d3557c5653f1edfb686b9da7872492941930f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "INSERT INTO bot_start DEFAULT VALUES RETURNING id"
+  },
   "05b1736f86ca743e8df7b18b9fcb5720c0fe97b30d2ac98b5469fa00e7c91938": {
     "describe": {
       "columns": [
@@ -59,6 +77,18 @@
       }
     },
     "query": "\nSELECT author_id, content\nFROM message\nWHERE channel_id = $1\nAND content NOT LIKE '/%'"
+  },
+  "2072291c1a33df3fedbc0c22f1828ae5c63888a5bf84d24c0e07f8e8d9fdb61e": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "UPDATE bot_start SET update_date = now() WHERE id = $1"
   },
   "330d919f3c7823c46e700338b1977ff2e55a146e722a381a90443c7b4c271445": {
     "describe": {

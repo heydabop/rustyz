@@ -95,7 +95,7 @@ pub async fn botinfo(ctx: &Context, interaction: &ApplicationCommandInteraction)
                         true,
                     )
                     .field("Member of", format!("{} servers", num_guilds), true)
-                    .field("Bot Server Uptime", server_uptime, true)
+                    .field("Host Uptime", server_uptime, true)
                     .field("Bot Uptime", bot_uptime.join("\n"), true);
                 if member.nick.is_some() {
                     e.description(bot.tag());

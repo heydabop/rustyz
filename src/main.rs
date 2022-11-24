@@ -14,7 +14,7 @@ use serenity::client::Client;
 use serenity::model::gateway::GatewayIntents;
 use serenity::prelude::*;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
-use sqlx::ConnectOptions;
+use sqlx::{ConnectOptions, Pool, Postgres};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -89,6 +89,8 @@ async fn main() {
         }
     };
 
+    let db_conn = pool.clone();
+
     let shippo_api_key = cfg.shippo.api_key.clone();
 
     let intents = GatewayIntents::GUILDS
@@ -147,9 +149,56 @@ async fn main() {
         shippo_api_key,
     ));
 
+    let start_id = match sqlx::query!("INSERT INTO bot_start DEFAULT VALUES RETURNING id")
+        .fetch_one(&db_conn)
+        .await
+    {
+        Ok(r) => Some(r.id),
+        Err(e) => {
+            error!(%e, "Error inserting into bot_start");
+            None
+        }
+    };
+
+    let updater_conn = db_conn.clone();
+    if let Some(start_id) = start_id {
+        set.spawn(uptime_update_loop(updater_conn.clone(), start_id));
+    }
+
     if let Some(Err(e)) = set.join_next().await {
         error!(%e, "Error joining task");
     }
 
+    if let Some(start_id) = start_id {
+        #[allow(clippy::panic)]
+        if let Err(e) = sqlx::query!(
+            "UPDATE bot_start SET update_date = now() WHERE id = $1",
+            start_id
+        )
+        .execute(&db_conn)
+        .await
+        {
+            error!(%e, "Error updating bot_start");
+        }
+    }
+
     info!("Exiting");
+}
+
+async fn uptime_update_loop(db: Pool<Postgres>, start_id: i32) {
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+    loop {
+        interval.tick().await;
+
+        #[allow(clippy::panic)]
+        if let Err(e) = sqlx::query!(
+            "UPDATE bot_start SET update_date = now() WHERE id = $1",
+            start_id
+        )
+        .execute(&db)
+        .await
+        {
+            error!(%e, "Error updating bot_start");
+        }
+    }
 }
