@@ -51,7 +51,7 @@ AND channel_id = $2
 GROUP BY author_id
 ORDER BY count(author_id) DESC
 LIMIT 10"#,
-            format!("/{}%", command),
+            format!("/{command}%"),
             i64::try_from(interaction.channel_id.0)?
         )
         .fetch_all(db)
@@ -64,12 +64,12 @@ LIMIT 10"#,
         let user_id = UserId(u64::try_from(row.author_id)?);
         let num_messages = row.num_messages.unwrap_or(0);
         let username = util::get_username_userid(&ctx.http, &members, user_id).await;
-        lines.push(format!("{} \u{2014} {}\n", username, num_messages));
+        lines.push(format!("{username} \u{2014} {num_messages}\n"));
     }
 
     interaction
         .edit_original_interaction_response(&ctx.http, |response| {
-            response.content(format!("usage of `{}`\n{}", command, lines.concat()))
+            response.content(format!("usage of `{command}`\n{}", lines.concat()))
         })
         .await?;
 

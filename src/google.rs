@@ -22,11 +22,11 @@ impl From<reqwest::Error> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::Status(status) => write!(f, "expected OK status, got {}", status),
+            Error::Status(status) => write!(f, "expected OK status, got {status}"),
             Error::NoResults => write!(f, "0 geocoding results"),
             Error::MissingGeometry => write!(f, "missing geometry in geocoding result"),
-            Error::Reqwest(e) => write!(f, "request error: {}", e),
-            Error::InvalidTz(e) => write!(f, "invalid timezone ID: {}", e),
+            Error::Reqwest(e) => write!(f, "request error: {e}"),
+            Error::InvalidTz(e) => write!(f, "invalid timezone ID: {e}"),
         }
     }
 }

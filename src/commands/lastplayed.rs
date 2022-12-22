@@ -44,8 +44,7 @@ pub async fn lastplayed(
             if let Some(game_name) = &presence.game_name {
                 interaction
                     .edit_original_interaction_response(&ctx.http, |response| {
-                        response
-                            .content(format!("{} is currently playing {}", user.name, game_name))
+                        response.content(format!("{} is currently playing {game_name}", user.name))
                     })
                     .await?;
                 return Ok(());
@@ -77,7 +76,7 @@ pub async fn lastplayed(
         None => {
             interaction
                 .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content(format!("{} is currently playing {}", user.name, game_name))
+                    response.content(format!("{} is currently playing {game_name}", user.name))
                 })
                 .await?;
             return Ok(());
@@ -104,8 +103,8 @@ pub async fn lastplayed(
     interaction
         .edit_original_interaction_response(&ctx.http, |response| {
             response.content(format!(
-                "{} was playing {} {} ago",
-                user.name, game_name, since_str
+                "{} was playing {game_name} {since_str} ago",
+                user.name
             ))
         })
         .await?;

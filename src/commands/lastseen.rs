@@ -90,7 +90,7 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
 
     interaction
         .edit_original_interaction_response(&ctx.http, |response| {
-            response.content(format!("{} was last seen {} ago", user.name, since_str))
+            response.content(format!("{} was last seen {since_str} ago", user.name))
         })
         .await?;
 

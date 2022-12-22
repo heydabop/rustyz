@@ -132,32 +132,32 @@ pollen | {}"#,
         location_name,
         conditions
             .temperature
-            .map_or_else(|| "--".to_string(), |t| format!("{:.0} \u{b0}F", t)),
+            .map_or_else(|| "--".to_string(), |t| format!("{t:.0} \u{b0}F")),
         conditions
             .temperature_apparent
-            .map_or_else(String::new, |t| format!("(feels like {:.0} \u{b0}F)", t)),
+            .map_or_else(String::new, |t| format!("(feels like {t:.0} \u{b0}F)")),
         conditions_str,
         conditions
             .humidity
-            .map_or_else(|| "--".to_string(), |h| format!("{:.0}%", h)),
+            .map_or_else(|| "--".to_string(), |h| format!("{h:.0}%")),
         conditions
             .dew_point
-            .map_or_else(String::new, |t| format!("(dew point: {:.0} \u{b0}F)", t)),
+            .map_or_else(String::new, |t| format!("(dew point: {t:.0} \u{b0}F)")),
         conditions
             .wind_speed
-            .map_or_else(|| "--".to_string(), |w| format!("{:.1} mph", w)),
+            .map_or_else(|| "--".to_string(), |w| format!("{w:.1} mph")),
         conditions
             .wind_direction
-            .map_or_else(String::new, |d| format!("from {:.0}\u{b0}", d)),
+            .map_or_else(String::new, |d| format!("from {d:.0}\u{b0}")),
         conditions
             .wind_gust
-            .map_or_else(String::new, |w| format!("(gusts: {:.1} mph)", w)),
+            .map_or_else(String::new, |w| format!("(gusts: {w:.1} mph)")),
         conditions
             .uv_index
-            .map_or_else(|| "--".to_string(), |u| format!("{}", u)),
+            .map_or_else(|| "--".to_string(), |u| format!("{u}")),
         conditions
             .epa_index
-            .map_or_else(|| "--".to_string(), |e| format!("{}", e)),
+            .map_or_else(|| "--".to_string(), |e| format!("{e}")),
         aqi_health,
         pollen
     );
@@ -237,16 +237,16 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
             time.format("%l:%M %p"),
             values
                 .temperature
-                .map_or_else(|| "--".to_string(), |t| format!("{:.0} \u{b0}F", t)),
+                .map_or_else(|| "--".to_string(), |t| format!("{t:.0} \u{b0}F")),
             values
                 .humidity
-                .map_or_else(|| "--".to_string(), |t| format!("{:.0}%", t)),
+                .map_or_else(|| "--".to_string(), |t| format!("{t:.0}%")),
             values
                 .dew_point
-                .map_or_else(|| "--".to_string(), |t| format!("{:.0} \u{b0}F", t)),
+                .map_or_else(|| "--".to_string(), |t| format!("{t:.0} \u{b0}F")),
             values
                 .precipitation_probability
-                .map_or_else(|| " --".to_string(), |t| format!(" {:.0}%", t))
+                .map_or_else(|| " --".to_string(), |t| format!(" {t:.0}%"))
         )?;
     }
     write!(response_msg, "```")?;
@@ -273,7 +273,7 @@ async fn parse_location(ctx: &Context, args: &str) -> Result<(Point, String), Co
             Err(e) => return Err(e.into()),
         };
         let location = Point { lat, lng };
-        let location_name = format!("{}, {}", lat, lng);
+        let location_name = format!("{lat}, {lng}");
         Ok((location, location_name))
     } else if !args.is_empty() {
         let maps_api_key = {

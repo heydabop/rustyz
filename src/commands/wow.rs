@@ -273,7 +273,7 @@ async fn get_character(
     let client = reqwest::Client::new();
 
     // Get character last login time (and check if they exist)
-    let resp = client.get(format!("https://us.api.blizzard.com/profile/wow/character/{}/{}?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token))
+    let resp = client.get(format!("https://us.api.blizzard.com/profile/wow/character/{realm_name}/{character_name}?namespace=profile-us&locale=en_US&access_token={access_token}"))
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => Ok(resp.json::<Character>().await?),
@@ -295,14 +295,14 @@ async fn get_character_media(
         format!(
             "&alt=/shadow/avatar/{}-{}.jpg",
             race_id.unwrap(),
-            if gender_type.unwrap() == "MALE" { 0 } else { 1 }
+            i32::from(gender_type.unwrap() != "MALE")
         )
     } else {
         String::new()
     };
 
     // Get JSON info of character's appearance and last modified time of images
-    let resp = client.get(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/character-media?namespace=profile-us&locale=en_US&access_token={}{}", realm_name, character_name, access_token, alt_avatar))
+    let resp = client.get(&format!("https://us.api.blizzard.com/profile/wow/character/{realm_name}/{character_name}/character-media?namespace=profile-us&locale=en_US&access_token={access_token}{alt_avatar}"))
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => {
@@ -336,7 +336,7 @@ async fn get_character_statistics(
 ) -> Result<CharacterStats, reqwest::Error> {
     let client = reqwest::Client::new();
 
-    let resp = client.get(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/statistics?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token))
+    let resp = client.get(&format!("https://us.api.blizzard.com/profile/wow/character/{realm_name}/{character_name}/statistics?namespace=profile-us&locale=en_US&access_token={access_token}"))
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => Ok(resp.json::<CharacterStats>().await?),
@@ -351,7 +351,7 @@ async fn get_character_titles(
 ) -> Result<CharacterTitles, reqwest::Error> {
     let client = reqwest::Client::new();
 
-    let resp = client.get(&format!("https://us.api.blizzard.com/profile/wow/character/{}/{}/titles?namespace=profile-us&locale=en_US&access_token={}", realm_name, character_name, access_token))
+    let resp = client.get(&format!("https://us.api.blizzard.com/profile/wow/character/{realm_name}/{character_name}/titles?namespace=profile-us&locale=en_US&access_token={access_token}"))
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => Ok(resp.json::<CharacterTitles>().await?),
@@ -424,7 +424,7 @@ pub async fn transmog(
         {
             interaction
                 .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content(format!("Unable to find {} on {}", character, realm))
+                    response.content(format!("Unable to find {character} on {realm}"))
                 })
                 .await?;
             return Ok(());
@@ -454,7 +454,7 @@ pub async fn transmog(
         .map(|lm| format!("Image updated on {}", lm.format(date_format)));
 
     let msg_content = if let Some(last_modified) = last_modified {
-        format!("{}\n{}", last_modified, last_login)
+        format!("{last_modified}\n{last_login}")
     } else {
         last_login
     };
@@ -484,7 +484,7 @@ pub async fn transmog(
     if !found_raw {
         interaction
             .edit_original_interaction_response(&ctx.http, |response| {
-                response.content(format!("{}\n{}", msg_content, image_url))
+                response.content(format!("{msg_content}\n{image_url}"))
             })
             .await?;
         return Ok(());
@@ -567,7 +567,7 @@ pub async fn transmog(
         .send_message(&ctx.http, |m| {
             m.add_file(AttachmentType::Bytes {
                 data: Cow::from(cropped_buffer),
-                filename: format!("{}-{}.png", realm, character),
+                filename: format!("{realm}-{character}.png"),
             })
         })
         .await?;
@@ -644,7 +644,7 @@ pub async fn character(
                             warn!(time = ?SystemTime::now(), "SystemTime before UNIX_EPOCH");
                             0
                         };
-                    Some(a.value.clone() + &format!("?{}", seconds))
+                    Some(a.value.clone() + &format!("?{seconds}"))
                 } else {
                     None
                 }
@@ -683,7 +683,7 @@ pub async fn character(
     };
 
     let active_spec = if let Some(spec) = &character.active_spec {
-        format!(" {}", spec)
+        format!(" {spec}")
     } else {
         String::new()
     };
@@ -691,7 +691,7 @@ pub async fn character(
     interaction
         .edit_original_interaction_response(&ctx.http, |response| {
             response.embed(|e| {
-                e.title(format!("{}{}", titled_name, guild_name))
+                e.title(format!("{titled_name}{guild_name}"))
                     .timestamp(character.last_login_utc().to_rfc3339())
                     .description(format!(
                         "Level {} {}{} {}{}",
@@ -764,7 +764,7 @@ pub async fn search(
         .build()?
         .request(
             reqwest::Method::GET,
-            &format!(
+            format!(
                 "https://worldofwarcraft.com/en-us/search/character?q={}",
                 character
             ),
@@ -844,13 +844,13 @@ pub async fn realm(
 
     let client = reqwest::Client::new();
 
-    let search: Search = client.get(&format!("https://us.api.blizzard.com/data/wow/search/connected-realm?namespace=dynamic-us&locale=en_US&realms.slug={}&orderby=id&_page=1&access_token={}", realm_slug, access_token))
+    let search: Search = client.get(&format!("https://us.api.blizzard.com/data/wow/search/connected-realm?namespace=dynamic-us&locale=en_US&realms.slug={realm_slug}&orderby=id&_page=1&access_token={access_token}"))
         .send().await?.json().await?;
 
     if search.results.is_empty() || search.results[0].data.realms.is_empty() {
         interaction
             .edit_original_interaction_response(&ctx.http, |response| {
-                response.content(format!("Unable to find {}", arg))
+                response.content(format!("Unable to find {arg}"))
             })
             .await?;
         return Ok(());
@@ -866,7 +866,7 @@ pub async fn realm(
     } else {
         interaction
             .edit_original_interaction_response(&ctx.http, |response| {
-                response.content(format!("Unable to find {}", arg))
+                response.content(format!("Unable to find {arg}"))
             })
             .await?;
         return Ok(());
@@ -877,12 +877,12 @@ pub async fn realm(
 
     let content = if realm_data.status.t == "UP" {
         if realm_data.has_queue {
-            format!("{} is online but has a queue", realm_name)
+            format!("{realm_name} is online but has a queue")
         } else {
-            format!("{} is online and has no queue", realm_name)
+            format!("{realm_name} is online and has no queue")
         }
     } else {
-        format!("{} is offline", realm_name)
+        format!("{realm_name} is offline")
     };
 
     interaction

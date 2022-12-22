@@ -9,7 +9,7 @@ pub async fn invite(ctx: &Context, interaction: &ApplicationCommandInteraction) 
         | Permissions::SEND_MESSAGES
         | Permissions::READ_MESSAGE_HISTORY)
         .bits();
-    let url = format!("https://discord.com/api/oauth2/authorize?client_id={}&permissions={}&scope=bot%20applications.commands", interaction.application_id.0, permissions);
+    let url = format!("https://discord.com/api/oauth2/authorize?client_id={}&permissions={permissions}&scope=bot%20applications.commands", interaction.application_id.0);
     interaction
         .edit_original_interaction_response(&ctx.http, |response| response.content(url))
         .await?;

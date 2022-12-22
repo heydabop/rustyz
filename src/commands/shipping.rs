@@ -35,7 +35,7 @@ pub async fn track(ctx: &Context, interaction: &ApplicationCommandInteraction) -
         "fedex" => FedEx(number.to_string()),
         "ups" => Ups(number.to_string()),
         "usps" => Usps(number.to_string()),
-        &_ => return Err(format!("Unrecognized carrier: {}", carrier).into()),
+        &_ => return Err(format!("Unrecognized carrier: {carrier}").into()),
     };
 
     let shippo_api_key = {
@@ -66,7 +66,7 @@ pub async fn track(ctx: &Context, interaction: &ApplicationCommandInteraction) -
 
     interaction
         .edit_original_interaction_response(&ctx.http, |response| {
-            response.content(format!("{}{}", status_string, eta_string))
+            response.content(format!("{status_string}{eta_string}"))
         })
         .await?;
 

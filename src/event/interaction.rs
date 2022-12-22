@@ -22,7 +22,7 @@ pub async fn create(ctx: Context, db: &Pool<Postgres>, interaction: Interaction)
             error!(%e, "Unable to defer response to interaction");
             report_interaction_error(
                 &ctx,
-                format!("unable to defer response to interaction: `{}`", e),
+                format!("unable to defer response to interaction: `{e}`"),
             )
             .await;
             return;
@@ -90,7 +90,7 @@ pub async fn create(ctx: Context, db: &Pool<Postgres>, interaction: Interaction)
                     error!(%e, "Unable to respond to interaction");
                     report_interaction_error(
                         &ctx,
-                        format!("unable to respond to interaction: `{}`", e),
+                        format!("unable to respond to interaction: `{e}`"),
                     )
                     .await;
                 }
@@ -98,21 +98,18 @@ pub async fn create(ctx: Context, db: &Pool<Postgres>, interaction: Interaction)
             }
         } {
             error!(%e, command = command.data.name, "Error running command");
-            report_interaction_error(
-                &ctx,
-                format!("error running {}: `{}`", command.data.name, e),
-            )
-            .await;
+            report_interaction_error(&ctx, format!("error running {}: `{e}`", command.data.name))
+                .await;
             if let Err(resp_e) = command
                 .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content(format!("\u{26A0} `Error: {}`", e))
+                    response.content(format!("\u{26A0} `Error: {e}`"))
                 })
                 .await
             {
                 error!(e = %resp_e, "Unable to respond to interaction");
                 report_interaction_error(
                     &ctx,
-                    format!("unable to respond to interaction: `{}`", resp_e),
+                    format!("unable to respond to interaction: `{resp_e}`"),
                 )
                 .await;
             }

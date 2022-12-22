@@ -240,7 +240,7 @@ pub async fn gen_playtime_message(
         return Ok(format!(
             "```No recorded playtime{}```",
             if let Some(username) = username {
-                format!(" for {}", username)
+                format!(" for {username}")
             } else {
                 String::new()
             }
@@ -324,7 +324,7 @@ pub async fn gen_playtime_message(
         return Ok(format!(
             "```No recorded playtime{}```",
             if let Some(username) = username {
-                format!(" for {}", username)
+                format!(" for {username}")
             } else {
                 String::new()
             }
@@ -363,7 +363,7 @@ pub async fn gen_playtime_message(
     Ok(format!(
         "```{} {} - Page {}/{}\n\n{}```",
         if let Some(username) = username {
-            format!("{} since", username)
+            format!("{username} since")
         } else {
             String::from("Since")
         },
@@ -421,14 +421,14 @@ pub fn create_components<'a>(
 ) -> &'a mut CreateComponents {
     components.create_action_row(|a| {
         a.create_button(|b| {
-            b.custom_id(format!("playtime:prev:{}", button_id))
+            b.custom_id(format!("playtime:prev:{button_id}"))
                 .style(ButtonStyle::Primary)
                 .label("Prev")
                 .disabled(disabled || offset < 1);
             b
         });
         a.create_button(|b| {
-            b.custom_id(format!("playtime:next:{}", button_id))
+            b.custom_id(format!("playtime:next:{button_id}"))
                 .style(ButtonStyle::Primary)
                 .label("Next")
                 .disabled(disabled || content.matches('\n').count() < usize::from(OFFSET_INC) + 2);

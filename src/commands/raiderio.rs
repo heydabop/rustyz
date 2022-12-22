@@ -118,14 +118,14 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
         .await?
         .dungeons;
 
-    let profile = match client.get(&format!("https://raider.io/api/v1/characters/profile?region=us&realm={}&name={}&fields=raid_progression%2Cmythic_plus_scores_by_season%3Acurrent%2Cmythic_plus_best_runs%3Aall%2Cmythic_plus_highest_level_runs%2Cmythic_plus_recent_runs", realm, character)).send().await?.error_for_status() {
+    let profile = match client.get(&format!("https://raider.io/api/v1/characters/profile?region=us&realm={realm}&name={character}&fields=raid_progression%2Cmythic_plus_scores_by_season%3Acurrent%2Cmythic_plus_best_runs%3Aall%2Cmythic_plus_highest_level_runs%2Cmythic_plus_recent_runs")).send().await?.error_for_status() {
         Ok(resp) => if let Ok(profile) = resp.json::<CharacterProfile>().await {
             profile
         } else {
             // assume raider.io is giving us a 400 response as a json error under a 200 http response
             interaction
                 .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content(format!("Unable to find raiderio profile for {} on {}", character, realm))
+                    response.content(format!("Unable to find raiderio profile for {character} on {realm}"))
                 })
                 .await?;
             return Ok(());
@@ -134,7 +134,7 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
             if e.status() == Some(StatusCode::NOT_FOUND) || e.status() == Some(StatusCode::BAD_REQUEST) {
                 interaction
                     .edit_original_interaction_response(&ctx.http, |response| {
-                        response.content(format!("Unable to find raiderio profile for {} on {}", character, realm))
+                        response.content(format!("Unable to find raiderio profile for {character} on {realm}"))
                     })
                     .await?;
                 return Ok(());
@@ -183,7 +183,7 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
                     width = longest_name
                 ));
             } else {
-                sorted_best_runs.push(format!("`{:width$}` --", short_name, width = longest_name));
+                sorted_best_runs.push(format!("`{short_name:longest_name$}` --"));
             }
         }
         sorted_best_runs.sort();
@@ -194,7 +194,7 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
     interaction
         .edit_original_interaction_response(&ctx.http, |response| {
             response.embed(|e| {
-                e.title(format!("{}-{}", profile.name, realm))
+                e.title(format!("{}-{realm}", profile.name))
                     .timestamp(profile.last_crawled_at)
                     .url(profile.profile_url)
                     .thumbnail(thumbnail_url)

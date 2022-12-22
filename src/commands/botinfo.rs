@@ -46,7 +46,7 @@ pub async fn botinfo(ctx: &Context, interaction: &ApplicationCommandInteraction)
         ));
     }
     if days > 0 {
-        bot_uptime.push(format!("{} day{}", days, if days == 1 { "" } else { "s" }));
+        bot_uptime.push(format!("{days} day{}", if days == 1 { "" } else { "s" }));
     }
     if hours > 0 {
         bot_uptime.push(format!(
@@ -94,7 +94,7 @@ pub async fn botinfo(ctx: &Context, interaction: &ApplicationCommandInteraction)
                         },
                         true,
                     )
-                    .field("Member of", format!("{} servers", num_guilds), true)
+                    .field("Member of", format!("{num_guilds} servers"), true)
                     .field("Host Uptime", server_uptime, true)
                     .field("Bot Uptime", bot_uptime.join("\n"), true);
                 if member.nick.is_some() {

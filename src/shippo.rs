@@ -36,9 +36,9 @@ impl fmt::Display for TrackingNumber {
         #[allow(clippy::enum_glob_use)]
         use TrackingNumber::*;
         match self {
-            FedEx(t) => write!(f, "fedex/{}", t),
-            Ups(t) => write!(f, "ups/{}", t),
-            Usps(t) => write!(f, "usps/{}", t),
+            FedEx(t) => write!(f, "fedex/{t}"),
+            Ups(t) => write!(f, "ups/{t}"),
+            Usps(t) => write!(f, "usps/{t}"),
         }
     }
 }
@@ -99,7 +99,7 @@ pub async fn get_tracking_status(
 
     let response = client
         .post("https://api.goshippo.com/tracks/")
-        .header("Authorization", format!("ShippoToken {}", api_key))
+        .header("Authorization", format!("ShippoToken {api_key}"))
         .form(&[
             ("carrier", tracking_number.carrier()),
             ("tracking_number", &tracking_number.number()),
@@ -164,7 +164,7 @@ pub async fn poll_shipments_loop(discord_http: Arc<Http>, db: Pool<Postgres>, ap
                 if old_status != &tracking_status.status.to_string() {
                     if tracking_status.status == Status::Delivered {
                         let comment = if let Some(c) = row.comment {
-                            format!(" ({}) ", c)
+                            format!(" ({c}) ")
                         } else {
                             String::from(" ")
                         };
@@ -175,7 +175,7 @@ pub async fn poll_shipments_loop(discord_http: Arc<Http>, db: Pool<Postgres>, ap
                                 continue;
                             }
                         };
-                        if let Err(e) = channel_id.say(&discord_http, format!("<@{}>: Your {} shipment {}{}was marked as delivered at {} with the following message: {}", row.author_id, carrier, row.tracking_number, comment, tracking_status.status_date, tracking_status.status_details)).await {
+                        if let Err(e) = channel_id.say(&discord_http, format!("<@{}>: Your {carrier} shipment {}{comment}was marked as delivered at {} with the following message: {}", row.author_id, row.tracking_number, tracking_status.status_date, tracking_status.status_details)).await {
                             error!(error = %e, "error alerting user of shipment");
                             continue;
                         }

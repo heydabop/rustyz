@@ -55,7 +55,7 @@ LIMIT $2"#,
         let user_id = UserId(row.get::<String, _>(0).parse::<u64>()?);
         let karma: i32 = row.get(1);
         let username = util::get_username_userid(&ctx.http, &members, user_id).await;
-        lines.push(format!("{} \u{2014} {}\n", username, karma));
+        lines.push(format!("{username} \u{2014} {karma}\n"));
     }
 
     interaction
