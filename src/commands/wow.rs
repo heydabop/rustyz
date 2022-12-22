@@ -1,6 +1,6 @@
 use crate::config;
 use crate::error::CommandResult;
-use chrono::{DateTime, Local, TimeZone, Utc};
+use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use image::{codecs::png::PngEncoder, imageops, ColorType, ImageEncoder, ImageFormat};
 use reqwest::StatusCode;
 use serde::Deserialize;
@@ -185,20 +185,26 @@ impl CharacterStats {
 }
 
 impl Character {
-    fn last_login_local(&self) -> DateTime<Local> {
+    fn last_login_local(&self) -> Option<DateTime<Local>> {
         #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-        Local.timestamp(
+        match Local.timestamp_opt(
             self.last_login_timestamp / 1000,
             ((self.last_login_timestamp % 1000) * 1000) as u32,
-        )
+        ) {
+            LocalResult::None => None,
+            LocalResult::Single(t) | LocalResult::Ambiguous(t, _) => Some(t),
+        }
     }
 
-    fn last_login_utc(&self) -> DateTime<Utc> {
+    fn last_login_utc(&self) -> Option<DateTime<Utc>> {
         #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-        Utc.timestamp(
+        match Utc.timestamp_opt(
             self.last_login_timestamp / 1000,
             ((self.last_login_timestamp % 1000) * 1000) as u32,
-        )
+        ) {
+            LocalResult::None => None,
+            LocalResult::Single(t) | LocalResult::Ambiguous(t, _) => Some(t),
+        }
     }
 }
 
@@ -416,7 +422,10 @@ pub async fn transmog(
     let last_login: String = match get_character(&realm, &character, &access_token).await {
         Ok(c) => format!(
             "Player last seen on {}",
-            c.last_login_local().format(date_format)
+            match c.last_login_local() {
+                None => String::from("UNKNOWN"),
+                Some(l) => l.format(date_format).to_string(),
+            }
         ),
         Err(e)
             if e.status() == Some(StatusCode::NOT_FOUND)
@@ -692,7 +701,6 @@ pub async fn character(
         .edit_original_interaction_response(&ctx.http, |response| {
             response.embed(|e| {
                 e.title(format!("{titled_name}{guild_name}"))
-                    .timestamp(character.last_login_utc().to_rfc3339())
                     .description(format!(
                         "Level {} {}{} {}{}",
                         character.level,
@@ -733,6 +741,9 @@ pub async fn character(
                     );
                 if let Some(inset_url) = inset_url {
                     e.image(inset_url);
+                }
+                if let Some(last_login) = character.last_login_utc() {
+                    e.timestamp(last_login.to_rfc3339());
                 }
                 e
             })

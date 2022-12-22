@@ -1,4 +1,4 @@
-use crate::error::CommandResult;
+use crate::error::{CommandError, CommandResult};
 use crate::model::DB;
 use chrono::naive::NaiveDateTime;
 use num_format::{Locale, ToFormattedString};
@@ -43,18 +43,20 @@ WHERE guild_id = $1"#,
     .count
     .unwrap_or(0);
 
+    let created = NaiveDateTime::from_timestamp_opt(guild.id.created_at().unix_timestamp(), 0)
+        .ok_or_else(|| {
+            CommandError::from(format!(
+                "Invalid server creation timestamp: {}",
+                guild.id.created_at().unix_timestamp()
+            ))
+        })?;
+
     interaction
         .edit_original_interaction_response(&ctx.http, |r| {
             r.embed(|e| {
                 e.title(&guild.name)
                     .timestamp(serenity::model::timestamp::Timestamp::now())
-                    .field(
-                        "Created on",
-                        NaiveDateTime::from_timestamp(guild.id.created_at().unix_timestamp(), 0)
-                            .format("%b %e, %Y")
-                            .to_string(),
-                        true,
-                    )
+                    .field("Created on", created.format("%b %e, %Y").to_string(), true)
                     .field(
                         "Boost Tier",
                         match guild.premium_tier {

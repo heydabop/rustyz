@@ -1,4 +1,4 @@
-use crate::error::CommandResult;
+use crate::error::{CommandError, CommandResult};
 use crate::model::{OldDB, DB};
 use chrono::naive::NaiveDateTime;
 use num_format::{Locale, ToFormattedString};
@@ -120,6 +120,38 @@ AND author_id = $2"#,
         None => String::from("Unavailable"),
     };
 
+    let boost_timestamp = if let Some(since) = member.premium_since {
+        Some(
+            NaiveDateTime::from_timestamp_opt(since.unix_timestamp(), 0).ok_or_else(|| {
+                CommandError::from(format!(
+                    "Invalid boost timestamp: {}",
+                    since.unix_timestamp()
+                ))
+            })?,
+        )
+    } else {
+        None
+    };
+    let discord_join = NaiveDateTime::from_timestamp_opt(user.created_at().unix_timestamp(), 0)
+        .ok_or_else(|| {
+            CommandError::from(format!(
+                "Invalid discord join timestamp: {}",
+                user.created_at().unix_timestamp()
+            ))
+        })?;
+    let server_join = if let Some(joined_at) = member.joined_at {
+        Some(
+            NaiveDateTime::from_timestamp_opt(joined_at.unix_timestamp(), 0).ok_or_else(|| {
+                CommandError::from(format!(
+                    "Invalid server join timestamp: {}",
+                    joined_at.unix_timestamp()
+                ))
+            })?,
+        )
+    } else {
+        None
+    };
+
     interaction
         .edit_original_interaction_response(&ctx.http, |r| {
             r.embed(|e| {
@@ -129,12 +161,8 @@ AND author_id = $2"#,
                     .field("Bot?", if user.bot { yes } else { no }, true)
                     .field(
                         "Boosting Server?",
-                        if let Some(since) = member.premium_since {
-                            format!(
-                                "Since {}",
-                                NaiveDateTime::from_timestamp(since.unix_timestamp(), 0)
-                                    .format(date_format_str)
-                            )
+                        if let Some(boost_timestamp) = boost_timestamp {
+                            format!("Since {}", boost_timestamp.format(date_format_str))
                         } else {
                             no.to_string()
                         },
@@ -142,17 +170,13 @@ AND author_id = $2"#,
                     )
                     .field(
                         "Joined Discord",
-                        NaiveDateTime::from_timestamp(user.created_at().unix_timestamp(), 0)
-                            .format(date_format_str)
-                            .to_string(),
+                        discord_join.format(date_format_str).to_string(),
                         true,
                     )
                     .field(
                         "Joined Server",
-                        if let Some(joined_at) = member.joined_at {
-                            NaiveDateTime::from_timestamp(joined_at.unix_timestamp(), 0)
-                                .format(date_format_str)
-                                .to_string()
+                        if let Some(joined_at) = server_join {
+                            joined_at.format(date_format_str).to_string()
                         } else {
                             String::from("`Unknown`")
                         },

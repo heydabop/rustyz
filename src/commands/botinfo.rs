@@ -1,4 +1,4 @@
-use crate::error::CommandResult;
+use crate::error::{CommandError, CommandResult};
 use crate::model::StartInstant;
 use chrono::naive::NaiveDateTime;
 use serenity::client::Context;
@@ -70,6 +70,26 @@ pub async fn botinfo(ctx: &Context, interaction: &ApplicationCommandInteraction)
         ));
     }
 
+    let discord_join = NaiveDateTime::from_timestamp_opt(user.created_at().unix_timestamp(), 0)
+        .ok_or_else(|| {
+            CommandError::from(format!(
+                "Invalid discord join timestamp: {}",
+                user.created_at().unix_timestamp()
+            ))
+        })?;
+    let server_join = if let Some(joined_at) = member.joined_at {
+        Some(
+            NaiveDateTime::from_timestamp_opt(joined_at.unix_timestamp(), 0).ok_or_else(|| {
+                CommandError::from(format!(
+                    "Invalid server join timestamp: {}",
+                    joined_at.unix_timestamp()
+                ))
+            })?,
+        )
+    } else {
+        None
+    };
+
     interaction
         .edit_original_interaction_response(&ctx.http, |r| {
             r.embed(|e| {
@@ -78,17 +98,13 @@ pub async fn botinfo(ctx: &Context, interaction: &ApplicationCommandInteraction)
                     .timestamp(serenity::model::timestamp::Timestamp::now())
                     .field(
                         "Joined Discord",
-                        NaiveDateTime::from_timestamp(user.created_at().unix_timestamp(), 0)
-                            .format("%b %e, %Y")
-                            .to_string(),
+                        discord_join.format("%b %e, %Y").to_string(),
                         true,
                     )
                     .field(
                         "Joined Server",
-                        if let Some(joined_at) = member.joined_at {
-                            NaiveDateTime::from_timestamp(joined_at.unix_timestamp(), 0)
-                                .format("%b %e, %Y")
-                                .to_string()
+                        if let Some(joined_at) = server_join {
+                            joined_at.format("%b %e, %Y").to_string()
                         } else {
                             String::from("`Unknown`")
                         },
