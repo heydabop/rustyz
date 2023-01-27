@@ -30,6 +30,10 @@ lng = -71.091944
 client_id = ""
 client_secret = ""
 
+[wolfram_alpha]
+# Wolfram Alpha API App ID
+app_id = "VWRHWX-Q2APUTXWXP"
+
 [wow]
 # Auth info from Blizzard dev console
 client_id = ""

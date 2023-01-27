@@ -52,6 +52,11 @@ pub struct TwitchAuth {
 }
 
 #[derive(Clone, Deserialize)]
+pub struct WolframAlpha {
+    pub app_id: String,
+}
+
+#[derive(Clone, Deserialize)]
 pub struct Wow {
     pub client_id: String,
     pub client_secret: String,
@@ -84,6 +89,10 @@ impl TypeMapKey for Twitch {
     type Value = Twitch;
 }
 
+impl TypeMapKey for WolframAlpha {
+    type Value = WolframAlpha;
+}
+
 impl TypeMapKey for Wow {
     type Value = Wow;
 }
@@ -98,5 +107,6 @@ pub struct Main {
     pub tarkov_market: TarkovMarket,
     pub tomorrow_io: TomorrowIO,
     pub twitch: Twitch,
+    pub wolfram_alpha: WolframAlpha,
     pub wow: Wow,
 }

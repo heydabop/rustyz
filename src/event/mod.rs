@@ -308,6 +308,16 @@ impl EventHandler for Handler {
                         })
                 })
                 .create_application_command(|c| {
+                    c.name("wolframalpha")
+                        .description("Queries Wolfram Alpha")
+                        .create_option(|o| {
+                            o.name("input")
+                                .description("Input query")
+                                .kind(CommandOptionType::String)
+                                .required(true)
+                        })
+                })
+                .create_application_command(|c| {
                     c.name("wow")
                         .description("World of Warcraft commands")
                         .create_option(|o| {

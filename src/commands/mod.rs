@@ -20,5 +20,6 @@ pub mod toplength;
 pub mod userinfo;
 pub mod weather;
 pub mod whois;
+pub mod wolframalpha;
 pub mod wow;
 pub mod zalgo;

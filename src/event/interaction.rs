@@ -58,6 +58,7 @@ pub async fn create(ctx: Context, db: &Pool<Postgres>, interaction: Interaction)
             "weather" => commands::weather::weather(&ctx, &command).await,
             "whois" => commands::whois::whois(&ctx, &command).await,
             "zalgo" => commands::zalgo::zalgo(&ctx, &command).await,
+            "wolframalpha" => commands::wolframalpha::simple(&ctx, &command).await,
             "wow" => {
                 if let Some(subcommand) = command.data.options.get(0) {
                     match subcommand.name.as_str() {

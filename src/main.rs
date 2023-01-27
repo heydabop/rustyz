@@ -108,6 +108,7 @@ async fn main() {
         .type_map_insert::<config::TarkovMarket>(cfg.tarkov_market)
         .type_map_insert::<config::TomorrowIO>(cfg.tomorrow_io)
         .type_map_insert::<config::Twitch>(cfg.twitch)
+        .type_map_insert::<config::WolframAlpha>(cfg.wolfram_alpha)
         .type_map_insert::<config::Wow>(cfg.wow)
         .type_map_insert::<model::OwnerId>(cfg.owner_id)
         .type_map_insert::<model::LastUserPresence>(Arc::new(RwLock::new(HashMap::new())))
