@@ -16,9 +16,26 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Cache Cargo registry
+      id: cache-cargo
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-build-cache-cargo-registry-${{ hashFiles('./Cargo.lock') }}
+
+    - name: Cache target dir
+      id: cache-target
+      uses: actions/cache@v3
+      with:
+        path: ./target
+        key: ${{ runner.os }}-build-cache-target-dir-${{ hashFiles('./Cargo.lock') }}
+
     - name: Check fmt
       run: cargo fmt --check
+
     - name: Clippy
       run: cargo clippy --no-deps -- -D warnings
+
     - name: Build
       run: cargo build
