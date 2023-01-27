@@ -12,7 +12,7 @@ use sqlx::Row;
 #[allow(clippy::similar_names)]
 // Replies to msg with the duration since the user was last online
 pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let user = match interaction.data.options.get(0).and_then(|o| {
+    let Some(user) = interaction.data.options.get(0).and_then(|o| {
         o.resolved.as_ref().and_then(|r| {
             if let CommandDataOptionValue::User(u, _) = r {
                 Some(u)
@@ -20,28 +20,22 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
                 None
             }
         })
-    }) {
-        Some(u) => u,
-        None => {
-            interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content("Unable to find user")
-                })
-                .await?;
-            return Ok(());
-        }
+    }) else {
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content("Unable to find user")
+            })
+            .await?;
+        return Ok(());
     };
 
-    let guild_id = match interaction.guild_id {
-        Some(g) => g,
-        None => {
-            interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content("Command can only be used in a server")
-                })
-                .await?;
-            return Ok(());
-        }
+    let Some(guild_id) = interaction.guild_id else {
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content("Command can only be used in a server")
+            })
+            .await?;
+        return Ok(());
     };
 
     if let Some(status) = util::get_user_status(ctx, guild_id, user.id).await {
@@ -55,21 +49,18 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
         }
     }
 
-    let row = match {
+    let Some(row) = ({
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
         sqlx::query(r#"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1"#).bind(i64::try_from(user.id)?).fetch_optional(db).await?
-    } {
-        Some(r) => r,
-        None => {
-            interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content(format!("I've never seen {}", user.name))
-                })
-                .await?;
-            return Ok(());
-        }
+    }) else {
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content(format!("I've never seen {}", user.name))
+            })
+            .await?;
+        return Ok(());
     };
 
     let now = Local::now().with_timezone(Local::now().offset());

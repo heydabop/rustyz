@@ -448,10 +448,8 @@ pub async fn transmog(
             Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
                 interaction
                     .edit_original_interaction_response(&ctx.http, |response| {
-                        response.content(format!(
-                            "Unable to find images for {} on {}",
-                            character, realm
-                        ))
+                        response
+                            .content(format!("Unable to find images for {character} on {realm}"))
                     })
                     .await?;
                 return Ok(());
@@ -484,9 +482,7 @@ pub async fn transmog(
     if image_url.is_none() {
         image_url = media.render_url;
     }
-    let image_url = if let Some(url) = image_url {
-        url
-    } else {
+    let Some(image_url) = image_url else {
         return Err("Unable to find character imagery".into());
     };
     // If we didn't find a transparent-background PNG image, just send the URL for whatever image we do have (discord will convert it)
@@ -623,10 +619,7 @@ pub async fn character(
             {
                 interaction
                     .edit_original_interaction_response(&ctx.http, |response| {
-                        response.content(format!(
-                            "Unable to find {} on {}",
-                            character_name, realm_name
-                        ))
+                        response.content(format!("Unable to find {character_name} on {realm_name}"))
                     })
                     .await?;
                 return Ok(());
@@ -710,8 +703,7 @@ pub async fn character(
                         covenant_info
                     ))
                     .url(format!(
-                        "https://worldofwarcraft.com/en-us/character/us/{}/{}/",
-                        realm_name, character_name
+                        "https://worldofwarcraft.com/en-us/character/us/{realm_name}/{character_name}/"
                     ))
                     .colour(CLASS_COLOURS[(character.character_class.id - 1) as usize])
                     .field(
@@ -775,10 +767,7 @@ pub async fn search(
         .build()?
         .request(
             reqwest::Method::GET,
-            format!(
-                "https://worldofwarcraft.com/en-us/search/character?q={}",
-                character
-            ),
+            format!("https://worldofwarcraft.com/en-us/search/character?q={character}"),
         )
         .header("Host", "worldofwarcraft.com")
         .header(
@@ -867,14 +856,12 @@ pub async fn realm(
         return Ok(());
     }
 
-    let realm = if let Some(r) = search.results[0]
+    let Some(realm) = search.results[0]
         .data
         .realms
         .iter()
         .find(|&r| r.slug == realm_slug)
-    {
-        r
-    } else {
+    else {
         interaction
             .edit_original_interaction_response(&ctx.http, |response| {
                 response.content(format!("Unable to find {arg}"))

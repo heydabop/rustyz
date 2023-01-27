@@ -129,15 +129,11 @@ pub async fn poll_shipments_loop(discord_http: Arc<Http>, db: Pool<Postgres>, ap
         debug!(shipments = rows.len(), "polling for shipments");
         for row in rows {
             use TrackingNumber::*;
-            let old_status = if let Some(s) = &row.status {
-                s
-            } else {
+            let Some(old_status) = &row.status else {
                 error!(?row, "missing status in shipment polling");
                 continue;
             };
-            let carrier = if let Some(c) = &row.carrier {
-                c
-            } else {
+            let Some(carrier) = &row.carrier else {
                 error!(?row, "missing carrier on shipment row");
                 continue;
             };

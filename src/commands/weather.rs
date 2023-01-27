@@ -225,8 +225,7 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
     };
 
     let mut response_msg = format!(
-        "weather in {}\n```   Time  | Temperature | Humidity | Dewpoint | Precipitation\n         |             |          |          | Chance\n",
-        location_name
+        "weather in {location_name}\n```   Time  | Temperature | Humidity | Dewpoint | Precipitation\n         |             |          |          | Chance\n"
     );
     for v in forecast {
         let values = v.values;

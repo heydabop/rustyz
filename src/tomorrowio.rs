@@ -83,17 +83,11 @@ pub async fn get_current(location: &Point, api_key: &str) -> Result<Values, Erro
         Err(e) => return Err(Error::from(e)),
     };
     let timelines = api_response.data.timelines;
-    let timeline = match timelines.into_iter().next() {
-        Some(t) => t,
-        None => return Err(Error::MissingTimelines),
-    };
+    let Some(timeline) = timelines.into_iter().next() else { return Err(Error::MissingTimelines) };
     if timeline.timestep != "current" {
         return Err(Error::InvalidInterval("current", timeline.timestep));
     }
-    let interval = match timeline.intervals.into_iter().next() {
-        Some(i) => i,
-        None => return Err(Error::MissingIntervals),
-    };
+    let Some(interval) = timeline.intervals.into_iter().next() else { return Err(Error::MissingIntervals) };
     Ok(interval.values)
 }
 
@@ -110,10 +104,7 @@ pub async fn get_hourly(
         Err(e) => return Err(Error::from(e)),
     };
     let timelines = api_response.data.timelines;
-    let timeline = match timelines.into_iter().next() {
-        Some(t) => t,
-        None => return Err(Error::MissingTimelines),
-    };
+    let Some(timeline) = timelines.into_iter().next() else { return Err(Error::MissingTimelines) };
     if timeline.timestep != "1h" {
         return Err(Error::InvalidInterval("1h", timeline.timestep));
     }

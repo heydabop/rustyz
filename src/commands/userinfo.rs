@@ -9,36 +9,30 @@ use serenity::model::application::interaction::application_command::{
 use sqlx::Row;
 
 pub async fn userinfo(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let user = match interaction.data.options.get(0).and_then(|o| {
-        o.resolved.as_ref().and_then(|r| {
-            if let CommandDataOptionValue::User(u, _) = r {
-                Some(u)
-            } else {
-                None
-            }
-        })
-    }) {
-        Some(u) => u,
-        None => {
-            interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content("Unable to find user")
-                })
-                .await?;
-            return Ok(());
-        }
-    };
+    let Some(user) = interaction.data.options.get(0).and_then(|o| {
+         o.resolved.as_ref().and_then(|r| {
+             if let CommandDataOptionValue::User(u, _) = r {
+                 Some(u)
+             } else {
+                 None
+             }
+         })
+     }) else {
+             interaction
+                 .edit_original_interaction_response(&ctx.http, |response| {
+                     response.content("Unable to find user")
+                 })
+                 .await?;
+             return Ok(());
+         };
 
-    let guild_id = match interaction.guild_id {
-        Some(g) => g,
-        None => {
-            interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content("Command can only be used in a server")
-                })
-                .await?;
-            return Ok(());
-        }
+    let Some(guild_id) = interaction.guild_id else {
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content("Command can only be used in a server")
+            })
+            .await?;
+        return Ok(());
     };
 
     let member = ctx.http.get_member(guild_id.0, user.id.0).await?;

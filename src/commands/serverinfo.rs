@@ -10,16 +10,13 @@ pub async fn serverinfo(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> CommandResult {
-    let guild_id = match interaction.guild_id {
-        Some(g) => g,
-        None => {
-            interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content("Command can only be used in a server")
-                })
-                .await?;
-            return Ok(());
-        }
+    let Some(guild_id) = interaction.guild_id else {
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content("Command can only be used in a server")
+            })
+            .await?;
+        return Ok(());
     };
 
     let guild = guild_id.to_partial_guild_with_counts(&ctx.http).await?;

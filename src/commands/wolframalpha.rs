@@ -11,13 +11,10 @@ use std::borrow::Cow;
 // Replies with image from Wolfram Alpha Simple API
 // Takes a single required argument: input query
 pub async fn simple(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let input = if let CommandDataOptionValue::String(i) =
-        match interaction.data.options[0].resolved.as_ref() {
-            Some(i) => i,
-            None => return Err("Missing required input query".into()),
-        } {
-        i
-    } else {
+    let CommandDataOptionValue::String(input) = (match interaction.data.options[0].resolved.as_ref() {
+        Some(i) => i,
+        None => return Err("Missing required input query".into()),
+    }) else {
         return Err("Non-string input query".into());
     };
 

@@ -67,8 +67,7 @@ pub async fn geocode(address: &str, api_key: &str) -> Result<(Point, Option<Stri
 
     let resp = client
         .get(&format!(
-            "https://maps.googleapis.com/maps/api/geocode/json?&address={}&key={}",
-            address, api_key
+            "https://maps.googleapis.com/maps/api/geocode/json?&address={address}&key={api_key}"
         ))
         .send()
         .await?;
@@ -99,8 +98,7 @@ pub async fn timezone(location: &Point, timestamp: i64, api_key: &str) -> Result
 
     let resp = client
         .get(&format!(
-            "https://maps.googleapis.com/maps/api/timezone/json?location={}&timestamp={}&key={}",
-            location, timestamp, api_key
+            "https://maps.googleapis.com/maps/api/timezone/json?location={location}&timestamp={timestamp}&key={api_key}"
         ))
         .send()
         .await?;

@@ -30,16 +30,13 @@ pub const OFFSET_INC: u16 = 15;
 // Replies to msg with the cumulative playtime of all users in the guild
 // Takes a single optional argument of a username to filter playtime for
 pub async fn playtime(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let guild_id = match interaction.guild_id {
-        Some(g) => g,
-        None => {
-            interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content("Command can only be used in a server")
-                })
-                .await?;
-            return Ok(());
-        }
+    let Some(guild_id) = interaction.guild_id else {
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content("Command can only be used in a server")
+            })
+            .await?;
+        return Ok(());
     };
 
     let (user_ids, username): (Vec<i64>, Option<String>) = match user_ids_and_name_from_option(
@@ -66,16 +63,13 @@ pub async fn recent_playtime(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> CommandResult {
-    let guild_id = match interaction.guild_id {
-        Some(g) => g,
-        None => {
-            interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content("Command can only be used in a server")
-                })
-                .await?;
-            return Ok(());
-        }
+    let Some(guild_id) = interaction.guild_id else {
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content("Command can only be used in a server")
+            })
+            .await?;
+        return Ok(());
     };
 
     let arg = if let CommandDataOptionValue::String(c) =
@@ -99,10 +93,7 @@ pub async fn recent_playtime(
         let hours = get_digit_from_match(captures.get(5))?;
         let minutes = get_digit_from_match(captures.get(6))?;
         let seconds = get_digit_from_match(captures.get(7))?;
-        let month_days = match months_to_days(now, months) {
-            Some(d) => d,
-            None => return Err("date overflow".into()),
-        };
+        let Some(month_days) = months_to_days(now, months) else { return Err("date overflow".into()) };
         now - Duration::days(years * 365)
             - Duration::days(month_days)
             - Duration::days(weeks * 7)
@@ -255,15 +246,12 @@ pub async fn gen_playtime_message(
         let user_id: i64 = row.user_id;
         let game: Option<String> = row.game_name;
 
-        let last = match last_user_game.get(&user_id) {
-            Some(l) => l,
-            None => {
-                // user wasn't playing anything, record new entry if user is playing something now, otherwise just continue
-                if let Some(game) = game {
-                    last_user_game.insert(user_id, GameDate { date, game });
-                }
-                continue;
+        let Some(last) = last_user_game.get(&user_id) else {
+            // user wasn't playing anything, record new entry if user is playing something now, otherwise just continue
+            if let Some(game) = game {
+                last_user_game.insert(user_id, GameDate { date, game });
             }
+            continue;
         };
 
         // user is still playing the same thing
