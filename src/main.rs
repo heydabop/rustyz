@@ -120,7 +120,7 @@ async fn main() {
     {
         Ok(c) => c,
         Err(e) => {
-            error!(%e, "Error creating Discord client");
+            error!(%e, "Error creating Discord client ");
             return;
         }
     };
