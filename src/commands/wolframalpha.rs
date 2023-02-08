@@ -28,7 +28,21 @@ pub async fn simple(ctx: &Context, interaction: &ApplicationCommandInteraction) 
         "https://api.wolframalpha.com/v1/simple",
         &[("appid", &wolfram_alpha_app_id), ("i", input)],
     )?;
-    let image_bytes = reqwest::get(url).await?.bytes().await?;
+    let response = reqwest::get(url).await?;
+    if let Err(e) = response.error_for_status_ref() {
+        if response.status() == 501 {
+            interaction
+                .edit_original_interaction_response(&ctx.http, |r| {
+                    r.content(format!(
+                        "\u{26A0} `No suitable answer found for \"{input}\"`"
+                    ))
+                })
+                .await?;
+            return Ok(());
+        }
+        return Err(e.into());
+    }
+    let image_bytes = response.bytes().await?;
 
     interaction
         .create_followup_message(&ctx.http, |m| {
