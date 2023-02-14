@@ -150,6 +150,16 @@ impl EventHandler for Handler {
                         })
                 })
                 .create_application_command(|c| {
+                    c.name("math")
+                        .description("Does math (with Wolfram Alpha)")
+                        .create_option(|o| {
+                            o.name("question")
+                                .description("A question; answerable by text")
+                                .kind(CommandOptionType::String)
+                                .required(true)
+                        })
+                })
+                .create_application_command(|c| {
                     c.name("ping").description("pong")
                 })
                 .create_application_command(|c| {
@@ -309,7 +319,7 @@ impl EventHandler for Handler {
                 })
                 .create_application_command(|c| {
                     c.name("wolframalpha")
-                        .description("Queries Wolfram Alpha")
+                        .description("Queries Wolfram Alpha and returns an image result")
                         .create_option(|o| {
                             o.name("input")
                                 .description("Input query")

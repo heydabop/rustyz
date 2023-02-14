@@ -38,6 +38,7 @@ pub async fn create(ctx: Context, db: &Pool<Postgres>, interaction: Interaction)
             "karma" => commands::karma::karma(&ctx, &command).await,
             "lastseen" => commands::lastseen::lastseen(&ctx, &command).await,
             "lastplayed" => commands::lastplayed::lastplayed(&ctx, &command).await,
+            "math" => commands::wolframalpha::short(&ctx, &command).await,
             "mirotime" => commands::time::time(&ctx, &command, "Europe/Helsinki").await,
             "nieltime" => commands::time::time(&ctx, &command, "Europe/Stockholm").await,
             "ping" => commands::ping::ping(&ctx, &command).await,
