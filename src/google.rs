@@ -112,7 +112,7 @@ pub async fn timezone(location: &Point, timestamp: i64, api_key: &str) -> Result
     match json.time_zone_id {
         Some(tz_id) => match Tz::from_str(&tz_id) {
             Ok(tz) => Ok(tz),
-            Err(e) => Err(Error::InvalidTz(e)),
+            Err(e) => Err(Error::InvalidTz(e.to_string())),
         },
         None => Err(Error::NoResults),
     }
