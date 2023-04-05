@@ -225,15 +225,27 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
     };
 
     let mut response_msg = format!(
-        "weather in {location_name}\n```   Time  | Temperature | Humidity | Dewpoint | Precipitation\n         |             |          |          | Chance\n"
+        "forecast for {location_name}\n``` Time |  Temp  |  RH  | Dewpoint |  Rain  |   Wind   | UV\n      |        |      |          |        |          |\n"
     );
     for v in forecast {
         let values = v.values;
         let time = v.start_time.with_timezone(&timezone);
+        let wind_str: String = match values.wind_direction {
+            None => "--".into(),
+            Some(dir) => match values.wind_speed {
+                None => "--".into(),
+                Some(speed) => {
+                    let cardinal = deg_to_cardinal(dir);
+                    format!("{:<5} {cardinal}", format!("{speed:.0}mph"))
+                }
+            },
+        };
+        let mut time_str = time.format("%l%P").to_string();
+        time_str.truncate(time_str.len() - 1);
         writeln!(
             response_msg,
-            "{:^9}|{:^13}|{:^10}|{:^10}|{}",
-            time.format("%l:%M %p"),
+            "{:^6}|{:^8}|{:^6}|{:^10}|{:^8}|{:^10}|{}",
+            time_str,
             values
                 .temperature
                 .map_or_else(|| "--".to_string(), |t| format!("{t:.0} \u{b0}F")),
@@ -245,7 +257,11 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
                 .map_or_else(|| "--".to_string(), |t| format!("{t:.0} \u{b0}F")),
             values
                 .precipitation_probability
-                .map_or_else(|| " --".to_string(), |t| format!(" {t:.0}%"))
+                .map_or_else(|| "--".to_string(), |t| format!("{t:.0}%")),
+            wind_str,
+            values
+                .uv_index
+                .map_or_else(|| " --".into(), |t| format!(" {t:.0}"))
         )?;
     }
     write!(response_msg, "```")?;
@@ -297,5 +313,33 @@ async fn parse_location(ctx: &Context, args: &str) -> Result<(Point, String), Co
         let location = tomorrow_io_config.default_location;
         let location_name = tomorrow_io_config.default_location_name;
         Ok((location, location_name))
+    }
+}
+
+fn deg_to_cardinal(mut deg: f32) -> &'static str {
+    while deg < 0.0 {
+        deg += 360.0;
+    }
+    while deg >= 360.0 {
+        deg -= 360.0;
+    }
+    if deg < 22.5 {
+        "N"
+    } else if deg < 67.5 {
+        "NE"
+    } else if deg < 112.5 {
+        "E"
+    } else if deg < 157.5 {
+        "SE"
+    } else if deg < 202.5 {
+        "S"
+    } else if deg < 247.5 {
+        "SW"
+    } else if deg < 292.5 {
+        "W"
+    } else if deg < 337.5 {
+        "NW"
+    } else {
+        "N"
     }
 }

@@ -98,7 +98,7 @@ pub async fn get_hourly(
 ) -> Result<Vec<Interval>, Error> {
     let client = reqwest::Client::new();
 
-    let resp = client.get(&format!("https://api.tomorrow.io/v4/timelines?location={location}&startTime=now&endTime=nowPlus{hours}h&fields=temperature,humidity,dewPoint,precipitationProbability&timesteps=1h&units=imperial&apikey={api_key}")).send().await?;
+    let resp = client.get(&format!("https://api.tomorrow.io/v4/timelines?location={location}&startTime=now&endTime=nowPlus{hours}h&fields=temperature,humidity,dewPoint,precipitationProbability,windSpeed,windDirection,uvIndex&timesteps=1h&units=imperial&apikey={api_key}")).send().await?;
     let api_response = match resp.error_for_status() {
         Ok(resp) => resp.json::<ApiResponse>().await?,
         Err(e) => return Err(Error::from(e)),
