@@ -149,8 +149,8 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
         profile.thumbnail_url.clone()
     };
 
-    let highest_runs = format_runs(&profile.mythic_plus_highest_level_runs, 5);
-    let recent_runs = format_runs(&profile.mythic_plus_recent_runs, 5);
+    let highest_runs = format_runs(&profile.mythic_plus_highest_level_runs, 5)?;
+    let recent_runs = format_runs(&profile.mythic_plus_recent_runs, 5)?;
 
     let best_runs = if profile.mythic_plus_best_runs.is_empty() {
         String::from("No runs")
@@ -213,18 +213,18 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
     Ok(())
 }
 
-fn format_runs(runs: &[MythicPlusRun], count: usize) -> String {
+fn format_runs(runs: &[MythicPlusRun], count: usize) -> Result<String, std::fmt::Error> {
     if runs.is_empty() {
-        return String::from("No runs");
+        return Ok(String::from("No runs"));
     }
     let mut s = String::with_capacity(5 * count);
     for run in runs.iter().take(count) {
-        let _ = writeln!(
+        writeln!(
             s,
             "{} {}{}",
             run.short_name, run.mythic_level, PLUSSES[run.num_keystone_upgrades as usize]
-        );
+        )?;
     }
     s.pop();
-    s
+    Ok(s)
 }
