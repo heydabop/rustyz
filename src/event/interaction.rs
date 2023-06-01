@@ -148,14 +148,11 @@ pub async fn create(ctx: Context, db: &Pool<Postgres>, interaction: Interaction)
         let username: Option<String> = row.username;
         let start_date: Option<DateTime<Utc>> = row.start_date;
         let end_date: DateTime<Utc> = row.end_date;
-        let offset: i32 = {
-            if prev_next == "prev" {
-                (row.start_offset - i32::from(commands::playtime::OFFSET_INC)).max(0)
-            } else if prev_next == "next" {
-                row.start_offset + i32::from(commands::playtime::OFFSET_INC)
-            } else {
-                return;
-            }
+        let offset: i32 = match prev_next {
+            "first" => 0,
+            "prev" => (row.start_offset - i32::from(commands::playtime::OFFSET_INC)).max(0),
+            "next" => row.start_offset + i32::from(commands::playtime::OFFSET_INC),
+            _ => return,
         };
 
         #[allow(clippy::unwrap_used)] // offset isn't negative
@@ -223,8 +220,8 @@ pub async fn create(ctx: Context, db: &Pool<Postgres>, interaction: Interaction)
             }
         }
 
-        // leave buttons disabled for 5 seconds, then send the message again with buttons enabled
-        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        // leave buttons disabled for 2 seconds, then send the message again with buttons enabled
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
         if let Err(e) = message
             .edit(&ctx, |m| {

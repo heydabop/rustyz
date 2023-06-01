@@ -388,8 +388,8 @@ async fn send_message_with_buttons(
         })
         .await?;
 
-    // leave buttons disabled for 5 seconds, then send the message again with buttons enabled
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    // leave buttons disabled for 2 seconds, then send the message again with buttons enabled
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
     interaction
         .edit_original_interaction_response(&ctx.http, |response| {
@@ -408,6 +408,13 @@ pub fn create_components<'a>(
     disabled: bool,
 ) -> &'a mut CreateComponents {
     components.create_action_row(|a| {
+        a.create_button(|b| {
+            b.custom_id(format!("playtime:first:{button_id}"))
+                .style(ButtonStyle::Primary)
+                .label("First")
+                .disabled(disabled || offset < 1);
+            b
+        });
         a.create_button(|b| {
             b.custom_id(format!("playtime:prev:{button_id}"))
                 .style(ButtonStyle::Primary)
