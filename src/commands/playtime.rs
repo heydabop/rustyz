@@ -82,7 +82,7 @@ pub async fn recent_playtime(
         String::new()
     };
     let duration_regex = Regex::new(
-        r#"(?i)(?:(?:(?:(\d+)\s+years?)|(?:(\d+)\s+months?)|(?:(\d+)\s+weeks?)|(?:(\d+)\s+days?)|(?:(\d+)\s+hours?)|(?:(\d+)\s+minutes?)|(?:(\d+)\s+seconds?))\s?)+"#,
+        r"(?i)(?:(?:(?:(\d+)\s+years?)|(?:(\d+)\s+months?)|(?:(\d+)\s+weeks?)|(?:(\d+)\s+days?)|(?:(\d+)\s+hours?)|(?:(\d+)\s+minutes?)|(?:(\d+)\s+seconds?))\s?)+",
     )?;
     let now = Utc::now();
     let start_date: DateTime<Utc> = if let Some(captures) = duration_regex.captures(&arg) {

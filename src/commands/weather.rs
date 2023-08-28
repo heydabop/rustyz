@@ -274,7 +274,7 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
 }
 
 async fn parse_location(ctx: &Context, args: &str) -> Result<(Point, String), CommandError> {
-    let point_regex = regex::Regex::new(r#"^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$"#)?;
+    let point_regex = regex::Regex::new(r"^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$")?;
 
     if let Some(captures) = point_regex.captures(args) {
         let lat = captures.get(1).map_or("", |m| m.as_str());

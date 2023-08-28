@@ -32,7 +32,7 @@ impl Handler {
         #[allow(clippy::unwrap_used)]
         Self {
             db,
-            twitch_regex: regex::RegexBuilder::new(r#"https?://(www\.)?twitch.tv/(\w+)"#)
+            twitch_regex: regex::RegexBuilder::new(r"https?://(www\.)?twitch.tv/(\w+)")
                 .case_insensitive(true)
                 .build()
                 .unwrap(),
@@ -409,7 +409,7 @@ impl EventHandler for Handler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        interaction::create(ctx, &self.db, interaction).await;
+        Box::pin(interaction::create(ctx, &self.db, interaction)).await;
     }
 
     async fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
