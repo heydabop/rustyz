@@ -10,7 +10,9 @@ use serenity::model::id::UserId;
 // Replies to msg with the top users in channel sorted by most messages sent
 // Allows a single optional arg of how many users to list, defaults to 5
 pub async fn top(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let Some(guild_id) = interaction.guild_id else { return Ok(()) };
+    let Some(guild_id) = interaction.guild_id else {
+        return Ok(());
+    };
 
     let members = util::collect_members_guild_id(ctx, guild_id).await?;
     let limit: i64 = interaction

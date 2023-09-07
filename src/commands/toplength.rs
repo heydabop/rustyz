@@ -14,7 +14,9 @@ pub async fn toplength(
     ctx: &Context,
     interaction: &ApplicationCommandInteraction,
 ) -> CommandResult {
-    let Some(guild_id) = interaction.guild_id else { return Ok(()) };
+    let Some(guild_id) = interaction.guild_id else {
+        return Ok(());
+    };
 
     let members = util::collect_members_guild_id(ctx, guild_id).await?;
     let limit: u32 = if let Some(o) = interaction.data.options.get(0) {
@@ -49,7 +51,9 @@ AND content NOT LIKE '/%'"#,
 
     for row in &rows {
         let user_id = u64::try_from(row.author_id)?;
-        let Some(message) = &row.content else { return Err("missing message content from db".into()) };
+        let Some(message) = &row.content else {
+            return Err("missing message content from db".into());
+        };
         let num_words = message.split(' ').count();
         if let Some(messages) = messages_per_user.get_mut(&user_id) {
             *messages += 1;
@@ -65,7 +69,9 @@ AND content NOT LIKE '/%'"#,
 
     let mut avg_per_user: Vec<(String, f64)> = vec![];
     for (user_id, messages) in &messages_per_user {
-        let Some(words) = words_per_user.get(user_id) else { return Err("missing wordcount for user".into()) };
+        let Some(words) = words_per_user.get(user_id) else {
+            return Err("missing wordcount for user".into());
+        };
         let username = util::get_username_userid(&ctx.http, &members, UserId(*user_id)).await;
         #[allow(clippy::cast_precision_loss)]
         if *messages != 0 {
