@@ -93,7 +93,9 @@ pub async fn recent_playtime(
         let hours = get_digit_from_match(captures.get(5))?;
         let minutes = get_digit_from_match(captures.get(6))?;
         let seconds = get_digit_from_match(captures.get(7))?;
-        let Some(month_days) = months_to_days(now, months) else { return Err("date overflow".into()) };
+        let Some(month_days) = months_to_days(now, months) else {
+            return Err("date overflow".into());
+        };
         now - Duration::days(years * 365)
             - Duration::days(month_days)
             - Duration::days(weeks * 7)

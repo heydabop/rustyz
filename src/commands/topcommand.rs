@@ -26,10 +26,12 @@ pub async fn topcommand(
         })
         .unwrap_or(None)
     else {
-        return Ok(())
+        return Ok(());
     };
 
-    let Some(guild_id) = interaction.guild_id else { return Ok(()) };
+    let Some(guild_id) = interaction.guild_id else {
+        return Ok(());
+    };
 
     let members = util::collect_members_guild_id(ctx, guild_id).await?;
 

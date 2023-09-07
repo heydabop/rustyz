@@ -10,21 +10,21 @@ use sqlx::Row;
 
 pub async fn userinfo(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
     let Some(user) = interaction.data.options.get(0).and_then(|o| {
-         o.resolved.as_ref().and_then(|r| {
-             if let CommandDataOptionValue::User(u, _) = r {
-                 Some(u)
-             } else {
-                 None
-             }
-         })
-     }) else {
-             interaction
-                 .edit_original_interaction_response(&ctx.http, |response| {
-                     response.content("Unable to find user")
-                 })
-                 .await?;
-             return Ok(());
-         };
+        o.resolved.as_ref().and_then(|r| {
+            if let CommandDataOptionValue::User(u, _) = r {
+                Some(u)
+            } else {
+                None
+            }
+        })
+    }) else {
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content("Unable to find user")
+            })
+            .await?;
+        return Ok(());
+    };
 
     let Some(guild_id) = interaction.guild_id else {
         interaction
