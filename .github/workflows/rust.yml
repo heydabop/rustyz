@@ -17,19 +17,16 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Cache Cargo registry
-      id: cache-cargo
+    - name: Cache Cargo
       uses: actions/cache@v3
       with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-build-cache-cargo-registry-${{ hashFiles('./Cargo.lock') }}
-
-    - name: Cache target dir
-      id: cache-target
-      uses: actions/cache@v3
-      with:
-        path: ./target
-        key: ${{ runner.os }}-build-cache-target-dir-${{ hashFiles('./Cargo.lock') }}
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Check fmt
       run: cargo fmt --check
