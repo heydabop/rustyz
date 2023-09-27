@@ -149,7 +149,7 @@ AND author_id = $2"#,
     interaction
         .edit_original_interaction_response(&ctx.http, |r| {
             r.embed(|e| {
-                e.title(member.nick.as_ref().unwrap_or(&user.tag()))
+                e.title(member.nick.as_ref().unwrap_or(&user.name))
                     .thumbnail(member.face())
                     .timestamp(serenity::model::timestamp::Timestamp::now())
                     .field("Bot?", if user.bot { yes } else { no }, true)
@@ -189,7 +189,7 @@ AND author_id = $2"#,
                     )
                     .field("Karma", karma.to_formatted_string(&Locale::en), true);
                 if member.nick.is_some() {
-                    e.description(user.tag());
+                    e.description(&user.name);
                 }
                 if let Some(banner) = user.banner_url() {
                     e.image(banner);

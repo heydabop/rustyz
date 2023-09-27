@@ -90,7 +90,7 @@ pub async fn botinfo(ctx: &Context, interaction: &ApplicationCommandInteraction)
     interaction
         .edit_original_interaction_response(&ctx.http, |r| {
             r.embed(|e| {
-                e.title(member.nick.as_ref().unwrap_or(&bot.tag()))
+                e.title(member.nick.as_ref().unwrap_or(&bot.name))
                     .thumbnail(member.face())
                     .timestamp(serenity::model::timestamp::Timestamp::now())
                     .field(
@@ -111,7 +111,7 @@ pub async fn botinfo(ctx: &Context, interaction: &ApplicationCommandInteraction)
                     .field("Host Uptime", server_uptime, true)
                     .field("Bot Uptime", bot_uptime.join("\n"), true);
                 if member.nick.is_some() {
-                    e.description(bot.tag());
+                    e.description(&bot.name);
                 }
                 if let Some(banner) = user.banner_url() {
                     e.image(banner);
