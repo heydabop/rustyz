@@ -16,9 +16,11 @@ use serenity::prelude::*;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{ConnectOptions, Pool, Postgres};
 use std::collections::HashMap;
+use std::process::exit;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::signal::unix::{signal, SignalKind};
 use tokio::task::JoinSet;
 use tracing::{error, info};
 
@@ -31,12 +33,27 @@ async fn main() {
             Ok(t) => t,
             Err(e) => {
                 error!(%e, "Error parsing config.toml");
-                return;
+                exit(1);
             }
         },
         Err(e) => {
             error!(%e, "Error loading config.toml");
-            return;
+            exit(1);
+        }
+    };
+
+    let mut sigint = match signal(SignalKind::interrupt()) {
+        Ok(s) => s,
+        Err(e) => {
+            error!(%e, "Error registering SIGINT handler");
+            exit(1);
+        }
+    };
+    let mut sigterm = match signal(SignalKind::terminate()) {
+        Ok(s) => s,
+        Err(e) => {
+            error!(%e, "Error registering SIGTERM handler");
+            exit(1);
         }
     };
 
@@ -45,7 +62,7 @@ async fn main() {
             Ok(s) => s,
             Err(e) => {
                 error!(%e, "Error parsing old DB connection string");
-                return;
+                exit(1);
             }
         };
         old_options.disable_statement_logging();
@@ -59,7 +76,7 @@ async fn main() {
             Ok(p) => p,
             Err(e) => {
                 error!(%e, "Error connecting to old PSQL database");
-                return;
+                exit(1);
             }
         }
     };
@@ -69,7 +86,7 @@ async fn main() {
             Ok(s) => s,
             Err(e) => {
                 error!(%e, "Error parsing DB connection string");
-                return;
+                exit(1);
             }
         };
         options.log_statements(LevelFilter::Trace);
@@ -84,7 +101,7 @@ async fn main() {
             Ok(p) => p,
             Err(e) => {
                 error!(%e, "Error connecting to PSQL database");
-                return;
+                exit(1);
             }
         }
     };
@@ -121,7 +138,7 @@ async fn main() {
         Ok(c) => c,
         Err(e) => {
             error!(%e, "Error creating Discord client");
-            return;
+            exit(1);
         }
     };
 
@@ -132,15 +149,17 @@ async fn main() {
 
     let shard_manager = client.shard_manager.clone();
     tokio::spawn(async move {
-        if let Err(e) = tokio::signal::ctrl_c().await {
-            error!(error = %e, "error setting sigint handler");
-        }
+        tokio::select! {
+            _ = sigint.recv() => {},
+            _ = sigterm.recv() => {},
+        };
         shard_manager.lock().await.shutdown_all().await;
     });
 
     set.spawn(async move {
         if let Err(e) = client.start().await {
             error!(%e, "Error running Discord client");
+            exit(1);
         }
     });
 
@@ -168,6 +187,7 @@ async fn main() {
 
     if let Some(Err(e)) = set.join_next().await {
         error!(%e, "Error joining task");
+        exit(1);
     }
 
     if let Some(start_id) = start_id {
