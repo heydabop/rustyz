@@ -93,5 +93,9 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
+    interaction
+        .delete_original_interaction_response(&ctx.http)
+        .await?;
+
     Ok(())
 }
