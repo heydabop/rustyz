@@ -5,10 +5,13 @@ use serenity::model::{
 };
 use serenity::prelude::*;
 use sqlx::{Pool, Postgres};
-use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
 use std::time::Instant;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::atomic::AtomicI16,
+};
 use tokio::sync::Mutex;
 
 pub struct OldDB;
@@ -49,7 +52,7 @@ impl TypeMapKey for UserGuildList {
 pub struct GuildVoiceLocks;
 
 impl TypeMapKey for GuildVoiceLocks {
-    type Value = Arc<Mutex<HashMap<GuildId, Arc<Mutex<()>>>>>;
+    type Value = Arc<Mutex<HashMap<GuildId, Arc<(Mutex<()>, AtomicI16)>>>>;
 }
 
 #[derive(Deserialize, Clone, Copy)]

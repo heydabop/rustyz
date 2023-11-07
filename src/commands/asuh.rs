@@ -4,6 +4,7 @@ use rand::{thread_rng, Rng};
 use serenity::client::Context;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use songbird::tracks::{PlayMode, TrackError};
+use std::sync::atomic::{AtomicI16, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -55,10 +56,12 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
         let mut voice_locks = map_mutex.lock().await;
         let lock = voice_locks
             .entry(guild_id)
-            .or_insert_with(|| Arc::new(Mutex::new(())));
+            .or_insert_with(|| Arc::new((Mutex::new(()), AtomicI16::new(0))));
         lock.clone()
     };
-    let _voice_lock = voice_lock.lock().await;
+    voice_lock.1.fetch_add(1, Ordering::Relaxed); //indicate we're about to be waiting on this lock
+    let _voice_mutex = voice_lock.0.lock().await;
+    voice_lock.1.fetch_sub(1, Ordering::Relaxed);
 
     let handler = manager.join(guild_id, voice_channel_id).await;
 
@@ -87,8 +90,11 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
         }
     };
 
-    if let Err(e) = manager.remove(guild_id).await {
-        return Err(format!("Unable to leave after playback: {e}").into());
+    if voice_lock.1.load(Ordering::Relaxed) < 1 {
+        // only leave the channel if we dont think anyone is waiting on the lock
+        if let Err(e) = manager.remove(guild_id).await {
+            return Err(format!("Unable to leave after playback: {e}").into());
+        }
     }
 
     tokio::time::sleep(Duration::from_secs(1)).await;
