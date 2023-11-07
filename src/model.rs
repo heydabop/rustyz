@@ -9,6 +9,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
 use std::time::Instant;
+use tokio::sync::Mutex;
 
 pub struct OldDB;
 
@@ -43,6 +44,12 @@ pub struct UserGuildList;
 
 impl TypeMapKey for UserGuildList {
     type Value = Arc<RwLock<HashMap<UserId, HashSet<GuildId>>>>;
+}
+
+pub struct GuildVoiceLocks;
+
+impl TypeMapKey for GuildVoiceLocks {
+    type Value = Arc<Mutex<HashMap<GuildId, Arc<Mutex<()>>>>>;
 }
 
 #[derive(Deserialize, Clone, Copy)]

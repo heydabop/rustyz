@@ -1,4 +1,5 @@
 pub mod affixes;
+pub mod asuh;
 pub mod botinfo;
 pub mod fortune;
 pub mod invite;

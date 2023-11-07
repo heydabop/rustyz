@@ -88,6 +88,9 @@ impl EventHandler for Handler {
                     c.name("affixes").description("Sends this week's US Mythic+ affixes")
                 })
                 .create_application_command(|c| {
+                    c.name("asuh").description("Joins your voice channel and plays bothersome audio")
+                })
+                .create_application_command(|c| {
                     c.name("botinfo").description("Displays details about the bot")
                 })
                 .create_application_command(|c| {

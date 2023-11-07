@@ -13,6 +13,7 @@ use log::LevelFilter;
 use serenity::client::Client;
 use serenity::model::gateway::GatewayIntents;
 use serenity::prelude::*;
+use songbird::SerenityInit;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{ConnectOptions, Pool, Postgres};
 use std::collections::HashMap;
@@ -21,6 +22,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::signal::unix::{signal, SignalKind};
+use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 use tracing::{error, info};
 
@@ -114,6 +116,7 @@ async fn main() {
         | GatewayIntents::GUILD_MEMBERS
         | GatewayIntents::GUILD_PRESENCES
         | GatewayIntents::GUILD_MESSAGES
+        | GatewayIntents::GUILD_VOICE_STATES
         | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
     let mut client = match Client::builder(cfg.discord.bot_token, intents)
@@ -131,7 +134,9 @@ async fn main() {
         .type_map_insert::<model::LastUserPresence>(Arc::new(RwLock::new(HashMap::new())))
         .type_map_insert::<model::UserGuildList>(Arc::new(RwLock::new(HashMap::new())))
         .type_map_insert::<model::StartInstant>(Instant::now())
+        .type_map_insert::<model::GuildVoiceLocks>(Arc::new(Mutex::new(HashMap::new())))
         .event_handler(event::Handler::new(pool.clone()))
+        .register_songbird()
         .await
     {
         Ok(c) => c,
