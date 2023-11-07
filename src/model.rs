@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use serenity::model::{
-    id::{ChannelId, GuildId, MessageId, UserId},
+    id::{GuildId, UserId},
     user::OnlineStatus,
 };
 use serenity::prelude::*;
@@ -31,13 +31,6 @@ impl TypeMapKey for OwnerId {
 pub struct UserPresence {
     pub status: OnlineStatus,
     pub game_name: Option<String>,
-}
-
-pub struct LastCommandMessages;
-
-#[allow(clippy::type_complexity)]
-impl TypeMapKey for LastCommandMessages {
-    type Value = Arc<RwLock<HashMap<(ChannelId, UserId), [MessageId; 2]>>>;
 }
 
 pub struct LastUserPresence;
