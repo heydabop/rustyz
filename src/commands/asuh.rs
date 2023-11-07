@@ -60,11 +60,11 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
     };
     let _voice_lock = voice_lock.lock().await;
 
+    let handler = manager.join(guild_id, voice_channel_id).await;
+
     interaction
         .edit_original_interaction_response(&ctx.http, |response| response.content("\u{1F50A}"))
         .await?;
-
-    let handler = manager.join(guild_id, voice_channel_id).await;
 
     {
         let mut call = handler.0.lock().await;
@@ -90,6 +90,8 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
     if let Err(e) = manager.remove(guild_id).await {
         return Err(format!("Unable to leave after playback: {e}").into());
     }
+
+    tokio::time::sleep(Duration::from_secs(1)).await;
 
     Ok(())
 }
