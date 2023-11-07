@@ -12,6 +12,11 @@ use tokio::sync::Mutex;
 // Joins the same voice channel as the invoking user and plays audio
 pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
     let Some(guild_id) = interaction.guild_id else {
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content("Command can only be used in a server")
+            })
+            .await?;
         return Ok(());
     };
 
@@ -19,11 +24,12 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
         return Err(format!("Unable to find guild {guild_id}").into());
     };
 
-    let Some(voice_channel_id) = guild
+    if guild
         .voice_states
         .get(&interaction.user.id)
         .and_then(|voice_state| voice_state.channel_id)
-    else {
+        .is_none()
+    {
         interaction
             .edit_original_interaction_response(&ctx.http, |response| {
                 response.content("Command can only be used if you're in a voice channel")
@@ -63,6 +69,38 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
     let _voice_mutex = voice_lock.0.lock().await;
     voice_lock.1.fetch_sub(1, Ordering::Relaxed);
 
+    // refresh voice_channel_id
+    let Some(guild) = ctx.cache.guild(guild_id) else {
+        return Err(format!("Unable to find guild {guild_id}").into());
+    };
+    let Some(voice_channel_id) = guild
+        .voice_states
+        .get(&interaction.user.id)
+        .and_then(|voice_state| voice_state.channel_id)
+    else {
+        let leave_res = if manager.get(guild_id).is_some() {
+            // check if we need to leave a call now
+            if voice_lock.1.load(Ordering::Relaxed) < 1 {
+                // only leave the channel if we dont think anyone is waiting on the lock
+                if let Err(e) = manager.remove(guild_id).await {
+                    Err(format!("Unable to leave after playback: {e}").into())
+                } else {
+                    Ok(())
+                }
+            } else {
+                Ok(())
+            }
+        } else {
+            Ok(())
+        };
+        interaction
+            .edit_original_interaction_response(&ctx.http, |response| {
+                response.content("Command can only be used if you're in a voice channel")
+            })
+            .await?;
+        return leave_res;
+    };
+
     let handler = manager.join(guild_id, voice_channel_id).await;
 
     interaction
@@ -90,14 +128,14 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
         }
     };
 
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
     if voice_lock.1.load(Ordering::Relaxed) < 1 {
         // only leave the channel if we dont think anyone is waiting on the lock
         if let Err(e) = manager.remove(guild_id).await {
             return Err(format!("Unable to leave after playback: {e}").into());
         }
     }
-
-    tokio::time::sleep(Duration::from_secs(1)).await;
 
     interaction
         .delete_original_interaction_response(&ctx.http)
