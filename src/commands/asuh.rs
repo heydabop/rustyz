@@ -66,7 +66,7 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
         .edit_original_interaction_response(&ctx.http, |response| response.content("\u{1F50A}"))
         .await?;
 
-    {
+    let play_result = {
         let mut call = handler.0.lock().await;
         let audio_handle = call.play_only_source(track);
         loop {
@@ -74,18 +74,18 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
             match audio_handle.get_info().await {
                 Ok(info) => {
                     if info.playing == PlayMode::Stop || info.playing == PlayMode::End {
-                        break;
+                        break Ok(());
                     }
                 }
                 Err(e) => {
                     if let TrackError::Finished = e {
-                        break;
+                        break Ok(());
                     }
-                    return Err(format!("Unexpected error during playback: {e}").into());
+                    break Err(format!("Unexpected error during playback: {e}").into());
                 }
             }
         }
-    }
+    };
 
     if let Err(e) = manager.remove(guild_id).await {
         return Err(format!("Unable to leave after playback: {e}").into());
@@ -97,5 +97,5 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
         .delete_original_interaction_response(&ctx.http)
         .await?;
 
-    Ok(())
+    play_result
 }
