@@ -1,6 +1,5 @@
 use crate::commands;
 use crate::event::report_interaction_error;
-use crate::model;
 
 use chrono::prelude::*;
 use serenity::client::Context;
@@ -11,7 +10,7 @@ use serenity::model::{
 use sqlx::{Pool, Postgres};
 use tracing::error;
 
-pub async fn create(ctx: Context, db: &Pool<Postgres>, interaction: Interaction) {
+pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) {
     if let Interaction::ApplicationCommand(command) = interaction {
         if let Err(e) = command
             .create_interaction_response(&ctx.http, |response| {
@@ -27,7 +26,7 @@ pub async fn create(ctx: Context, db: &Pool<Postgres>, interaction: Interaction)
             .await;
             return;
         }
-        crate::event::record_command(db, &command).await;
+        crate::event::record_command(&db, &command).await;
         if let Err(e) = match command.data.name.as_str() {
             "affixes" => commands::affixes::affixes(&ctx, &command).await,
             "asuh" => commands::asuh::asuh(&ctx, &command).await,

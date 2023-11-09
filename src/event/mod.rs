@@ -412,7 +412,8 @@ impl EventHandler for Handler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        Box::pin(interaction::create(ctx, &self.db, interaction)).await;
+        let db = self.db.clone();
+        tokio::spawn(interaction::create(ctx, db, interaction));
     }
 
     async fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
