@@ -8,6 +8,9 @@ use std::sync::atomic::{AtomicI16, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
+use tokio::time::{sleep, timeout};
+
+const ONE_SECOND: Duration = Duration::from_secs(1);
 
 // Joins the same voice channel as the invoking user and plays audio
 pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
@@ -111,8 +114,11 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
         let mut call = handler.0.lock().await;
         let audio_handle = call.play_only_source(track);
         loop {
-            tokio::time::sleep(Duration::from_secs(1)).await;
-            match audio_handle.get_info().await {
+            sleep(ONE_SECOND).await;
+            let Ok(info) = timeout(ONE_SECOND, audio_handle.get_info()).await else {
+                break Err("get_info took too long".into());
+            };
+            match info {
                 Ok(info) => {
                     if info.playing == PlayMode::Stop || info.playing == PlayMode::End {
                         break Ok(());
@@ -128,7 +134,7 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
         }
     };
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    sleep(ONE_SECOND).await;
 
     if voice_lock.1.load(Ordering::Relaxed) < 1 {
         // only leave the channel if we dont think anyone is waiting on the lock
