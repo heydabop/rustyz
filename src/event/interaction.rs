@@ -131,11 +131,8 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
             }
         };
         let row = {
-            let data = ctx.data.read().await;
-            #[allow(clippy::unwrap_used)]
-            let db = data.get::<model::DB>().unwrap();
             #[allow(clippy::panic)]
-            match sqlx::query!(r#"SELECT author_id, user_ids, username, start_date, end_date, start_offset FROM playtime_button WHERE id = $1"#, button_id).fetch_one(db).await {
+            match sqlx::query!(r#"SELECT author_id, user_ids, username, start_date, end_date, start_offset FROM playtime_button WHERE id = $1"#, button_id).fetch_one(&db).await {
                 Ok(row) => row,
                 Err(e) => {
                     error!(error = %e, "error getting playtime interaction buttons");
@@ -204,16 +201,13 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
         }
 
         {
-            let data = ctx.data.read().await;
-            #[allow(clippy::unwrap_used)]
-            let db = data.get::<model::DB>().unwrap();
             #[allow(clippy::panic)]
             if let Err(e) = sqlx::query!(
                 r#"UPDATE playtime_button SET start_offset = $2 WHERE id = $1"#,
                 button_id,
                 offset
             )
-            .execute(db)
+            .execute(&db)
             .await
             {
                 error!(error = %e, "error updating playtime_button table after interaction");
