@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, timeout};
+use tracing::warn;
 
 const ONE_SECOND: Duration = Duration::from_secs(1);
 
@@ -116,7 +117,9 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
         loop {
             sleep(ONE_SECOND).await;
             let Ok(info) = timeout(ONE_SECOND, audio_handle.get_info()).await else {
-                break Err("get_info took too long".into());
+                // this appears to hapeen when bot is kicked/disconnect from channel
+                warn!("get_info took too long");
+                break Ok(());
             };
             match info {
                 Ok(info) => {
