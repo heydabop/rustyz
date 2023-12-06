@@ -26,7 +26,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 use tracing::{error, info};
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 8)]
+#[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
 
