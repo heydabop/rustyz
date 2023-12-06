@@ -105,7 +105,7 @@ pub async fn update(
         };
 
         if let Err(e) = sqlx::query(
-            r#"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)"#,
+            r"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)",
         )
         .bind(user_id)
             .bind(presence.status.name())

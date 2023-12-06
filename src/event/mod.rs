@@ -467,7 +467,7 @@ impl EventHandler for Handler {
                 }
             };
             if let Err(e) = sqlx::query(
-                r#"INSERT INTO user_presence (user_id, status) VALUES ($1, 'offline'::online_status)"#,
+                r"INSERT INTO user_presence (user_id, status) VALUES ($1, 'offline'::online_status)",
             )
             .bind(user_id)
                 .execute(&self.db)

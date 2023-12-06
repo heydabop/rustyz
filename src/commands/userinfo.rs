@@ -80,11 +80,11 @@ AND author_id = $2"#,
     .unwrap_or(0);
     let karma: i32 = {
         let row = sqlx::query(
-            r#"
+            r"
 SELECT karma
 FROM user_karma
 WHERE guild_id = $1
-AND user_id = $2"#,
+AND user_id = $2",
         )
         .bind(guild_id.0.to_string())
         .bind(user.id.0.to_string())

@@ -35,12 +35,12 @@ pub async fn karma(ctx: &Context, interaction: &ApplicationCommandInteraction) -
         #[allow(clippy::unwrap_used)]
         let db = data.get::<OldDB>().unwrap();
         sqlx::query(
-            r#"
+            r"
 SELECT user_id, karma
 FROM user_karma
 WHERE guild_id = $1
 ORDER BY karma DESC
-LIMIT $2"#,
+LIMIT $2",
         )
         .bind(guild_id.to_string())
         .bind(limit)
