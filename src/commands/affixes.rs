@@ -25,6 +25,9 @@ pub async fn affixes(ctx: &Context, interaction: &ApplicationCommandInteraction)
         .await?
         .json::<Affixes>()
         .await?;
+    if affixes.details.len() < 3 {
+        return Err("unexpected response from raider.io".into());
+    }
 
     interaction
         .edit_original_interaction_response(&ctx.http, |response| {
@@ -37,18 +40,13 @@ pub async fn affixes(ctx: &Context, interaction: &ApplicationCommandInteraction)
                         false,
                     )
                     .field(
-                        format!("{} (+4)", affixes.details[1].name),
+                        format!("{} (+7)", affixes.details[1].name),
                         &affixes.details[1].description,
                         false,
                     )
                     .field(
-                        format!("{} (+7)", affixes.details[2].name),
+                        format!("{} (+14)", affixes.details[2].name),
                         &affixes.details[2].description,
-                        false,
-                    )
-                    .field(
-                        format!("{} (+10)", affixes.details[3].name),
-                        &affixes.details[3].description,
                         false,
                     )
             })
