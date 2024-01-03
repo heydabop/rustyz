@@ -17,6 +17,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Rust Version
+      run: rustc --version
+
     - name: Cache Cargo
       uses: actions/cache@v3
       with:
