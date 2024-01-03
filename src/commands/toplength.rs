@@ -19,7 +19,7 @@ pub async fn toplength(
     };
 
     let members = util::collect_members_guild_id(ctx, guild_id).await?;
-    let limit: u32 = if let Some(o) = interaction.data.options.get(0) {
+    let limit: u32 = if let Some(o) = interaction.data.options.first() {
         if let Some(CommandDataOptionValue::Integer(l)) = o.resolved {
             u32::try_from(l)?
         } else {

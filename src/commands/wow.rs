@@ -132,6 +132,7 @@ struct Character {
     gender: TypeName,
     faction: Name,
     race: IdName,
+    #[allow(clippy::struct_field_names)]
     character_class: IdName,
     active_spec: Option<Name>,
     realm: Name,
@@ -751,7 +752,7 @@ pub async fn search(
     interaction: &ApplicationCommandInteraction,
     options: &[CommandDataOption],
 ) -> CommandResult {
-    let character = if let Some(o) = options.get(0) {
+    let character = if let Some(o) = options.first() {
         if let Some(CommandDataOptionValue::String(c)) = o.resolved.as_ref() {
             c.trim().to_ascii_lowercase()
         } else {
@@ -825,7 +826,7 @@ pub async fn realm(
     interaction: &ApplicationCommandInteraction,
     options: &[CommandDataOption],
 ) -> CommandResult {
-    let arg = if let Some(o) = options.get(0) {
+    let arg = if let Some(o) = options.first() {
         if let Some(CommandDataOptionValue::String(r)) = o.resolved.as_ref() {
             r
         } else {

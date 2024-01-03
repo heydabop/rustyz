@@ -534,7 +534,7 @@ async fn report_interaction_error(ctx: &Context, error: String) {
 async fn record_command(db: &Pool<Postgres>, command: &ApplicationCommandInteraction) {
     let mut command_name = command.data.name.clone();
     let log_options: HashMap<&String, &Option<Value>> =
-        if let Some(option) = command.data.options.get(0) {
+        if let Some(option) = command.data.options.first() {
             if option.kind == CommandOptionType::SubCommand {
                 command_name = format!("{command_name} {}", option.name);
                 option.options.iter().map(|o| (&o.name, &o.value)).collect()

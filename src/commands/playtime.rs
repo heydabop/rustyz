@@ -39,16 +39,12 @@ pub async fn playtime(ctx: &Context, interaction: &ApplicationCommandInteraction
         return Ok(());
     };
 
-    let (user_ids, username): (Vec<i64>, Option<String>) = match user_ids_and_name_from_option(
-        ctx,
-        guild_id,
-        interaction.data.options.get(0),
-    )
-    .await?
-    {
-        Some(u) => (u.0, u.1),
-        None => return Ok(()),
-    };
+    let (user_ids, username): (Vec<i64>, Option<String>) =
+        match user_ids_and_name_from_option(ctx, guild_id, interaction.data.options.first()).await?
+        {
+            Some(u) => (u.0, u.1),
+            None => return Ok(()),
+        };
 
     send_message_with_buttons(ctx, interaction, &user_ids, &username, None).await?;
 

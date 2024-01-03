@@ -17,7 +17,7 @@ pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction)
     let args = interaction
         .data
         .options
-        .get(0)
+        .first()
         .and_then(|o| {
             o.resolved.as_ref().map(|r| {
                 if let CommandDataOptionValue::String(s) = r {

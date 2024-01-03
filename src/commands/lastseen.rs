@@ -12,7 +12,7 @@ use sqlx::Row;
 #[allow(clippy::similar_names)]
 // Replies to msg with the duration since the user was last online
 pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let Some(user) = interaction.data.options.get(0).and_then(|o| {
+    let Some(user) = interaction.data.options.first().and_then(|o| {
         o.resolved.as_ref().and_then(|r| {
             if let CommandDataOptionValue::User(u, _) = r {
                 Some(u)
@@ -53,7 +53,7 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
-        sqlx::query(r"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1").bind(i64::try_from(user.id)?).fetch_optional(db).await?
+        sqlx::query(r"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1").bind(i64::from(user.id)).fetch_optional(db).await?
     }) else {
         interaction
             .edit_original_interaction_response(&ctx.http, |response| {

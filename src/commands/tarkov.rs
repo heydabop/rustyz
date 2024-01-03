@@ -36,7 +36,7 @@ pub async fn tarkov(ctx: &Context, interaction: &ApplicationCommandInteraction) 
     let search = interaction
         .data
         .options
-        .get(0)
+        .first()
         .and_then(|o| {
             o.resolved.as_ref().map(|r| {
                 if let CommandDataOptionValue::String(s) = r {

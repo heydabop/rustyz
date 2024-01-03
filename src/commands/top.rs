@@ -18,7 +18,7 @@ pub async fn top(ctx: &Context, interaction: &ApplicationCommandInteraction) -> 
     let limit: i64 = interaction
         .data
         .options
-        .get(0)
+        .first()
         .and_then(|o| {
             o.resolved.as_ref().map(|r| {
                 if let CommandDataOptionValue::Integer(l) = r {

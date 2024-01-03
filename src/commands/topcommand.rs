@@ -14,7 +14,7 @@ pub async fn topcommand(
     let Some(command) = interaction
         .data
         .options
-        .get(0)
+        .first()
         .and_then(|o| {
             o.resolved.as_ref().map(|r| {
                 if let CommandDataOptionValue::String(s) = r {

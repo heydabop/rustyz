@@ -86,7 +86,7 @@ pub async fn geocode(address: &str, api_key: &str) -> Result<(Point, Option<Stri
             let location_name = geo.results[0]
                 .address_components
                 .as_ref()
-                .and_then(|a| a.get(0).and_then(|c| c.long_name.clone()));
+                .and_then(|a| a.first().and_then(|c| c.long_name.clone()));
             Ok((p, location_name))
         }
         None => Err(Error::MissingGeometry),

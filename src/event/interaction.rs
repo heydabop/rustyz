@@ -61,7 +61,7 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
             "zalgo" => commands::zalgo::zalgo(&ctx, &command).await,
             "wolframalpha" => commands::wolframalpha::simple(&ctx, &command).await,
             "wow" => {
-                if let Some(subcommand) = command.data.options.get(0) {
+                if let Some(subcommand) = command.data.options.first() {
                     match subcommand.name.as_str() {
                         "character" => {
                             commands::wow::character(&ctx, &command, &subcommand.options).await

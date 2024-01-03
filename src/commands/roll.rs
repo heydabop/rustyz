@@ -7,7 +7,7 @@ use serenity::model::application::interaction::application_command::{
 
 pub async fn roll(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
     let mut sides: u32 = 100;
-    if let Some(o) = interaction.data.options.get(0) {
+    if let Some(o) = interaction.data.options.first() {
         if let Some(CommandDataOptionValue::Integer(s)) = o.resolved {
             sides = u32::try_from(s)?;
         }
