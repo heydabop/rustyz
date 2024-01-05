@@ -174,16 +174,17 @@ async fn main() {
         shippo_api_key,
     ));
 
-    let start_id = match sqlx::query!("INSERT INTO bot_start DEFAULT VALUES RETURNING id")
-        .fetch_one(&db_conn)
-        .await
-    {
-        Ok(r) => Some(r.id),
-        Err(e) => {
-            error!(%e, "Error inserting into bot_start");
-            None
-        }
-    };
+    let start_id =
+        match sqlx::query!("INSERT INTO bot_start(clean_shutdown) VALUES (false) RETURNING id")
+            .fetch_one(&db_conn)
+            .await
+        {
+            Ok(r) => Some(r.id),
+            Err(e) => {
+                error!(%e, "Error inserting into bot_start");
+                None
+            }
+        };
 
     let updater_conn = db_conn.clone();
     if let Some(start_id) = start_id {
@@ -198,7 +199,7 @@ async fn main() {
     if let Some(start_id) = start_id {
         #[allow(clippy::panic)]
         if let Err(e) = sqlx::query!(
-            "UPDATE bot_start SET update_date = now() WHERE id = $1",
+            "UPDATE bot_start SET update_date = now(), clean_shutdown = true WHERE id = $1",
             start_id
         )
         .execute(&db_conn)

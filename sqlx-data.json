@@ -1,23 +1,5 @@
 {
   "db": "PostgreSQL",
-  "0264aa481b3e957014cb0a225d9d3557c5653f1edfb686b9da7872492941930f": {
-    "describe": {
-      "columns": [
-        {
-          "name": "id",
-          "ordinal": 0,
-          "type_info": "Int4"
-        }
-      ],
-      "nullable": [
-        false
-      ],
-      "parameters": {
-        "Left": []
-      }
-    },
-    "query": "INSERT INTO bot_start DEFAULT VALUES RETURNING id"
-  },
   "05b1736f86ca743e8df7b18b9fcb5720c0fe97b30d2ac98b5469fa00e7c91938": {
     "describe": {
       "columns": [
@@ -155,6 +137,18 @@
       }
     },
     "query": "\nSELECT count(id)\nFROM message\nWHERE guild_id = $1\nAND author_id = $2"
+  },
+  "5a8c769334c4718f2144bde8e7b8e28a1d9a4a56c15ddf4d4c5eab2d51c84133": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "UPDATE bot_start SET update_date = now(), clean_shutdown = true WHERE id = $1"
   },
   "668baad46517e3ee53a0bffad99f340b7d388cc4b117859f057ca53f056b7805": {
     "describe": {
@@ -437,6 +431,24 @@
       }
     },
     "query": "SELECT carrier::text AS carrier, tracking_number, status::text AS status, author_id, channel_id, comment FROM shipment WHERE status = ANY('{transit, pre_transit, unknown}')"
+  },
+  "df120325a81c3b22aab409e630a769944cfab6a2a3f617b2b51273be7fdeb49a": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "INSERT INTO bot_start(clean_shutdown) VALUES (false) RETURNING id"
   },
   "e1b154b2af2ad3174acfb6e2d80af240b5bf4f708379aa0866690783a75d7643": {
     "describe": {
