@@ -183,6 +183,59 @@
     },
     "query": "\nSELECT author_id, count(author_id) AS num_messages\nFROM message\nWHERE channel_id = $1\nAND content NOT LIKE '/%'\nGROUP BY author_id\nORDER BY count(author_id) DESC\nLIMIT $2"
   },
+  "673404e4b3e9e0e2da4af0fb6c28deee8462ee5545a37429ae6636eb1ffb5027": {
+    "describe": {
+      "columns": [
+        {
+          "name": "create_date",
+          "ordinal": 0,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "game_name",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT create_date, game_name FROM user_presence WHERE user_id = $1 AND status <> 'offline' AND status <> 'invisible' AND game_name IS NOT NULL ORDER BY create_date DESC LIMIT 1"
+  },
+  "6e36fa6d99aa9ff7e4c5661252fe417fc8da22d1f534a8505c426e3be2d400c5": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "dnd",
+                  "idle",
+                  "invisible",
+                  "offline",
+                  "online"
+                ]
+              },
+              "name": "online_status"
+            }
+          },
+          "Varchar"
+        ]
+      }
+    },
+    "query": "INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)"
+  },
   "6e4aa2aecb0aa5093987add6777528174978215dd8068999151ae4e8a371cca7": {
     "describe": {
       "columns": [
@@ -232,6 +285,27 @@
       }
     },
     "query": "DELETE FROM message WHERE channel_id = $1 AND discord_id = ANY($2)"
+  },
+  "93d28a0a2408f06ee3a6d09450f879ca5bf161bec77d7bdf1b9e2d7d4388f551": {
+    "describe": {
+      "columns": [
+        {
+          "name": "create_date",
+          "ordinal": 0,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "SELECT create_date FROM user_presence WHERE user_id = $1 AND game_name IS NULL AND create_date > $2 ORDER BY create_date ASC LIMIT 1"
   },
   "999d57977754292675156625165587188d51a2a60da6862d1edb87db5b81d585": {
     "describe": {
@@ -303,6 +377,18 @@
       }
     },
     "query": "\nSELECT author_id, count(author_id) AS num_messages\nFROM message\nWHERE content LIKE $1\nAND channel_id = $2\nGROUP BY author_id\nORDER BY count(author_id) DESC\nLIMIT 10"
+  },
+  "cd05fdd8df6a51649ae13bb0a18010e3f823a46a2ec9c14f8f2415e2ebdea286": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "INSERT INTO user_presence (user_id, status) VALUES ($1, 'offline'::online_status)"
   },
   "d17b0fc6a825a72914602da09e95c40d61990f35bd3d99a2bf91ac3c7cdeed16": {
     "describe": {
@@ -473,6 +559,26 @@
       }
     },
     "query": "INSERT INTO shipment(carrier, tracking_number, author_id, channel_id, status, comment) VALUES ($1::shipment_carrier, $2, $3, $4, $5::shipment_tracking_status, $6) ON CONFLICT ON CONSTRAINT shipment_uk_carrier_number DO NOTHING"
+  },
+  "eeae755ec70d2da5f757b3bd96e9a72cc31119871791b192cd1aa9066bd7df84": {
+    "describe": {
+      "columns": [
+        {
+          "name": "create_date",
+          "ordinal": 0,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1"
   },
   "f2f4abb74b3e80b3ef94a362a8f53bc3b04d2191d24ee1dfe31e096fc1c360ff": {
     "describe": {

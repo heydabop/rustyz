@@ -5,7 +5,6 @@ use serenity::all::{CommandDataOptionValue, CommandInteraction};
 use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
 use serenity::model::user::OnlineStatus;
-use sqlx::Row;
 
 #[allow(clippy::similar_names)]
 pub async fn lastplayed(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
@@ -68,7 +67,8 @@ pub async fn lastplayed(ctx: &Context, interaction: &CommandInteraction) -> Comm
         #[allow(clippy::unwrap_used)]
         data.get::<DB>().unwrap().clone()
     };
-    let Some(row) = sqlx::query(r"SELECT create_date, game_name FROM user_presence WHERE user_id = $1 AND status <> 'offline' AND status <> 'invisible' AND game_name IS NOT NULL ORDER BY create_date DESC LIMIT 1").bind(i64::from(user_id)).fetch_optional(&db).await? else {
+    #[allow(clippy::panic)]
+    let Some(row) = sqlx::query!(r"SELECT create_date, game_name FROM user_presence WHERE user_id = $1 AND status <> 'offline' AND status <> 'invisible' AND game_name IS NOT NULL ORDER BY create_date DESC LIMIT 1", i64::from(user_id)).fetch_optional(&db).await? else {
         interaction
             .edit_response(&ctx.http, EditInteractionResponse::new()
                            .content(
@@ -84,10 +84,11 @@ pub async fn lastplayed(ctx: &Context, interaction: &CommandInteraction) -> Comm
             .await?;
         return Ok(());
     };
-    let start = row.get::<DateTime<FixedOffset>, _>(0);
-    let game_name = row.get::<String, _>(1);
+    let start = row.create_date;
+    let game_name = row.game_name.unwrap_or_default();
     // get row without game_name inserted after the game row to determine when user stopped playing
-    let Some(end_row) = sqlx::query(r"SELECT create_date FROM user_presence WHERE user_id = $1 AND game_name IS NULL AND create_date > $2 ORDER BY create_date ASC LIMIT 1").bind(i64::from(user_id)).bind(start).fetch_optional(&db).await? else {
+    #[allow(clippy::panic)]
+    let Some(end_row) = sqlx::query!(r"SELECT create_date FROM user_presence WHERE user_id = $1 AND game_name IS NULL AND create_date > $2 ORDER BY create_date ASC LIMIT 1", i64::from(user_id), start).fetch_optional(&db).await? else {
         let content = if let Some(username) = username {
             format!("{username} is currently playing {game_name}")
         } else {
@@ -99,7 +100,7 @@ pub async fn lastplayed(ctx: &Context, interaction: &CommandInteraction) -> Comm
         return Ok(());
     };
     drop(db);
-    let stopped_playing = end_row.get::<DateTime<FixedOffset>, _>(0);
+    let stopped_playing = end_row.create_date;
 
     let now = Local::now().with_timezone(Local::now().offset());
     let since = now.signed_duration_since(stopped_playing);

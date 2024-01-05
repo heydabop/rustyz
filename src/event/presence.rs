@@ -110,12 +110,13 @@ pub async fn update(
             }
         }
 
-        if let Err(e) = sqlx::query(
+        #[allow(clippy::panic)]
+        if let Err(e) = sqlx::query!(
             r"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)",
+            i64::from(user_id),
+            presence.status.name() as _,
+            game_name
         )
-        .bind(i64::from(user_id))
-            .bind(presence.status.name())
-            .bind(&game_name)
             .execute(db)
             .await
         {

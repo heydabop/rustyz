@@ -6,7 +6,6 @@ use serenity::all::{CommandDataOptionValue, CommandInteraction};
 use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
 use serenity::model::user::OnlineStatus;
-use sqlx::Row;
 
 #[allow(clippy::similar_names)]
 // Replies to msg with the duration since the user was last online
@@ -61,7 +60,8 @@ pub async fn lastseen(ctx: &Context, interaction: &CommandInteraction) -> Comman
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
-        sqlx::query(r"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1").bind(i64::from(user_id)).fetch_optional(db).await?
+        #[allow(clippy::panic)]
+        sqlx::query!(r"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1", i64::from(user_id)).fetch_optional(db).await?
     }) else {
         let content = if let Some(username) = username {
             format!("I've never seen {username}")
@@ -75,7 +75,7 @@ pub async fn lastseen(ctx: &Context, interaction: &CommandInteraction) -> Comman
     };
 
     let now = Local::now().with_timezone(Local::now().offset());
-    let last_seen = row.get::<DateTime<FixedOffset>, _>(0);
+    let last_seen = row.create_date;
     let since = now.signed_duration_since(last_seen);
 
     let since_str = if since.num_seconds() < 1 {

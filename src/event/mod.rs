@@ -264,10 +264,10 @@ impl EventHandler for Handler {
             }
         };
         if is_empty {
-            if let Err(e) = sqlx::query(
+            #[allow(clippy::panic)]
+            if let Err(e) = sqlx::query!(
                 r"INSERT INTO user_presence (user_id, status) VALUES ($1, 'offline'::online_status)",
-            )
-            .bind(i64::from(user.id))
+                i64::from(user.id))
                 .execute(&self.db)
                 .await
             {
