@@ -73,6 +73,38 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: bot_start; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bot_start (
+    id integer NOT NULL,
+    create_date timestamp with time zone DEFAULT now() NOT NULL,
+    update_date timestamp with time zone DEFAULT now() NOT NULL,
+    clean_shutdown boolean
+);
+
+
+--
+-- Name: bot_start_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.bot_start_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: bot_start_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.bot_start_id_seq OWNED BY public.bot_start.id;
+
+
+--
 -- Name: command; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -248,6 +280,13 @@ ALTER SEQUENCE public.user_presence_id_seq OWNED BY public.user_presence.id;
 
 
 --
+-- Name: bot_start id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bot_start ALTER COLUMN id SET DEFAULT nextval('public.bot_start_id_seq'::regclass);
+
+
+--
 -- Name: command id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -280,6 +319,14 @@ ALTER TABLE ONLY public.shipment ALTER COLUMN id SET DEFAULT nextval('public.shi
 --
 
 ALTER TABLE ONLY public.user_presence ALTER COLUMN id SET DEFAULT nextval('public.user_presence_id_seq'::regclass);
+
+
+--
+-- Name: bot_start bot_start_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bot_start
+    ADD CONSTRAINT bot_start_pkey PRIMARY KEY (id);
 
 
 --
@@ -323,6 +370,13 @@ ALTER TABLE ONLY public.user_presence
 
 
 --
+-- Name: bot_start bot_start_row_update_date; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER bot_start_row_update_date BEFORE UPDATE ON public.bot_start FOR EACH ROW EXECUTE FUNCTION public.row_update_date();
+
+
+--
 -- Name: message message_row_update_date; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -334,6 +388,20 @@ CREATE TRIGGER message_row_update_date BEFORE UPDATE ON public.message FOR EACH 
 --
 
 CREATE TRIGGER shipment_row_update_date BEFORE UPDATE ON public.shipment FOR EACH ROW EXECUTE FUNCTION public.row_update_date();
+
+
+--
+-- Name: TABLE bot_start; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,UPDATE ON TABLE public.bot_start TO rustyz;
+
+
+--
+-- Name: SEQUENCE bot_start_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT USAGE ON SEQUENCE public.bot_start_id_seq TO rustyz;
 
 
 --
