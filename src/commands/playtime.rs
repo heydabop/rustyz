@@ -3,14 +3,10 @@ use crate::model::DB;
 use crate::util;
 use chrono::{prelude::*, Duration};
 use regex::{Match, Regex};
-use serenity::builder::CreateComponents;
+use serenity::all::{ButtonStyle, CommandDataOption, CommandDataOptionValue, CommandInteraction};
+use serenity::builder::CreateActionRow;
+use serenity::builder::{CreateButton, EditInteractionResponse};
 use serenity::client::Context;
-use serenity::model::application::{
-    component::ButtonStyle,
-    interaction::application_command::{
-        ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
-    },
-};
 use serenity::model::id::GuildId;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -29,12 +25,13 @@ pub const OFFSET_INC: u16 = 15;
 
 // Replies to msg with the cumulative playtime of all users in the guild
 // Takes a single optional argument of a username to filter playtime for
-pub async fn playtime(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+pub async fn playtime(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let Some(guild_id) = interaction.guild_id else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Command can only be used in a server")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content("Command can only be used in a server"),
+            )
             .await?;
         return Ok(());
     };
@@ -55,27 +52,21 @@ pub async fn playtime(ctx: &Context, interaction: &ApplicationCommandInteraction
 // Takes two arguments
 // First (required): human readable time duration (2 days, 1 hour, 3 months, etc)
 // Second (optional): username to filter playtime for
-pub async fn recent_playtime(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> CommandResult {
+pub async fn recent_playtime(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let Some(guild_id) = interaction.guild_id else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Command can only be used in a server")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content("Command can only be used in a server"),
+            )
             .await?;
         return Ok(());
     };
 
-    let arg = if let CommandDataOptionValue::String(c) =
-        match interaction.data.options[0].resolved.as_ref() {
-            Some(r) => r,
-            None => return Err("Missing required arguments".into()),
-        } {
+    let arg = if let CommandDataOptionValue::String(c) = &interaction.data.options[0].value {
         String::from(c.trim())
     } else {
-        String::new()
+        return Err("Missing required arguments".into());
     };
     let duration_regex = Regex::new(
         r"(?i)(?:(?:(?:(\d+)\s+years?)|(?:(\d+)\s+months?)|(?:(\d+)\s+weeks?)|(?:(\d+)\s+days?)|(?:(\d+)\s+hours?)|(?:(\d+)\s+minutes?)|(?:(\d+)\s+seconds?))\s?)+",
@@ -101,9 +92,10 @@ pub async fn recent_playtime(
             - Duration::seconds(seconds)
     } else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("```Unable to parse time```")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content("```Unable to parse time```"),
+            )
             .await?;
         return Ok(());
     };
@@ -174,22 +166,23 @@ async fn user_ids_and_name_from_option(
         let members = util::collect_members_guild_id(ctx, guild_id).await?;
         members
             .iter()
-            .map(|m| i64::try_from(*m.0.as_u64()))
+            .map(|m| i64::try_from(m.0.get()))
             .collect::<Result<Vec<_>, _>>()?
     } else {
         let user_id = match option {
             Some(o) => {
-                if let Some(CommandDataOptionValue::User(u, _)) = o.resolved.as_ref() {
-                    u.id
+                if let CommandDataOptionValue::User(u) = o.value {
+                    u
                 } else {
                     return Ok(None);
                 }
             }
             None => return Ok(None),
         };
-        if let Some(guild) = ctx.cache.guild(guild_id) {
+        let guild = { ctx.cache.guild(guild_id).map(|g| g.clone()) };
+        if let Some(guild) = guild {
             if let Ok(member) = guild.member(ctx, user_id).await {
-                username = member.nick;
+                username = member.nick.clone();
             }
         }
         if username.is_none() {
@@ -203,7 +196,7 @@ async fn user_ids_and_name_from_option(
                 return Ok(None);
             };
         }
-        vec![i64::try_from(user_id.0)?]
+        vec![i64::from(user_id)]
     };
 
     Ok(Some((user_ids, username)))
@@ -362,7 +355,7 @@ pub async fn gen_playtime_message(
 
 async fn send_message_with_buttons(
     ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
+    interaction: &CommandInteraction,
     user_ids: &[i64],
     username: &Option<String>,
     start_date: Option<DateTime<Utc>>,
@@ -375,59 +368,50 @@ async fn send_message_with_buttons(
         #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
         #[allow(clippy::panic)]
-        sqlx::query!(r#"INSERT INTO playtime_button(author_id, user_ids, username, start_date, end_date, start_offset) VALUES ($1, $2, $3, $4, $5, 0) RETURNING id"#, i64::try_from(interaction.user.id.0)?, user_ids, username as _, start_date, now).fetch_one(db).await?.id
+        sqlx::query!(r#"INSERT INTO playtime_button(author_id, user_ids, username, start_date, end_date, start_offset) VALUES ($1, $2, $3, $4, $5, 0) RETURNING id"#, i64::try_from(interaction.user.id)?, user_ids, username as _, start_date, now).fetch_one(db).await?.id
     };
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| {
-            response
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new()
                 .content(&content)
-                .components(|c| create_components(c, 0, &content, button_id, true))
-        })
+                .components(create_components(0, &content, button_id, true)),
+        )
         .await?;
 
     // leave buttons disabled for 2 seconds, then send the message again with buttons enabled
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| {
-            response.components(|c| create_components(c, 0, &content, button_id, false))
-        })
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new()
+                .components(create_components(0, &content, button_id, false)),
+        )
         .await?;
 
     Ok(())
 }
 
-pub fn create_components<'a>(
-    components: &'a mut CreateComponents,
+pub fn create_components(
     offset: i32,
     content: &str,
     button_id: i32,
     disabled: bool,
-) -> &'a mut CreateComponents {
-    components.create_action_row(|a| {
-        a.create_button(|b| {
-            b.custom_id(format!("playtime:first:{button_id}"))
-                .style(ButtonStyle::Primary)
-                .label("First")
-                .disabled(disabled || offset < 1);
-            b
-        });
-        a.create_button(|b| {
-            b.custom_id(format!("playtime:prev:{button_id}"))
-                .style(ButtonStyle::Primary)
-                .label("Prev")
-                .disabled(disabled || offset < 1);
-            b
-        });
-        a.create_button(|b| {
-            b.custom_id(format!("playtime:next:{button_id}"))
-                .style(ButtonStyle::Primary)
-                .label("Next")
-                .disabled(disabled || content.matches('\n').count() < usize::from(OFFSET_INC) + 2);
-            b
-        });
-        a
-    });
-    components
+) -> Vec<CreateActionRow> {
+    vec![CreateActionRow::Buttons(vec![
+        CreateButton::new(format!("playtime:first:{button_id}"))
+            .style(ButtonStyle::Primary)
+            .label("First")
+            .disabled(disabled || offset < 1),
+        CreateButton::new(format!("playtime:prev:{button_id}"))
+            .style(ButtonStyle::Primary)
+            .label("Prev")
+            .disabled(disabled || offset < 1),
+        CreateButton::new(format!("playtime:next:{button_id}"))
+            .style(ButtonStyle::Primary)
+            .label("Next")
+            .disabled(disabled || content.matches('\n').count() < usize::from(OFFSET_INC) + 2),
+    ])]
 }

@@ -1,12 +1,14 @@
 use crate::error::CommandResult;
+use serenity::all::CommandInteraction;
+use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 
-pub async fn source(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+pub async fn source(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| {
-            response.content("https://github.com/heydabop/rustyz")
-        })
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new().content("https://github.com/heydabop/rustyz"),
+        )
         .await?;
 
     Ok(())

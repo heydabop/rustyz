@@ -1,16 +1,13 @@
 use crate::error::CommandResult;
 use rand::{thread_rng, Rng};
-use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-    ApplicationCommandInteraction, CommandDataOptionValue,
+use serenity::{
+    all::{CommandDataOptionValue, CommandInteraction},
+    builder::EditInteractionResponse,
+    client::Context,
 };
 
-pub async fn zalgo(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let input = if let CommandDataOptionValue::String(i) =
-        match interaction.data.options[0].resolved.as_ref() {
-            Some(o) => o,
-            None => return Err("Missing input".into()),
-        } {
+pub async fn zalgo(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
+    let input = if let CommandDataOptionValue::String(i) = &interaction.data.options[0].value {
         i.chars()
     } else {
         return Err("Missing input".into());
@@ -29,9 +26,10 @@ pub async fn zalgo(ctx: &Context, interaction: &ApplicationCommandInteraction) -
     }
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| {
-            response.content(message.iter().collect::<String>())
-        })
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new().content(message.iter().collect::<String>()),
+        )
         .await?;
 
     Ok(())

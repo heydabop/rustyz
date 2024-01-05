@@ -1,43 +1,41 @@
 use crate::error::CommandResult;
 use crate::util;
+use serenity::all::{CommandDataOptionValue, CommandInteraction};
+use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-    ApplicationCommandInteraction, CommandDataOptionValue,
-};
 use serenity::model::id::UserId;
 
 // Replies with the username or nickname of the supplied user ID
 // Takes a single required argument of a user ID
-pub async fn whois(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+pub async fn whois(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let Some(guild_id) = interaction.guild_id else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Command can only be used in a server")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content("Command can only be used in a server"),
+            )
             .await?;
         return Ok(());
     };
 
-    let user_id = if let CommandDataOptionValue::String(u) =
-        match interaction.data.options[0].resolved.as_ref() {
-            Some(u) => u,
-            None => return Err("missing user ID".into()),
-        } {
+    let user_id = if let CommandDataOptionValue::String(u) = &interaction.data.options[0].value {
         if let Ok(id) = u.parse() {
-            UserId(id)
+            UserId::new(id)
         } else {
             interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content("Invalid User ID")
-                })
+                .edit_response(
+                    &ctx.http,
+                    EditInteractionResponse::new().content("Invalid User ID"),
+                )
                 .await?;
             return Ok(());
         }
     } else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Invalid User ID")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content("Invalid User ID"),
+            )
             .await?;
         return Ok(());
     };
@@ -47,7 +45,7 @@ pub async fn whois(ctx: &Context, interaction: &ApplicationCommandInteraction) -
     let username = util::get_username_userid(&ctx.http, &members, user_id).await;
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| response.content(username))
+        .edit_response(&ctx.http, EditInteractionResponse::new().content(username))
         .await?;
 
     Ok(())

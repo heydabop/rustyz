@@ -1,14 +1,11 @@
 use crate::error::CommandResult;
 use chrono::prelude::*;
 use chrono_tz::{ParseError, Tz};
+use serenity::all::CommandInteraction;
+use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 
-pub async fn time(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-    tz: &str,
-) -> CommandResult {
+pub async fn time(ctx: &Context, interaction: &CommandInteraction, tz: &str) -> CommandResult {
     let content = if tz == "America/Chicago" {
         twentyfour_hour(tz)
     } else {
@@ -16,7 +13,7 @@ pub async fn time(
     }?;
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| response.content(content))
+        .edit_response(&ctx.http, EditInteractionResponse::new().content(content))
         .await?;
 
     Ok(())

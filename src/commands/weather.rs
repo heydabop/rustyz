@@ -5,37 +5,30 @@ use crate::{
     model::Point,
     tomorrowio,
 };
+use serenity::all::{CommandDataOptionValue, CommandInteraction};
+use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-    ApplicationCommandInteraction, CommandDataOptionValue,
-};
 use std::fmt::Write as _;
 
 // Replies to msg with the weather for either the bot's location or the supplied location
 // Takes a single optional argument - location as zipcode, city+state, or lat/lng in decimal form
-pub async fn weather(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let args = interaction
-        .data
-        .options
-        .first()
-        .and_then(|o| {
-            o.resolved.as_ref().map(|r| {
-                if let CommandDataOptionValue::String(s) = r {
-                    s
-                } else {
-                    ""
-                }
-            })
-        })
-        .unwrap_or("");
+pub async fn weather(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
+    let args = interaction.data.options.first().map_or("", |o| {
+        if let CommandDataOptionValue::String(s) = &o.value {
+            s.as_str()
+        } else {
+            ""
+        }
+    });
 
     let (location, location_name) = match parse_location(ctx, args).await {
         Ok((l, n)) => (l, n),
         Err(e) => {
             interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content(e.to_string())
-                })
+                .edit_response(
+                    &ctx.http,
+                    EditInteractionResponse::new().content(e.to_string()),
+                )
                 .await?;
             return Ok(());
         }
@@ -163,7 +156,10 @@ pollen | {}"#,
     );
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| response.content(response_msg))
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new().content(response_msg),
+        )
         .await?;
 
     Ok(())
@@ -171,19 +167,19 @@ pollen | {}"#,
 
 // Replies to msg with the hourly forecast (12h) for either the bot's location or the supplied location
 // Takes a single optional argument - location as zipcode, city+state, or lat/lng in decimal form
-pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+pub async fn forecast(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let mut location_args = "";
     let mut hours = 6;
     for o in &interaction.data.options {
         match &o.name[..] {
             "location" => {
-                if let Some(CommandDataOptionValue::String(s)) = o.resolved.as_ref() {
-                    location_args = s;
+                if let CommandDataOptionValue::String(s) = &o.value {
+                    location_args = s.as_str();
                 }
             }
             "hours" => {
-                if let Some(CommandDataOptionValue::Integer(h)) = o.resolved.as_ref() {
-                    hours = *h;
+                if let CommandDataOptionValue::Integer(h) = o.value {
+                    hours = h;
                 }
             }
             _ => {}
@@ -194,9 +190,10 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
         Ok((l, n)) => (l, n),
         Err(e) => {
             interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content(e.to_string())
-                })
+                .edit_response(
+                    &ctx.http,
+                    EditInteractionResponse::new().content(e.to_string()),
+                )
                 .await?;
             return Ok(());
         }
@@ -267,7 +264,10 @@ pub async fn forecast(ctx: &Context, interaction: &ApplicationCommandInteraction
     write!(response_msg, "```")?;
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| response.content(response_msg))
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new().content(response_msg),
+        )
         .await?;
 
     Ok(())

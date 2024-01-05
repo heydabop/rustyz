@@ -1,26 +1,28 @@
 use crate::error::{CommandError, CommandResult};
 use crate::model::StartInstant;
 use chrono::naive::NaiveDateTime;
+use serenity::all::CommandInteraction;
+use serenity::builder::{CreateEmbed, EditInteractionResponse};
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use std::str;
 use std::time::Instant;
 use tokio::process::Command;
 
-pub async fn botinfo(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+pub async fn botinfo(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let Some(guild_id) = interaction.guild_id else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Command can only be used in a server")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content("Command can only be used in a server"),
+            )
             .await?;
         return Ok(());
     };
 
-    let bot = ctx.cache.current_user();
-    let member = ctx.http.get_member(guild_id.0, bot.id.0).await?;
-    let user = ctx.http.get_user(bot.id.0).await?;
-    let num_guilds = bot.guilds(&ctx.http).await?.len();
+    let bot = ctx.cache.current_user().clone();
+    let member = ctx.http.get_member(guild_id, bot.id).await?;
+    let user = ctx.http.get_user(bot.id).await?;
+    let num_guilds = ctx.cache.guilds().len();
     let uptime_output = Command::new("uptime").arg("-p").output().await?;
     let server_uptime = str::from_utf8(&uptime_output.stdout)?[3..].replace(", ", "\n");
     let since_start = {
@@ -87,43 +89,41 @@ pub async fn botinfo(ctx: &Context, interaction: &ApplicationCommandInteraction)
         None
     };
 
+    let mut embed = CreateEmbed::new()
+        .title(member.nick.as_ref().unwrap_or(&bot.name))
+        .thumbnail(member.face())
+        .timestamp(serenity::model::timestamp::Timestamp::now())
+        .field(
+            "Joined Discord",
+            discord_join.format("%b %e, %Y").to_string(),
+            true,
+        )
+        .field(
+            "Joined Server",
+            if let Some(joined_at) = server_join {
+                joined_at.format("%b %e, %Y").to_string()
+            } else {
+                String::from("`Unknown`")
+            },
+            true,
+        )
+        .field("Member of", format!("{num_guilds} servers"), true)
+        .field("Host Uptime", server_uptime, true)
+        .field("Bot Uptime", bot_uptime.join("\n"), true);
+    if member.nick.is_some() {
+        embed = embed.description(&bot.name);
+    }
+    if let Some(banner) = user.banner_url() {
+        embed = embed.image(banner);
+    }
+    if let Some(color) = user.accent_colour {
+        embed = embed.color(color);
+    } else if let Some(member_color) = member.colour(&ctx.cache) {
+        embed = embed.color(member_color);
+    }
+
     interaction
-        .edit_original_interaction_response(&ctx.http, |r| {
-            r.embed(|e| {
-                e.title(member.nick.as_ref().unwrap_or(&bot.name))
-                    .thumbnail(member.face())
-                    .timestamp(serenity::model::timestamp::Timestamp::now())
-                    .field(
-                        "Joined Discord",
-                        discord_join.format("%b %e, %Y").to_string(),
-                        true,
-                    )
-                    .field(
-                        "Joined Server",
-                        if let Some(joined_at) = server_join {
-                            joined_at.format("%b %e, %Y").to_string()
-                        } else {
-                            String::from("`Unknown`")
-                        },
-                        true,
-                    )
-                    .field("Member of", format!("{num_guilds} servers"), true)
-                    .field("Host Uptime", server_uptime, true)
-                    .field("Bot Uptime", bot_uptime.join("\n"), true);
-                if member.nick.is_some() {
-                    e.description(&bot.name);
-                }
-                if let Some(banner) = user.banner_url() {
-                    e.image(banner);
-                }
-                if let Some(color) = user.accent_colour {
-                    e.color(color);
-                } else if let Some(member_color) = member.colour(&ctx.cache) {
-                    e.color(member_color);
-                }
-                e
-            })
-        })
+        .edit_response(&ctx.http, EditInteractionResponse::new().embed(embed))
         .await?;
 
     Ok(())

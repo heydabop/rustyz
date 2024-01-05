@@ -5,12 +5,14 @@ mod presence;
 use crate::model;
 
 use serde_json::json;
+use serenity::all::{
+    Command, CommandDataOptionValue, CommandInteraction, CommandOptionType, Interaction,
+};
 use serenity::async_trait;
+use serenity::builder::{CreateCommand, CreateCommandOption};
 use serenity::client::{Context, EventHandler};
 use serenity::json::Value;
 use serenity::model::{
-    application::command::{Command, CommandOptionType},
-    application::interaction::{application_command::ApplicationCommandInteraction, Interaction},
     channel::Message,
     event::MessageUpdateEvent,
     gateway::{Presence, Ready},
@@ -46,31 +48,19 @@ impl EventHandler for Handler {
         info!("Bot {} is successfully connected.", ready.user.name);
 
         #[allow(clippy::unreadable_literal)]
-        let g = GuildId(184428741450006528);
+        let g = GuildId::new(184428741450006528);
         match g
-            .set_application_commands(&ctx.http, |commands| {
-                commands
-                    .create_application_command(|c| {
-                        c.name("birdtime")
-                            .description("Sends the current time for bird")
-                    })
-                    .create_application_command(|c| {
-                        c.name("mirotime")
-                            .description("Sends the current time for miro")
-                    })
-                    .create_application_command(|c| {
-                        c.name("nieltime")
-                            .description("Sends the current time for niel")
-                    })
-                    .create_application_command(|c| {
-                        c.name("realtime")
-                            .description("Sends the current time for the mainlanders")
-                    })
-                    .create_application_command(|c| {
-                        c.name("sebbitime")
-                            .description("Sends the current time for sebbi")
-                    })
-            })
+            .set_commands(
+                &ctx.http,
+                vec![
+                    CreateCommand::new("birdtime").description("Sends the current time for bird"),
+                    CreateCommand::new("mirotim").description("Sends the current time for miro"),
+                    CreateCommand::new("nieltime").description("Sends the current time for niel"),
+                    CreateCommand::new("realtime")
+                        .description("Sends the current time for the mainlanders"),
+                    CreateCommand::new("sebbitime").description("Sends the current time for sebbi"),
+                ],
+            )
             .await
         {
             Ok(guild_commands) => info!(guild_commands = ?guild_commands
@@ -82,325 +72,135 @@ impl EventHandler for Handler {
             Err(e) => error!(%e, "error setting guild commands"),
         }
 
-        match Command::set_global_application_commands(&ctx.http, |commands| {
-            commands
-                .create_application_command(|c| {
-                    c.name("affixes").description("Sends this week's US Mythic+ affixes")
-                })
-                .create_application_command(|c| {
-                    c.name("asuh").description("Joins your voice channel and plays bothersome audio")
-                })
-                .create_application_command(|c| {
-                    c.name("botinfo").description("Displays details about the bot")
-                })
-                .create_application_command(|c| {
-                    c.name("forecast")
-                        .description("Sends hourly weather conditions over the next 12 hours for an area")
-                        .create_option(|o| {
-                            o.name("location")
-                                .description("Area to get weather for; can be city name, postal code, or decimal lat/long (default: Austin, TX)")
-                                .kind(CommandOptionType::String)
-                                .required(false)
-                        })
-                        .create_option(|o| {
-                            o.name("hours")
-                                .description("How many hours into the future to forecast (default: 6)")
-                                .kind(CommandOptionType::Integer)
-                                .required(false)
-                                .min_int_value(2)
-                                .max_int_value(12)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("fortune").description("Sends a random adage")
-                })
-                .create_application_command(|c| {
-                    c.name("serverinfo").description("Displays details about this server")
-                })
-                .create_application_command(|c| {
-                    c.name("invite").description("Generates link to add bot to a server you administrate")
-                })
-                .create_application_command(|c| {
-                    c.name("karma")
-                        .description("Lists members by karma points")
-                        .create_option(|o| {
-                            o.name("count")
-                                .description("The number of members to list (defaults to 5)")
-                                .kind(CommandOptionType::Integer)
-                                .required(false)
-                                .min_int_value(1)
-                                .max_int_value(100)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("lastseen")
-                        .description("Sends how long it's been since a user was last online")
-                        .create_option(|o| {
-                            o.name("user")
-                                .description("User to check")
-                                .kind(CommandOptionType::User)
-                                .required(true)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("lastplayed")
-                        .description("How long it's been since a user was last playing a game, and the game they were playing")
-                        .create_option(|o| {
-                            o.name("user")
-                                .description("User to check")
-                                .kind(CommandOptionType::User)
-                                .required(true)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("math")
-                        .description("Does math (with Wolfram Alpha)")
-                        .create_option(|o| {
-                            o.name("question")
-                                .description("A question; answerable by text")
-                                .kind(CommandOptionType::String)
-                                .required(true)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("ping").description("pong")
-                })
-                .create_application_command(|c| {
-                    c.name("playtime")
-                        .description("Shows all recorded video game playtime of a user or everyone in this server")
-                        .create_option(|o| {
-                            o.name("user")
-                                .description("User to show playtime for")
-                                .kind(CommandOptionType::User)
-                                .required(false)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("raiderio")
-                        .description("Displays raider.io stats for given character")
-                        .create_option(|o| {
-                            o.name("character")
-                                .description("Character to get stats for")
-                                .kind(CommandOptionType::String)
-                                .required(true)
-                        })
-                        .create_option(|o| {
-                            o.name("realm")
-                                .description("Realm that character is on")
-                                .kind(CommandOptionType::String)
-                                .required(true)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("recentplaytime")
-                        .description("Shows video game playtime over a specified duration of a user or everyone in this server")
-                        .create_option(|o| {
-                            o.name("duration")
-                                .description("Duration to show playtime for (1 week, 2 months, etc)")
-                                .kind(CommandOptionType::String)
-                                .required(true)
-                        })
-                        .create_option(|o| {
-                            o.name("user")
-                                .description("User to show playtime for")
-                                .kind(CommandOptionType::User)
-                                .required(false)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("roll")
-                        .description("Roll a die")
-                        .create_option(|o| {
-                            o.name("sides")
-                                .description("Sides on die (default 100)")
-                                .kind(CommandOptionType::Integer)
-                                .required(false)
-                                .min_int_value(1)
-                                .max_int_value(u32::MAX)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("source").description("Sends link to bot source code")
-                })
-                /*.create_application_command(|c| {
-                    c.name("tarkov")
-                        .description("Sends flea market and vendor info for item")
-                        .create_option(|o| {
-                            o.name("item")
-                                .description("Tarkov item to search the flea market for")
-                                .kind(CommandOptionType::String)
-                                .required(true)
-                        })
-                })*/
-                .create_application_command(|c| {
-                    c.name("top")
-                        .description("Lists members by number of sent messages")
-                        .create_option(|o| {
-                            o.name("count")
-                                .description("The number of members to list (defaults to 5)")
-                                .kind(CommandOptionType::Integer)
-                                .required(false)
-                                .min_int_value(1)
-                                .max_int_value(100)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("topcommand")
-                        .description("Lists members by most command invocations")
-                        .create_option(|o| {
-                            o.name("command")
-                                .description("Command to list invocations for")
-                                .kind(CommandOptionType::String)
-                                .required(true)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("toplength")
-                        .description("Lists members by average length of sent messages")
-                        .create_option(|o| {
-                            o.name("count")
-                                .description("The number of members to list (defaults to 5)")
-                                .kind(CommandOptionType::Integer)
-                                .required(false)
-                                .min_int_value(1)
-                                .max_int_value(100)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("track")
-                        .description("Track shipment")
-                        .create_option(|o| {
-                            o.name("carrier")
-                                .description("Shipping company")
-                                .kind(CommandOptionType::String)
-                                .required(true)
-                                .add_string_choice("FedEx", "fedex")
-                                .add_string_choice("UPS", "ups")
-                                .add_string_choice("USPS", "usps")
-                        })
-                        .create_option(|o| {
-                            o.name("number")
-                                .description("Tracking number")
-                                .kind(CommandOptionType::String)
-                                .required(true)
-                        })
-                        .create_option(|o| {
-                            o.name("comment")
-                                .description("Optional comment descriping shipment, will be sent to channel upon package delivery")
-                                .kind(CommandOptionType::String)
-                                .required(false)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("userinfo").description("Displays details about a user")
-                        .create_option(|o| {
-                            o.name("user")
-                                .description("User to display")
-                                .kind(CommandOptionType::User)
-                                .required(true)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("weather")
-                        .description("Sends weather conditions for an area")
-                        .create_option(|o| {
-                            o.name("location")
-                                .description("Area to get weather for; can be city name, postal code, or decimal lat/long (default: Austin, TX)")
-                                .kind(CommandOptionType::String)
-                                .required(false)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("whois")
-                        .description("Lookup username by ID")
-                        .create_option(|o| {
-                            o.name("id")
-                                .description("ID of user to find")
-                                .kind(CommandOptionType::String)
-                                .required(true)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("wolframalpha")
-                        .description("Queries Wolfram Alpha and returns an image result")
-                        .create_option(|o| {
-                            o.name("input")
-                                .description("Input query")
-                                .kind(CommandOptionType::String)
-                                .required(true)
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("wow")
-                        .description("World of Warcraft commands")
-                        .create_option(|o| {
-                            o.name("character")
-                                .description("WoW character details")
-                                .kind(CommandOptionType::SubCommand)
-                                .create_sub_option(|s| {
-                                    s.name("character")
-                                        .description("Character name")
-                                        .kind(CommandOptionType::String)
-                                        .required(true)
-                                })
-                                .create_sub_option(|s| {
-                                    s.name("realm")
-                                        .description("Character's realm")
-                                        .kind(CommandOptionType::String)
-                                        .required(true)
-                                })
-                        })
-                        .create_option(|o| {
-                            o.name("realm")
-                                .description("Status of WoW realm")
-                                .kind(CommandOptionType::SubCommand)
-                                .create_sub_option(|s| {
-                                    s.name("realm")
-                                        .description("Realm name")
-                                        .kind(CommandOptionType::String)
-                                        .required(true)
-                                })
-                        })
-                        .create_option(|o| {
-                            o.name("search")
-                                .description("Search all realms for WoW character by name")
-                                .kind(CommandOptionType::SubCommand)
-                                .create_sub_option(|s| {
-                                    s.name("character")
-                                        .description("Character name")
-                                        .kind(CommandOptionType::String)
-                                        .required(true)
-                                })
-                        })
-                        .create_option(|o| {
-                            o.name("transmog")
-                                .description("Image of character from WoW armory")
-                                .kind(CommandOptionType::SubCommand)
-                                .create_sub_option(|s| {
-                                    s.name("character")
-                                        .description("Character name")
-                                        .kind(CommandOptionType::String)
-                                        .required(true)
-                                })
-                                .create_sub_option(|s| {
-                                    s.name("realm")
-                                        .description("Character's realm")
-                                        .kind(CommandOptionType::String)
-                                        .required(true)
-                                })
-                        })
-                })
-                .create_application_command(|c| {
-                    c.name("zalgo")
-                        .description("HE COMES")
-                        .create_option(|o| {
-                            o.name("message")
-                                .description("HE COMES")
-                                .kind(CommandOptionType::String)
-                                .required(true)
-                        })
-                })
-        })
+        match Command::set_global_commands(&ctx.http, vec![
+            CreateCommand::new("affixes").description("Sends this week's US Mythic+ affixes"),
+            CreateCommand::new("asuh").description("Joins your voice channel and plays bothersome audio"),
+            CreateCommand::new("botinfo").description("Displays details about the bot"),
+            CreateCommand::new("forecast")
+                .description("Sends hourly weather conditions over the next 12 hours for an area")
+                .set_options(vec![
+                    CreateCommandOption::new(CommandOptionType::String, "location", "Area to get weather for; can be city name, postal code, or decimal lat/long (default: Austin, TX)"),
+                    CreateCommandOption::new(CommandOptionType::Integer, "hours", "How many hours into the future to forecast (default: 6)")
+                        .min_int_value(2)
+                        .max_int_value(12)
+                ]),
+            CreateCommand::new("fortune").description("Sends a random adage"),
+            CreateCommand::new("serverinfo").description("Displays details about this server"),
+            CreateCommand::new("invite").description("Generates link to add bot to a server you administrate"),
+            CreateCommand::new("karma").description("Lists members by karma points")
+                .add_option(
+                    CreateCommandOption::new(CommandOptionType::Integer, "count", "The number of members to list (defaults to 5)")
+                        .min_int_value(1)
+                        .max_int_value(100)
+                ),
+            CreateCommand::new("lastseen")
+                .description("Sends how long it's been since a user was last online")
+                .add_option(CreateCommandOption::new(CommandOptionType::User, "user", "User to check")
+                            .required(true)),
+            CreateCommand::new("lastplayed")
+                .description("How long it's been since a user was last playing a game, and the game they were playing")
+                .add_option(CreateCommandOption::new(CommandOptionType::User, "user", "User to check")
+                            .required(true)),
+            CreateCommand::new("math")
+                .description("Does math (with Wolfram Alpha)")
+                .add_option(CreateCommandOption::new(CommandOptionType::String, "question", "A question; answerable by text")
+                            .required(true)),
+            CreateCommand::new("ping").description("pong"),
+            CreateCommand::new("playtime")
+                .description("Shows all recorded video game playtime of a user or everyone in this server")
+                .add_option(CreateCommandOption::new(CommandOptionType::User, "user", "User to show playtime for")),
+            CreateCommand::new("raiderio")
+                .description("Displays raider.io stats for given character")
+                .set_options(vec![
+                    CreateCommandOption::new(CommandOptionType::String, "character", "Character to get stats for")
+                        .required(true),
+                    CreateCommandOption::new(CommandOptionType::String, "realm", "Realm that character is on")
+                        .required(true)
+                ]),
+            CreateCommand::new("recentplaytime")
+                .description("Shows video game playtime over a specified duration of a user or everyone in this server")
+                .set_options(vec![
+                    CreateCommandOption::new(CommandOptionType::String, "duration", "Duration to show playtime for (1 week, 2 months, etc)")
+                        .required(true),
+                    CreateCommandOption::new(CommandOptionType::User, "user", "User to show playtime for")
+                ]),
+            CreateCommand::new("roll")
+                .description("Roll a die")
+                .add_option(CreateCommandOption::new(CommandOptionType::Integer, "sides", "Sides on die (default 100)")
+                            .min_int_value(1)
+                            .max_int_value(u32::MAX.into())),
+            CreateCommand::new("source").description("Sends link to bot source code"),
+            /*CreateCommand::new("tarkov")
+            .description("Sends flea market and vendor info for item")
+            .create_option(|o| {
+            o.name("item")
+            .description("Tarkov item to search the flea market for")
+            .kind(CommandOptionType::String)
+            .required(true)
+        }),
+        })*/
+            CreateCommand::new("top")
+                .description("Lists members by number of sent messages")
+                .add_option(CreateCommandOption::new(CommandOptionType::Integer, "count", "The number of members to list (defaults to 5)")
+                            .min_int_value(1)
+                            .max_int_value(100)),
+            CreateCommand::new("topcommand")
+                .description("Lists members by most command invocations")
+                .add_option(CreateCommandOption::new(CommandOptionType::String, "command", "Command to list invocations for")
+                            .required(true)),
+            CreateCommand::new("toplength")
+                .description("Lists members by average length of sent messages")
+                .add_option(CreateCommandOption::new(CommandOptionType::Integer, "count", "The number of members to list (defaults to 5)")
+                            .min_int_value(1)
+                            .max_int_value(100)),
+            CreateCommand::new("track")
+                .description("Track shipment")
+                .set_options(vec![
+                    CreateCommandOption::new(CommandOptionType::String, "carrier", "Shipping company")
+                        .required(true)
+                        .add_string_choice("FedEx", "fedex")
+                        .add_string_choice("UPS", "ups")
+                        .add_string_choice("USPS", "usps"),
+                    CreateCommandOption::new(CommandOptionType::String, "number", "Tracking number")
+                        .required(true),
+                    CreateCommandOption::new(CommandOptionType::String, "comment", "Optional comment descriping shipment, will be sent to channel upon package delivery")
+                ]),
+            CreateCommand::new("userinfo").description("Displays details about a user")
+                .add_option(CreateCommandOption::new(CommandOptionType::User, "user", "User to display")
+                            .required(true)),
+            CreateCommand::new("weather")
+                .description("Sends weather conditions for an area")
+                .add_option(CreateCommandOption::new(CommandOptionType::String, "location", "Area to get weather for; can be city name, postal code, or decimal lat/long (default: Austin, TX)")),
+            CreateCommand::new("whois")
+                .description("Lookup username by ID")
+                .add_option(CreateCommandOption::new(CommandOptionType::String, "id", "ID of user to find")
+                            .required(true)),
+            CreateCommand::new("wolframalpha")
+                .description("Queries Wolfram Alpha and returns an image result")
+                .add_option(CreateCommandOption::new(CommandOptionType::String, "input", "Input query")
+                            .required(true)),
+            CreateCommand::new("wow")
+                .description("World of Warcraft commands")
+                .set_options(vec![
+                    CreateCommandOption::new(CommandOptionType::SubCommand, "character", "WoW character details")
+                        .add_sub_option(CreateCommandOption::new(CommandOptionType::String, "character", "Character name")
+                                        .required(true))
+                        .add_sub_option(CreateCommandOption::new(CommandOptionType::String, "realm", "Character's realm")
+                                        .required(true)),
+                    CreateCommandOption::new(CommandOptionType::SubCommand, "realm", "Status of WoW realm").add_sub_option(CreateCommandOption::new(CommandOptionType::String, "realm", "Realm name")),
+                    CreateCommandOption::new(CommandOptionType::SubCommand, "search", "Search all realms for WoW character by name")
+                        .add_sub_option(CreateCommandOption::new(CommandOptionType::String, "character", "Character name").required(true)),
+                    CreateCommandOption::new(CommandOptionType::SubCommand, "transmog", "Image of character from WoW armory")
+                        .add_sub_option(CreateCommandOption::new(CommandOptionType::String, "character", "Character name")
+                                        .required(true))
+                        .add_sub_option(CreateCommandOption::new(CommandOptionType::String, "realm", "Character's realm")
+                                        .required(true))
+                ]),
+            CreateCommand::new("zalgo")
+                .description("HE COMES")
+                .add_option(CreateCommandOption::new(CommandOptionType::String, "message", "HE COMES")
+                            .required(true)),
+        ])
         .await {
             Ok(commands) => info!(commands = ?commands.iter().map(|g| &g.name).collect::<Vec<&String>>(), "commands set"),
             Err(e) => error!(%e, "error setting commands"),
@@ -413,13 +213,14 @@ impl EventHandler for Handler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         let db = self.db.clone();
-        tokio::spawn(interaction::create(ctx, db, interaction));
+        // TODO? tokio::spawn
+        interaction::create(ctx, db, interaction).await;
     }
 
-    async fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
-        if is_new {
+    async fn guild_create(&self, ctx: Context, guild: Guild, is_new: Option<bool>) {
+        if is_new.unwrap_or(false) {
             info!(
-                id = guild.id.0,
+                id = guild.id.get(),
                 members = guild.member_count,
                 name = guild.name,
                 "joined guild"
@@ -431,7 +232,11 @@ impl EventHandler for Handler {
     }
 
     async fn guild_delete(&self, _: Context, guild: UnavailableGuild, _: Option<Guild>) {
-        warn!(id = guild.id.0, offline = guild.unavailable, "left guild");
+        warn!(
+            id = guild.id.get(),
+            offline = guild.unavailable,
+            "left guild"
+        );
     }
 
     async fn guild_member_removal(
@@ -459,17 +264,10 @@ impl EventHandler for Handler {
             }
         };
         if is_empty {
-            let user_id = match i64::try_from(user.id.0) {
-                Ok(u) => u,
-                Err(e) => {
-                    error!(%e, "unable to fit user id in i64");
-                    return;
-                }
-            };
             if let Err(e) = sqlx::query(
                 r"INSERT INTO user_presence (user_id, status) VALUES ($1, 'offline'::online_status)",
             )
-            .bind(user_id)
+            .bind(i64::from(user.id))
                 .execute(&self.db)
                 .await
             {
@@ -531,13 +329,13 @@ async fn report_interaction_error(ctx: &Context, error: String) {
     }
 }
 
-async fn record_command(db: &Pool<Postgres>, command: &ApplicationCommandInteraction) {
+async fn record_command(db: &Pool<Postgres>, command: &CommandInteraction) {
     let mut command_name = command.data.name.clone();
-    let log_options: HashMap<&String, &Option<Value>> =
+    let command_data_options: HashMap<&String, &CommandDataOptionValue> =
         if let Some(option) = command.data.options.first() {
-            if option.kind == CommandOptionType::SubCommand {
+            if let CommandDataOptionValue::SubCommand(suboptions) = &option.value {
                 command_name = format!("{command_name} {}", option.name);
-                option.options.iter().map(|o| (&o.name, &o.value)).collect()
+                suboptions.iter().map(|o| (&o.name, &o.value)).collect()
             } else {
                 command
                     .data
@@ -549,40 +347,34 @@ async fn record_command(db: &Pool<Postgres>, command: &ApplicationCommandInterac
         } else {
             HashMap::new()
         };
+    let log_options: HashMap<&String, Value> = command_data_options
+        .into_iter()
+        .map(|(name, option)| {
+            use CommandDataOptionValue::*;
+            let value = match option {
+                Boolean(b) => json!(b),
+                Integer(i) => json!(i),
+                Number(n) => json!(n),
+                String(s) => json!(s),
+                Attachment(a) => json!(a.get()),
+                Channel(c) => json!(c.get()),
+                Mentionable(m) => json!(m.get()),
+                Role(r) => json!(r.get()),
+                User(u) => json!(u.get()),
+                _ => json!(null),
+            };
+            (name, value)
+        })
+        .collect();
     info!(name = command_name, options = ?log_options, "command called");
-    let user_id = match i64::try_from(command.user.id.0) {
-        Ok(u) => u,
-        Err(e) => {
-            error!(%e, "unable to fit user id in i64");
-            return;
-        }
-    };
-    let channel_id = match i64::try_from(command.channel_id.0) {
-        Ok(c) => c,
-        Err(e) => {
-            error!(%e, "unable to fit channel id in i64");
-            return;
-        }
-    };
-    let guild_id = if let Some(g) = command.guild_id {
-        match i64::try_from(g.0) {
-            Ok(g) => Some(g),
-            Err(e) => {
-                error!(%e, "unable to fit guild id in i64");
-                return;
-            }
-        }
-    } else {
-        None
-    };
     #[allow(clippy::panic)]
     if let Err(e) = sqlx::query!(
         r#"
 INSERT INTO command(author_id, channel_id, guild_id, name, options)
 VALUES ($1, $2, $3, $4, $5)"#,
-        user_id,
-        channel_id,
-        guild_id,
+        i64::from(command.user.id),
+        i64::from(command.channel_id),
+        command.guild_id.map(i64::from),
         command_name,
         json!(log_options)
     )

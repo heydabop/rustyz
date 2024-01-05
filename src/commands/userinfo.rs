@@ -2,42 +2,41 @@ use crate::error::{CommandError, CommandResult};
 use crate::model::{OldDB, DB};
 use chrono::naive::NaiveDateTime;
 use num_format::{Locale, ToFormattedString};
+use serenity::all::{CommandDataOptionValue, CommandInteraction};
+use serenity::builder::{CreateEmbed, EditInteractionResponse};
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-    ApplicationCommandInteraction, CommandDataOptionValue,
-};
 use sqlx::Row;
 
-pub async fn userinfo(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+pub async fn userinfo(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let Some(user) = interaction.data.options.first().and_then(|o| {
-        o.resolved.as_ref().and_then(|r| {
-            if let CommandDataOptionValue::User(u, _) = r {
-                Some(u)
-            } else {
-                None
-            }
-        })
+        if let CommandDataOptionValue::User(u) = o.value {
+            Some(u)
+        } else {
+            None
+        }
     }) else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Unable to find user")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content("Unable to find user"),
+            )
             .await?;
         return Ok(());
     };
 
     let Some(guild_id) = interaction.guild_id else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Command can only be used in a server")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content("Command can only be used in a server"),
+            )
             .await?;
         return Ok(());
     };
 
-    let member = ctx.http.get_member(guild_id.0, user.id.0).await?;
+    let member = ctx.http.get_member(guild_id, user).await?;
     // fully populate user
-    let user = ctx.http.get_user(user.id.0).await?;
+    let user = ctx.http.get_user(user).await?;
     let yes = "\u{2705}";
     let no = "\u{274C}";
     let date_format_str = "%b %e, %Y";
@@ -57,8 +56,8 @@ SELECT count(id)
 FROM message
 WHERE guild_id = $1
 AND author_id = $2"#,
-        i64::try_from(guild_id.0)?,
-        i64::try_from(user.id.0)?
+        i64::try_from(guild_id)?,
+        i64::try_from(user.id)?
     )
     .fetch_one(&db)
     .await?
@@ -71,8 +70,8 @@ SELECT count(id)
 FROM message
 WHERE channel_id = $1
 AND author_id = $2"#,
-        i64::try_from(interaction.channel_id.0)?,
-        i64::try_from(user.id.0)?,
+        i64::try_from(interaction.channel_id)?,
+        i64::try_from(user.id)?,
     )
     .fetch_one(&db)
     .await?
@@ -86,8 +85,8 @@ FROM user_karma
 WHERE guild_id = $1
 AND user_id = $2",
         )
-        .bind(guild_id.0.to_string())
-        .bind(user.id.0.to_string())
+        .bind(guild_id.to_string())
+        .bind(user.id.to_string())
         .fetch_optional(&old_db)
         .await?;
         if let Some(r) = row {
@@ -103,8 +102,8 @@ SELECT min(create_date) as min_date
 FROM message
 WHERE guild_id = $1
 AND author_id = $2"#,
-        i64::try_from(guild_id.0)?,
-        i64::try_from(user.id.0)?
+        i64::try_from(guild_id)?,
+        i64::try_from(user.id)?
     )
     .fetch_one(&db)
     .await?
@@ -146,62 +145,60 @@ AND author_id = $2"#,
         None
     };
 
+    let mut embed = CreateEmbed::new()
+        .title(member.nick.as_ref().unwrap_or(&user.name))
+        .thumbnail(member.face())
+        .timestamp(serenity::model::timestamp::Timestamp::now())
+        .field("Bot?", if user.bot { yes } else { no }, true)
+        .field(
+            "Boosting Server?",
+            if let Some(boost_timestamp) = boost_timestamp {
+                format!("Since {}", boost_timestamp.format(date_format_str))
+            } else {
+                no.to_string()
+            },
+            true,
+        )
+        .field(
+            "Joined Discord",
+            discord_join.format(date_format_str).to_string(),
+            true,
+        )
+        .field(
+            "Joined Server",
+            if let Some(joined_at) = server_join {
+                joined_at.format(date_format_str).to_string()
+            } else {
+                String::from("`Unknown`")
+            },
+            true,
+        )
+        .field("First Message", first_message_date, true)
+        .field(
+            "Server Messages",
+            guild_messages.to_formatted_string(&Locale::en),
+            true,
+        )
+        .field(
+            "Channel Messages",
+            channel_messages.to_formatted_string(&Locale::en),
+            true,
+        )
+        .field("Karma", karma.to_formatted_string(&Locale::en), true);
+    if member.nick.is_some() {
+        embed = embed.description(&user.name);
+    }
+    if let Some(banner) = user.banner_url() {
+        embed = embed.image(banner);
+    }
+    if let Some(color) = user.accent_colour {
+        embed = embed.color(color);
+    } else if let Some(member_color) = member.colour(&ctx.cache) {
+        embed = embed.color(member_color);
+    }
+
     interaction
-        .edit_original_interaction_response(&ctx.http, |r| {
-            r.embed(|e| {
-                e.title(member.nick.as_ref().unwrap_or(&user.name))
-                    .thumbnail(member.face())
-                    .timestamp(serenity::model::timestamp::Timestamp::now())
-                    .field("Bot?", if user.bot { yes } else { no }, true)
-                    .field(
-                        "Boosting Server?",
-                        if let Some(boost_timestamp) = boost_timestamp {
-                            format!("Since {}", boost_timestamp.format(date_format_str))
-                        } else {
-                            no.to_string()
-                        },
-                        true,
-                    )
-                    .field(
-                        "Joined Discord",
-                        discord_join.format(date_format_str).to_string(),
-                        true,
-                    )
-                    .field(
-                        "Joined Server",
-                        if let Some(joined_at) = server_join {
-                            joined_at.format(date_format_str).to_string()
-                        } else {
-                            String::from("`Unknown`")
-                        },
-                        true,
-                    )
-                    .field("First Message", first_message_date, true)
-                    .field(
-                        "Server Messages",
-                        guild_messages.to_formatted_string(&Locale::en),
-                        true,
-                    )
-                    .field(
-                        "Channel Messages",
-                        channel_messages.to_formatted_string(&Locale::en),
-                        true,
-                    )
-                    .field("Karma", karma.to_formatted_string(&Locale::en), true);
-                if member.nick.is_some() {
-                    e.description(&user.name);
-                }
-                if let Some(banner) = user.banner_url() {
-                    e.image(banner);
-                }
-                if let Some(color) = user.accent_colour {
-                    e.color(color);
-                } else if let Some(member_color) = member.colour(&ctx.cache) {
-                    e.color(member_color);
-                }
-                e
-            })
-        })
+        .edit_response(&ctx.http, EditInteractionResponse::new().embed(embed))
         .await?;
 
     Ok(())

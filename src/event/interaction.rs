@@ -2,22 +2,19 @@ use crate::commands;
 use crate::event::report_interaction_error;
 
 use chrono::prelude::*;
-use serenity::client::Context;
-use serenity::model::{
-    application::interaction::{Interaction, InteractionResponseType},
-    channel::MessageFlags,
+use serenity::all::CommandDataOptionValue;
+use serenity::builder::{
+    CreateInteractionResponse, CreateInteractionResponseMessage, EditInteractionResponse,
+    EditMessage,
 };
+use serenity::client::Context;
+use serenity::model::{application::Interaction, channel::MessageFlags};
 use sqlx::{Pool, Postgres};
 use tracing::error;
 
 pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) {
-    if let Interaction::ApplicationCommand(command) = interaction {
-        if let Err(e) = command
-            .create_interaction_response(&ctx.http, |response| {
-                response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-            })
-            .await
-        {
+    if let Interaction::Command(command) = interaction {
+        if let Err(e) = command.defer(&ctx.http).await {
             error!(%e, "Unable to defer response to interaction");
             report_interaction_error(
                 &ctx,
@@ -62,18 +59,18 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
             "wolframalpha" => commands::wolframalpha::simple(&ctx, &command).await,
             "wow" => {
                 if let Some(subcommand) = command.data.options.first() {
-                    match subcommand.name.as_str() {
-                        "character" => {
-                            commands::wow::character(&ctx, &command, &subcommand.options).await
+                    if let CommandDataOptionValue::SubCommand(suboptions) = &subcommand.value {
+                        match subcommand.name.as_str() {
+                            "character" => {
+                                commands::wow::character(&ctx, &command, suboptions).await
+                            }
+                            "realm" => commands::wow::realm(&ctx, &command, suboptions).await,
+                            "search" => commands::wow::search(&ctx, &command, suboptions).await,
+                            "transmog" => commands::wow::transmog(&ctx, &command, suboptions).await,
+                            _ => Err("Unrecognized wow subcommand".into()),
                         }
-                        "realm" => commands::wow::realm(&ctx, &command, &subcommand.options).await,
-                        "search" => {
-                            commands::wow::search(&ctx, &command, &subcommand.options).await
-                        }
-                        "transmog" => {
-                            commands::wow::transmog(&ctx, &command, &subcommand.options).await
-                        }
-                        _ => Err("Unrecognized wow subcommand".into()),
+                    } else {
+                        Err("Malformed wow subcommand".into())
                     }
                 } else {
                     Err("Missing wow subcommand".into())
@@ -84,9 +81,10 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
                 report_interaction_error(&ctx, format!("missing command: {}", command.data.name))
                     .await;
                 if let Err(e) = command
-                    .edit_original_interaction_response(&ctx.http, |response| {
-                        response.content("\u{26A0} `Unknown command`")
-                    })
+                    .edit_response(
+                        &ctx.http,
+                        EditInteractionResponse::new().content("\u{26A0} `Unknown command`"),
+                    )
                     .await
                 {
                     error!(%e, "Unable to respond to interaction");
@@ -103,9 +101,10 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
             report_interaction_error(&ctx, format!("error running {}: `{e}`", command.data.name))
                 .await;
             if let Err(resp_e) = command
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content(format!("\u{26A0} `Error: {e}`"))
-                })
+                .edit_response(
+                    &ctx.http,
+                    EditInteractionResponse::new().content(format!("\u{26A0} `Error: {e}`")),
+                )
                 .await
             {
                 error!(e = %resp_e, "Unable to respond to interaction");
@@ -116,7 +115,7 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
                 .await;
             }
         }
-    } else if let Interaction::MessageComponent(interaction) = interaction {
+    } else if let Some(interaction) = interaction.message_component() {
         let fields: Vec<&str> = interaction.data.custom_id.split(':').collect();
         let command = fields[0];
         if command != "playtime" {
@@ -176,13 +175,12 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
         }
         let mut message = interaction.message.clone();
         if let Err(e) = message
-            .edit(&ctx, |m| {
-                m.content(&new_content);
-                m.components(|c| {
-                    commands::playtime::create_components(c, offset, &new_content, button_id, true)
-                });
-                m
-            })
+            .edit(
+                &ctx,
+                EditMessage::new().content(&new_content).components(
+                    commands::playtime::create_components(offset, &new_content, button_id, true),
+                ),
+            )
             .await
         {
             error!(error = %e, "error updating playtime messge components");
@@ -190,10 +188,10 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
         }
 
         if let Err(e) = interaction
-            .create_interaction_response(&ctx, |r| {
-                r.kind(InteractionResponseType::UpdateMessage);
-                r
-            })
+            .create_response(
+                &ctx,
+                CreateInteractionResponse::UpdateMessage(CreateInteractionResponseMessage::new()),
+            )
             .await
         {
             error!(error = %e, "error creating playtime interaction response");
@@ -218,12 +216,15 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
         if let Err(e) = message
-            .edit(&ctx, |m| {
-                m.components(|c| {
-                    commands::playtime::create_components(c, offset, &new_content, button_id, false)
-                });
-                m
-            })
+            .edit(
+                &ctx,
+                EditMessage::new().components(commands::playtime::create_components(
+                    offset,
+                    &new_content,
+                    button_id,
+                    false,
+                )),
+            )
             .await
         {
             error!(error = %e, "error updating playtime messge components");

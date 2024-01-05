@@ -4,12 +4,11 @@ use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use image::{codecs::png::PngEncoder, imageops, ColorType, ImageEncoder, ImageFormat};
 use reqwest::StatusCode;
 use serde::Deserialize;
+use serenity::all::{CommandDataOption, CommandDataOptionValue, CommandInteraction};
+use serenity::builder::{CreateAttachment, CreateEmbed, CreateMessage, EditInteractionResponse};
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-    ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
-};
-use serenity::model::channel::AttachmentType;
-use serenity::utils::Colour;
+use serenity::model::colour::Colour;
+use serenity::model::Timestamp;
 use std::borrow::Cow;
 use std::fmt;
 use std::time::{Duration, SystemTime};
@@ -390,7 +389,7 @@ async fn auth(client_id: &str, client_secret: &str) -> Result<config::WowAuth, r
 // Tries to get transparency png image and crop it, otherwise returns "deafult" jpg image with background
 pub async fn transmog(
     ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
+    interaction: &CommandInteraction,
     options: &Vec<CommandDataOption>,
 ) -> CommandResult {
     let mut realm = String::new();
@@ -398,7 +397,7 @@ pub async fn transmog(
     for o in options {
         match &o.name[..] {
             "realm" => {
-                if let Some(CommandDataOptionValue::String(r)) = o.resolved.as_ref() {
+                if let CommandDataOptionValue::String(r) = &o.value {
                     realm = r
                         .trim()
                         .to_ascii_lowercase()
@@ -407,7 +406,7 @@ pub async fn transmog(
                 }
             }
             "character" => {
-                if let Some(CommandDataOptionValue::String(c)) = o.resolved.as_ref() {
+                if let CommandDataOptionValue::String(c) = &o.value {
                     character = c.trim().to_ascii_lowercase();
                 }
             }
@@ -433,9 +432,11 @@ pub async fn transmog(
                 || e.status() == Some(StatusCode::FORBIDDEN) =>
         {
             interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content(format!("Unable to find {character} on {realm}"))
-                })
+                .edit_response(
+                    &ctx.http,
+                    EditInteractionResponse::new()
+                        .content(format!("Unable to find {character} on {realm}")),
+                )
                 .await?;
             return Ok(());
         }
@@ -448,10 +449,11 @@ pub async fn transmog(
             Ok(m) => m,
             Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
                 interaction
-                    .edit_original_interaction_response(&ctx.http, |response| {
-                        response
-                            .content(format!("Unable to find images for {character} on {realm}"))
-                    })
+                    .edit_response(
+                        &ctx.http,
+                        EditInteractionResponse::new()
+                            .content(format!("Unable to find images for {character} on {realm}")),
+                    )
                     .await?;
                 return Ok(());
             }
@@ -489,9 +491,10 @@ pub async fn transmog(
     // If we didn't find a transparent-background PNG image, just send the URL for whatever image we do have (discord will convert it)
     if !found_raw {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content(format!("{msg_content}\n{image_url}"))
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content(format!("{msg_content}\n{image_url}")),
+            )
             .await?;
         return Ok(());
     }
@@ -566,16 +569,20 @@ pub async fn transmog(
 
     // Send message with attached cropped image
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| response.content(msg_content))
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new().content(msg_content),
+        )
         .await?;
     interaction
         .channel_id
-        .send_message(&ctx.http, |m| {
-            m.add_file(AttachmentType::Bytes {
-                data: Cow::from(cropped_buffer),
-                filename: format!("{realm}-{character}.png"),
-            })
-        })
+        .send_message(
+            &ctx.http,
+            CreateMessage::new().add_file(CreateAttachment::bytes(
+                Cow::from(cropped_buffer),
+                format!("{realm}-{character}.png"),
+            )),
+        )
         .await?;
 
     Ok(())
@@ -584,7 +591,7 @@ pub async fn transmog(
 // Replies with an embed containing WoW character info
 pub async fn character(
     ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
+    interaction: &CommandInteraction,
     options: &Vec<CommandDataOption>,
 ) -> CommandResult {
     let mut realm_name = String::new();
@@ -592,7 +599,7 @@ pub async fn character(
     for o in options {
         match &o.name[..] {
             "realm" => {
-                if let Some(CommandDataOptionValue::String(r)) = o.resolved.as_ref() {
+                if let CommandDataOptionValue::String(r) = &o.value {
                     realm_name = r
                         .trim()
                         .to_ascii_lowercase()
@@ -601,7 +608,7 @@ pub async fn character(
                 }
             }
             "character" => {
-                if let Some(CommandDataOptionValue::String(c)) = o.resolved.as_ref() {
+                if let CommandDataOptionValue::String(c) = &o.value {
                     character_name = c.trim().to_ascii_lowercase();
                 }
             }
@@ -619,9 +626,11 @@ pub async fn character(
                     || e.status() == Some(StatusCode::FORBIDDEN) =>
             {
                 interaction
-                    .edit_original_interaction_response(&ctx.http, |response| {
-                        response.content(format!("Unable to find {character_name} on {realm_name}"))
-                    })
+                    .edit_response(
+                        &ctx.http,
+                        EditInteractionResponse::new()
+                            .content(format!("Unable to find {character_name} on {realm_name}")),
+                    )
                     .await?;
                 return Ok(());
             }
@@ -691,56 +700,52 @@ pub async fn character(
         String::new()
     };
 
+    let mut embed = CreateEmbed::new()
+        .title(format!("{titled_name}{guild_name}"))
+        .description(format!(
+            "Level {} {}{} {}{}",
+            character.level, character.race, active_spec, character.character_class, covenant_info
+        ))
+        .url(format!(
+            "https://worldofwarcraft.com/en-us/character/us/{realm_name}/{character_name}/"
+        ))
+        .colour(CLASS_COLOURS[(character.character_class.id - 1) as usize])
+        .field(
+            "ILVL",
+            format!(
+                "{}/{}",
+                character.equipped_item_level, character.average_item_level
+            ),
+            true,
+        )
+        .field("Health", stats.health.to_string(), true)
+        .field(stats.power_type.to_string(), stats.power.to_string(), true)
+        .field("\u{200B}", "\u{200B}", false)
+        .field("Strength", stats.strength.to_string(), true)
+        .field("Agility", stats.agility.to_string(), true)
+        .field("Intellect", stats.intellect.to_string(), true)
+        .field("Stamina", stats.stamina.to_string(), true)
+        .field("Armor", stats.armor.to_string(), true)
+        .field("\u{200B}", "\u{200B}", false)
+        .field("Crit", format!("{:.2}%", &stats.crit()), true)
+        .field("Haste", format!("{:.2}%", &stats.haste()), true)
+        .field("Mastery", stats.mastery.to_string(), true)
+        .field(
+            "Versatility",
+            format!("{:.2}%", &stats.versatility_damage_done_bonus),
+            true,
+        );
+    if let Some(inset_url) = inset_url {
+        embed = embed.image(inset_url);
+    }
+    if let Some(last_login) = character.last_login_utc() {
+        if let Ok(last_login_ts) = Timestamp::parse(&last_login.to_rfc3339()) {
+            embed = embed.timestamp(last_login_ts);
+        }
+    }
+
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| {
-            response.embed(|e| {
-                e.title(format!("{titled_name}{guild_name}"))
-                    .description(format!(
-                        "Level {} {}{} {}{}",
-                        character.level,
-                        character.race,
-                        active_spec,
-                        character.character_class,
-                        covenant_info
-                    ))
-                    .url(format!(
-                        "https://worldofwarcraft.com/en-us/character/us/{realm_name}/{character_name}/"
-                    ))
-                    .colour(CLASS_COLOURS[(character.character_class.id - 1) as usize])
-                    .field(
-                        "ILVL",
-                        format!(
-                            "{}/{}",
-                            character.equipped_item_level, character.average_item_level
-                        ),
-                        true,
-                    )
-                    .field("Health", stats.health, true)
-                    .field(&stats.power_type, stats.power, true)
-                    .field("\u{200B}", "\u{200B}", false)
-                    .field("Strength", &stats.strength, true)
-                    .field("Agility", &stats.agility, true)
-                    .field("Intellect", &stats.intellect, true)
-                    .field("Stamina", &stats.stamina, true)
-                    .field("Armor", &stats.armor, true)
-                    .field("\u{200B}", "\u{200B}", false)
-                    .field("Crit", format!("{:.2}%", &stats.crit()), true)
-                    .field("Haste", format!("{:.2}%", &stats.haste()), true)
-                    .field("Mastery", &stats.mastery, true)
-                    .field(
-                        "Versatility",
-                        format!("{:.2}%", &stats.versatility_damage_done_bonus),
-                        true,
-                    );
-                if let Some(inset_url) = inset_url {
-                    e.image(inset_url);
-                }
-                if let Some(last_login) = character.last_login_utc() {
-                    e.timestamp(last_login.to_rfc3339());
-                }
-                e
-            })
-        })
+        .edit_response(&ctx.http, EditInteractionResponse::new().embed(embed))
         .await?;
 
     Ok(())
@@ -749,11 +754,11 @@ pub async fn character(
 // Replies with a list of matching character names and their realms
 pub async fn search(
     ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
+    interaction: &CommandInteraction,
     options: &[CommandDataOption],
 ) -> CommandResult {
     let character = if let Some(o) = options.first() {
-        if let Some(CommandDataOptionValue::String(c)) = o.resolved.as_ref() {
+        if let CommandDataOptionValue::String(c) = &o.value {
             c.trim().to_ascii_lowercase()
         } else {
             return Err("Invalid character name argument".into());
@@ -813,9 +818,10 @@ pub async fn search(
     }
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| {
-            response.content(content.join("\n"))
-        })
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new().content(content.join("\n")),
+        )
         .await?;
 
     Ok(())
@@ -823,11 +829,11 @@ pub async fn search(
 
 pub async fn realm(
     ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
+    interaction: &CommandInteraction,
     options: &[CommandDataOption],
 ) -> CommandResult {
     let arg = if let Some(o) = options.first() {
-        if let Some(CommandDataOptionValue::String(r)) = o.resolved.as_ref() {
+        if let CommandDataOptionValue::String(r) = &o.value {
             r
         } else {
             return Err("Invalid realm name argument".into());
@@ -850,9 +856,10 @@ pub async fn realm(
 
     if search.results.is_empty() || search.results[0].data.realms.is_empty() {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content(format!("Unable to find {arg}"))
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content(format!("Unable to find {arg}")),
+            )
             .await?;
         return Ok(());
     }
@@ -864,9 +871,10 @@ pub async fn realm(
         .find(|&r| r.slug == realm_slug)
     else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content(format!("Unable to find {arg}"))
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content(format!("Unable to find {arg}")),
+            )
             .await?;
         return Ok(());
     };
@@ -885,7 +893,7 @@ pub async fn realm(
     };
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| response.content(content))
+        .edit_response(&ctx.http, EditInteractionResponse::new().content(content))
         .await?;
 
     Ok(())

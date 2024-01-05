@@ -17,17 +17,31 @@ pub async fn update(
     let user_id = presence.user.id;
     if match presence.user.bot {
         Some(bot) => bot,
-        None => match ctx.cache.user(user_id) {
-            Some(user) => user.bot,
-            None => {
-                if let Ok(user) = ctx.http.get_user(user_id.0).await {
-                    user.bot
+        None => {
+            let cache_user_bot = {
+                // put non-send in block to clarify to rustc that its dropped before .await
+                // this patterns comes up in a few places in commands
+                if let Some(user) = ctx.cache.user(user_id) {
+                    Some(user.bot)
                 } else {
-                    warn!(user_id = user_id.0, "Unable to determine if user is bot");
-                    false
+                    None
+                }
+            };
+            match cache_user_bot {
+                Some(bot) => bot,
+                None => {
+                    if let Ok(user) = ctx.http.get_user(user_id).await {
+                        user.bot
+                    } else {
+                        warn!(
+                            user_id = user_id.get(),
+                            "Unable to determine if user is bot"
+                        );
+                        false
+                    }
                 }
             }
-        },
+        }
     } {
         // ignore updates from bots
         return;
@@ -49,7 +63,7 @@ pub async fn update(
     });
 
     if guild_id.is_none() {
-        warn!(user_id = user_id.0, status = ?presence.status, ?game_name, "Presence without guild");
+        warn!(user_id = user_id.get(), status = ?presence.status, ?game_name, "Presence without guild");
     }
 
     // Check if we've already recorded that user is in this guild
@@ -96,18 +110,10 @@ pub async fn update(
             }
         }
 
-        let user_id = match i64::try_from(user_id.0) {
-            Ok(u) => u,
-            Err(e) => {
-                error!(%e, "unable to fit user id in i64");
-                return;
-            }
-        };
-
         if let Err(e) = sqlx::query(
             r"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)",
         )
-        .bind(user_id)
+        .bind(i64::from(user_id))
             .bind(presence.status.name())
             .bind(&game_name)
             .execute(db)

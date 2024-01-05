@@ -1,26 +1,22 @@
 use crate::error::CommandResult;
 use crate::model::DB;
 use crate::util;
+use serenity::all::{CommandDataOptionValue, CommandInteraction};
+use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-    ApplicationCommandInteraction, CommandDataOptionValue,
-};
 use serenity::model::id::UserId;
 use std::collections::HashMap;
 
 // Replies to msg with users in channel sorted by average length of sent messages
 // Allows a single optional arg of how many users to list, defaults to 5
-pub async fn toplength(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> CommandResult {
+pub async fn toplength(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let Some(guild_id) = interaction.guild_id else {
         return Ok(());
     };
 
     let members = util::collect_members_guild_id(ctx, guild_id).await?;
     let limit: u32 = if let Some(o) = interaction.data.options.first() {
-        if let Some(CommandDataOptionValue::Integer(l)) = o.resolved {
+        if let CommandDataOptionValue::Integer(l) = o.value {
             u32::try_from(l)?
         } else {
             5
@@ -40,7 +36,7 @@ SELECT author_id, content
 FROM message
 WHERE channel_id = $1
 AND content NOT LIKE '/%'"#,
-            i64::try_from(interaction.channel_id.0)?
+            i64::try_from(interaction.channel_id)?
         )
         .fetch_all(db)
         .await?
@@ -72,7 +68,7 @@ AND content NOT LIKE '/%'"#,
         let Some(words) = words_per_user.get(user_id) else {
             return Err("missing wordcount for user".into());
         };
-        let username = util::get_username_userid(&ctx.http, &members, UserId(*user_id)).await;
+        let username = util::get_username_userid(&ctx.http, &members, UserId::new(*user_id)).await;
         #[allow(clippy::cast_precision_loss)]
         if *messages != 0 {
             avg_per_user.push((username, *words as f64 / *messages as f64));
@@ -88,7 +84,10 @@ AND content NOT LIKE '/%'"#,
         .collect();
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| response.content(lines.concat()))
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new().content(lines.concat()),
+        )
         .await?;
 
     Ok(())

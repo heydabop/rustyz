@@ -1,10 +1,10 @@
 use crate::error::CommandResult;
 use reqwest::StatusCode;
 use serde::Deserialize;
+use serenity::all::{CommandDataOptionValue, CommandInteraction};
+use serenity::builder::{CreateEmbed, EditInteractionResponse};
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-    ApplicationCommandInteraction, CommandDataOptionValue,
-};
+use serenity::model::Timestamp;
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::time::SystemTime;
@@ -87,21 +87,14 @@ struct Dungeon {
 }
 
 // Takes in the arg `<character>-<realm>` and replies with stats from raider.io
-pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let mut character = if let CommandDataOptionValue::String(c) =
-        match interaction.data.options[0].resolved.as_ref() {
-            Some(r) => r,
-            None => return Err("Missing required argument".into()),
-        } {
-        String::from(c.trim())
-    } else {
-        return Err("Missing required argument".into());
-    };
-    let mut realm = if let CommandDataOptionValue::String(r) =
-        match interaction.data.options[1].resolved.as_ref() {
-            Some(r) => r,
-            None => return Err("Missing required argument".into()),
-        } {
+pub async fn raiderio(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
+    let mut character =
+        if let CommandDataOptionValue::String(c) = &interaction.data.options[0].value {
+            String::from(c.trim())
+        } else {
+            return Err("Missing required argument".into());
+        };
+    let mut realm = if let CommandDataOptionValue::String(r) = &interaction.data.options[1].value {
         r.trim().replace(' ', "-").replace('\'', "")
     } else {
         return Err("Missing required argument".into());
@@ -124,18 +117,14 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
         } else {
             // assume raider.io is giving us a 400 response as a json error under a 200 http response
             interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content(format!("Unable to find raiderio profile for {character} on {realm}"))
-                })
+                .edit_response(&ctx.http, EditInteractionResponse::new().content(format!("Unable to find raiderio profile for {character} on {realm}")))
                 .await?;
             return Ok(());
         }
         Err(e) => {
             if e.status() == Some(StatusCode::NOT_FOUND) || e.status() == Some(StatusCode::BAD_REQUEST) {
                 interaction
-                    .edit_original_interaction_response(&ctx.http, |response| {
-                        response.content(format!("Unable to find raiderio profile for {character} on {realm}"))
-                    })
+                    .edit_response(&ctx.http, EditInteractionResponse::new().content(format!("Unable to find raiderio profile for {character} on {realm}")))
                     .await?;
                 return Ok(());
             }
@@ -191,23 +180,24 @@ pub async fn raiderio(ctx: &Context, interaction: &ApplicationCommandInteraction
         sorted_best_runs.join("\n")
     };
 
+    let mut embed = CreateEmbed::new()
+        .title(format!("{}-{realm}", profile.name))
+        .url(profile.profile_url)
+        .thumbnail(thumbnail_url)
+        .field(
+            "Mythic+ Score",
+            format!("{:.1}", profile.mythic_plus_scores_by_season[0].scores.all),
+            true,
+        )
+        .field("Highest Runs", highest_runs, true)
+        .field("Recent Runs", recent_runs, true)
+        .field("Best Runs by Dungeon", best_runs, true);
+    if let Ok(crawled_at) = Timestamp::parse(&profile.last_crawled_at) {
+        embed = embed.timestamp(crawled_at);
+    }
+
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| {
-            response.embed(|e| {
-                e.title(format!("{}-{realm}", profile.name))
-                    .timestamp(profile.last_crawled_at)
-                    .url(profile.profile_url)
-                    .thumbnail(thumbnail_url)
-                    .field(
-                        "Mythic+ Score",
-                        profile.mythic_plus_scores_by_season[0].scores.all,
-                        true,
-                    )
-                    .field("Highest Runs", highest_runs, true)
-                    .field("Recent Runs", recent_runs, true)
-                    .field("Best Runs by Dungeon", best_runs, true)
-            })
-        })
+        .edit_response(&ctx.http, EditInteractionResponse::new().embed(embed))
         .await?;
 
     Ok(())

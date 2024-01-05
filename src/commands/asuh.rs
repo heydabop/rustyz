@@ -1,9 +1,11 @@
 use crate::error::CommandResult;
 use crate::model::GuildVoiceLocks;
 use rand::{thread_rng, Rng};
+use serenity::all::CommandInteraction;
+use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
-use songbird::tracks::{PlayMode, TrackError};
+use songbird::input::File;
+use songbird::tracks::{ControlError, PlayMode, Track};
 use std::sync::atomic::{AtomicI16, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,30 +16,33 @@ use tracing::warn;
 const ONE_SECOND: Duration = Duration::from_secs(1);
 
 // Joins the same voice channel as the invoking user and plays audio
-pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+pub async fn asuh(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let Some(guild_id) = interaction.guild_id else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Command can only be used in a server")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content("Command can only be used in a server"),
+            )
             .await?;
         return Ok(());
     };
 
-    let Some(guild) = ctx.cache.guild(guild_id) else {
-        return Err(format!("Unable to find guild {guild_id}").into());
+    let voice_states = match ctx.cache.guild(guild_id) {
+        Some(g) => g.voice_states.clone(),
+        None => return Err(format!("Unable to find guild {guild_id}").into()),
     };
 
-    if guild
-        .voice_states
+    if voice_states
         .get(&interaction.user.id)
         .and_then(|voice_state| voice_state.channel_id)
         .is_none()
     {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Command can only be used if you're in a voice channel")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new()
+                    .content("Command can only be used if you're in a voice channel"),
+            )
             .await?;
         return Ok(());
     };
@@ -46,12 +51,7 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
         let mut rng = thread_rng();
         rng.gen_range(0..=76)
     };
-    let track = match songbird::ffmpeg(format!("suh/suh{track_num}.mp3")).await {
-        Ok(t) => t,
-        Err(e) => {
-            return Err(format!("Unable to play mp3: {e}").into());
-        }
-    };
+    let track = Track::from(File::new(format!("suh/suh{track_num}.mp3")));
 
     let Some(manager) = songbird::get(ctx).await else {
         return Err("Missing songbird".into());
@@ -74,11 +74,11 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
     voice_lock.1.fetch_sub(1, Ordering::Relaxed);
 
     // refresh voice_channel_id
-    let Some(guild) = ctx.cache.guild(guild_id) else {
-        return Err(format!("Unable to find guild {guild_id}").into());
+    let voice_states = match ctx.cache.guild(guild_id) {
+        Some(g) => g.voice_states.clone(),
+        None => return Err(format!("Unable to find guild {guild_id}").into()),
     };
-    let Some(voice_channel_id) = guild
-        .voice_states
+    let Some(voice_channel_id) = voice_states
         .get(&interaction.user.id)
         .and_then(|voice_state| voice_state.channel_id)
     else {
@@ -98,22 +98,27 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
             Ok(())
         };
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Command can only be used if you're in a voice channel")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new()
+                    .content("Command can only be used if you're in a voice channel"),
+            )
             .await?;
         return leave_res;
     };
 
-    let handler = manager.join(guild_id, voice_channel_id).await;
+    let handler = manager.join(guild_id, voice_channel_id).await?;
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| response.content("\u{1F50A}"))
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new().content("\u{1F50A}"),
+        )
         .await?;
 
     let play_result = {
-        let mut call = handler.0.lock().await;
-        let audio_handle = call.play_only_source(track);
+        let mut call = handler.lock().await;
+        let audio_handle = call.play_only(track);
         loop {
             sleep(ONE_SECOND).await;
             let Ok(info) = timeout(ONE_SECOND, audio_handle.get_info()).await else {
@@ -128,7 +133,7 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
                     }
                 }
                 Err(e) => {
-                    if let TrackError::Finished = e {
+                    if let ControlError::Finished = e {
                         break Ok(());
                     }
                     break Err(format!("Unexpected error during playback: {e}").into());
@@ -146,9 +151,7 @@ pub async fn asuh(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
         }
     }
 
-    interaction
-        .delete_original_interaction_response(&ctx.http)
-        .await?;
+    interaction.delete_response(&ctx.http).await?;
 
     play_result
 }

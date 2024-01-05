@@ -1,7 +1,7 @@
 use crate::error::CommandError;
 use crate::model::LastUserPresence;
 use serenity::client::Context;
-use serenity::http::client::Http;
+use serenity::http::Http;
 use serenity::model::{
     guild::Member,
     id::{GuildId, UserId},
@@ -19,10 +19,17 @@ pub async fn collect_members_guild_id(
     ctx: &Context,
     guild_id: GuildId,
 ) -> Result<HashMap<UserId, Member>, CommandError> {
-    let members_by_id: HashMap<UserId, Member> = match ctx.cache.guild(guild_id) {
-        Some(g) => g.members,
+    let guild_members = {
+        if let Some(g) = ctx.cache.guild(guild_id) {
+            Some(g.members.clone())
+        } else {
+            None
+        }
+    };
+    let members_by_id: HashMap<UserId, Member> = match guild_members {
+        Some(gm) => gm,
         None => {
-            let guild = ctx.http.get_guild(guild_id.0).await?;
+            let guild = ctx.http.get_guild(guild_id).await?;
             let members: Vec<Member> = guild.members(&ctx.http, None, None).await?;
             members.into_iter().map(|m| (m.user.id, m)).collect()
         }
@@ -41,7 +48,7 @@ pub async fn get_username_userid(
             Some(nick) => nick.clone(),
             None => member.user.name.clone(),
         },
-        None => match http.get_user(user_id.0).await {
+        None => match http.get_user(user_id).await {
             Ok(user) => user.name,
             Err(_) => String::from("`<UNKNOWN>`"),
         },
@@ -61,8 +68,8 @@ pub async fn get_user_status(
     if let Some(last_presence) = last_presence.read().await.get(&user_id) {
         return Some(last_presence.status);
     }
-    if let Some(presences) = ctx.cache.guild_field(guild_id, |g| g.presences.clone()) {
-        if let Some(presence) = presences.get(&user_id) {
+    if let Some(guild) = ctx.cache.guild(guild_id) {
+        if let Some(presence) = guild.presences.get(&user_id) {
             return Some(presence.status);
         }
     }

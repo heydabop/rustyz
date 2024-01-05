@@ -2,29 +2,28 @@ use crate::error::CommandResult;
 use crate::model::DB;
 use crate::shippo::{Status, TrackingNumber::*};
 use crate::{config, shippo};
+use serenity::all::{CommandDataOptionValue, CommandInteraction};
+use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-    ApplicationCommandInteraction, CommandDataOptionValue,
-};
 
-pub async fn track(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+pub async fn track(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let mut number = "";
     let mut carrier = "";
     let mut comment = None;
     for o in &interaction.data.options {
         match &o.name[..] {
             "carrier" => {
-                if let Some(CommandDataOptionValue::String(c)) = o.resolved.as_ref() {
+                if let CommandDataOptionValue::String(c) = &o.value {
                     carrier = c;
                 }
             }
             "number" => {
-                if let Some(CommandDataOptionValue::String(n)) = o.resolved.as_ref() {
+                if let CommandDataOptionValue::String(n) = &o.value {
                     number = n;
                 }
             }
             "comment" => {
-                if let Some(CommandDataOptionValue::String(c)) = o.resolved.as_ref() {
+                if let CommandDataOptionValue::String(c) = &o.value {
                     comment = Some(c);
                 }
             }
@@ -57,7 +56,7 @@ pub async fn track(ctx: &Context, interaction: &ApplicationCommandInteraction) -
             #[allow(clippy::unwrap_used)]
             let db = data.get::<DB>().unwrap();
             #[allow(clippy::panic)]
-            sqlx::query!("INSERT INTO shipment(carrier, tracking_number, author_id, channel_id, status, comment) VALUES ($1::shipment_carrier, $2, $3, $4, $5::shipment_tracking_status, $6) ON CONFLICT ON CONSTRAINT shipment_uk_carrier_number DO NOTHING", tracking_number.carrier() as _, tracking_number.number(), i64::try_from(interaction.user.id.0)?, i64::try_from(interaction.channel_id.0)?, format!("{}", status.status) as _, comment).execute(db).await?;
+            sqlx::query!("INSERT INTO shipment(carrier, tracking_number, author_id, channel_id, status, comment) VALUES ($1::shipment_carrier, $2, $3, $4, $5::shipment_tracking_status, $6) ON CONFLICT ON CONSTRAINT shipment_uk_carrier_number DO NOTHING", tracking_number.carrier() as _, tracking_number.number(), i64::try_from(interaction.user.id)?, i64::try_from(interaction.channel_id)?, format!("{}", status.status) as _, comment).execute(db).await?;
         }
         status.status_details
     } else {
@@ -65,9 +64,10 @@ pub async fn track(ctx: &Context, interaction: &ApplicationCommandInteraction) -
     };
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| {
-            response.content(format!("{status_string}{eta_string}"))
-        })
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new().content(format!("{status_string}{eta_string}")),
+        )
         .await?;
 
     Ok(())

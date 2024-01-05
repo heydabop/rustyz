@@ -1,31 +1,19 @@
 use crate::error::CommandResult;
 use crate::model::DB;
 use crate::util;
+use serenity::all::{CommandDataOptionValue, CommandInteraction};
+use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-    ApplicationCommandInteraction, CommandDataOptionValue,
-};
 use serenity::model::id::UserId;
 
-pub async fn topcommand(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> CommandResult {
-    let Some(command) = interaction
-        .data
-        .options
-        .first()
-        .and_then(|o| {
-            o.resolved.as_ref().map(|r| {
-                if let CommandDataOptionValue::String(s) = r {
-                    Some(s)
-                } else {
-                    None
-                }
-            })
-        })
-        .unwrap_or(None)
-    else {
+pub async fn topcommand(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
+    let Some(command) = interaction.data.options.first().and_then(|o| {
+        if let CommandDataOptionValue::String(s) = &o.value {
+            Some(s)
+        } else {
+            None
+        }
+    }) else {
         return Ok(());
     };
 
@@ -50,7 +38,7 @@ GROUP BY author_id
 ORDER BY count(author_id) DESC
 LIMIT 10"#,
             format!("/{command}%"),
-            i64::try_from(interaction.channel_id.0)?
+            i64::try_from(interaction.channel_id)?
         )
         .fetch_all(db)
         .await?
@@ -59,16 +47,18 @@ LIMIT 10"#,
     let mut lines = Vec::with_capacity(10_usize);
 
     for row in &rows {
-        let user_id = UserId(u64::try_from(row.author_id)?);
+        let user_id = UserId::new(u64::try_from(row.author_id)?);
         let num_messages = row.num_messages.unwrap_or(0);
         let username = util::get_username_userid(&ctx.http, &members, user_id).await;
         lines.push(format!("{username} \u{2014} {num_messages}\n"));
     }
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| {
-            response.content(format!("usage of `{command}`\n{}", lines.concat()))
-        })
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new()
+                .content(format!("usage of `{command}`\n{}", lines.concat())),
+        )
         .await?;
 
     Ok(())

@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use serenity::http::client::Http;
+use serenity::http::Http;
 use serenity::model::id::ChannelId;
 use sqlx::{Pool, Postgres};
 use std::fmt;
@@ -165,7 +165,7 @@ pub async fn poll_shipments_loop(discord_http: Arc<Http>, db: Pool<Postgres>, ap
                             String::from(" ")
                         };
                         let channel_id = match u64::try_from(row.channel_id) {
-                            Ok(c) => ChannelId(c),
+                            Ok(c) => ChannelId::new(c),
                             Err(e) => {
                                 error!(error = %e, channel_id = row.channel_id, "unable to convert channel id");
                                 continue;

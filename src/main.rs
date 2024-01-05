@@ -10,6 +10,7 @@ mod twitch;
 mod util;
 
 use log::LevelFilter;
+use serenity::all::ApplicationId;
 use serenity::client::Client;
 use serenity::model::gateway::GatewayIntents;
 use serenity::prelude::*;
@@ -120,7 +121,7 @@ async fn main() {
         | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
     let mut client = match Client::builder(cfg.discord.bot_token, intents)
-        .application_id(cfg.discord.application_id)
+        .application_id(ApplicationId::new(cfg.discord.application_id))
         .type_map_insert::<model::OldDB>(old_pool)
         .type_map_insert::<model::DB>(pool.clone())
         .type_map_insert::<config::Google>(cfg.google)
@@ -149,7 +150,7 @@ async fn main() {
     info!("Starting...");
 
     let mut set = JoinSet::new();
-    let shippo_http = client.cache_and_http.clone().http.clone();
+    let shippo_http = client.http.clone();
 
     let shard_manager = client.shard_manager.clone();
     tokio::spawn(async move {
@@ -157,7 +158,7 @@ async fn main() {
             _ = sigint.recv() => {},
             _ = sigterm.recv() => {},
         };
-        shard_manager.lock().await.shutdown_all().await;
+        shard_manager.shutdown_all().await;
     });
 
     set.spawn(async move {

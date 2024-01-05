@@ -2,19 +2,18 @@ use crate::error::{CommandError, CommandResult};
 use crate::model::DB;
 use chrono::naive::NaiveDateTime;
 use num_format::{Locale, ToFormattedString};
+use serenity::all::CommandInteraction;
+use serenity::builder::{CreateEmbed, EditInteractionResponse};
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::model::prelude::PremiumTier;
 
-pub async fn serverinfo(
-    ctx: &Context,
-    interaction: &ApplicationCommandInteraction,
-) -> CommandResult {
+pub async fn serverinfo(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let Some(guild_id) = interaction.guild_id else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Command can only be used in a server")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content("Command can only be used in a server"),
+            )
             .await?;
         return Ok(());
     };
@@ -33,7 +32,7 @@ pub async fn serverinfo(
 SELECT count(id)
 FROM message
 WHERE guild_id = $1"#,
-        i64::try_from(guild_id.0)?
+        i64::try_from(guild_id)?
     )
     .fetch_one(&db)
     .await?
@@ -48,65 +47,60 @@ WHERE guild_id = $1"#,
             ))
         })?;
 
+    let mut embed = CreateEmbed::new()
+        .title(&guild.name)
+        .timestamp(serenity::model::timestamp::Timestamp::now())
+        .field("Created on", created.format("%b %e, %Y").to_string(), true)
+        .field(
+            "Boost Tier",
+            match guild.premium_tier {
+                PremiumTier::Tier0 => "None",
+                PremiumTier::Tier1 => "Level 1",
+                PremiumTier::Tier2 => "Level 2",
+                PremiumTier::Tier3 => "Level 3",
+                _ => "?",
+            },
+            true,
+        );
+    if let Some(count) = guild.premium_subscription_count {
+        embed = embed.field("Boosts", count.to_formatted_string(&Locale::en), true);
+    }
+    embed = embed
+        .field(
+            "Messages",
+            num_messages.to_formatted_string(&Locale::en),
+            true,
+        )
+        .field(
+            "Members",
+            if let Some(count) = guild.approximate_member_count {
+                count.to_formatted_string(&Locale::en)
+            } else {
+                "?".to_string()
+            },
+            true,
+        )
+        .field(
+            "Online Members",
+            if let Some(count) = guild.approximate_presence_count {
+                count.to_formatted_string(&Locale::en)
+            } else {
+                "?".to_string()
+            },
+            true,
+        );
+    if let Some(description) = &guild.description {
+        embed = embed.description(description);
+    }
+    if let Some(splash) = guild.splash_url() {
+        embed = embed.image(splash);
+    }
+    if let Some(icon) = guild.icon_url() {
+        embed = embed.thumbnail(icon);
+    }
+
     interaction
-        .edit_original_interaction_response(&ctx.http, |r| {
-            r.embed(|e| {
-                e.title(&guild.name)
-                    .timestamp(serenity::model::timestamp::Timestamp::now())
-                    .field("Created on", created.format("%b %e, %Y").to_string(), true)
-                    .field(
-                        "Boost Tier",
-                        match guild.premium_tier {
-                            PremiumTier::Tier0 => "None",
-                            PremiumTier::Tier1 => "Level 1",
-                            PremiumTier::Tier2 => "Level 2",
-                            PremiumTier::Tier3 => "Level 3",
-                            _ => "?",
-                        },
-                        true,
-                    )
-                    .field(
-                        "Boosts",
-                        guild
-                            .premium_subscription_count
-                            .to_formatted_string(&Locale::en),
-                        true,
-                    )
-                    .field(
-                        "Messages",
-                        num_messages.to_formatted_string(&Locale::en),
-                        true,
-                    )
-                    .field(
-                        "Members",
-                        if let Some(count) = guild.approximate_member_count {
-                            count.to_formatted_string(&Locale::en)
-                        } else {
-                            "?".to_string()
-                        },
-                        true,
-                    )
-                    .field(
-                        "Online Members",
-                        if let Some(count) = guild.approximate_presence_count {
-                            count.to_formatted_string(&Locale::en)
-                        } else {
-                            "?".to_string()
-                        },
-                        true,
-                    );
-                if let Some(description) = &guild.description {
-                    e.description(description);
-                }
-                if let Some(splash) = guild.splash_url() {
-                    e.image(splash);
-                }
-                if let Some(icon) = guild.icon_url() {
-                    e.thumbnail(icon);
-                }
-                e
-            })
-        })
+        .edit_response(&ctx.http, EditInteractionResponse::new().embed(embed))
         .await?;
 
     Ok(())

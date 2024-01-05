@@ -2,48 +2,56 @@ use crate::error::CommandResult;
 use crate::model::DB;
 use crate::util;
 use chrono::prelude::*;
+use serenity::all::{CommandDataOptionValue, CommandInteraction};
+use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-    ApplicationCommandInteraction, CommandDataOptionValue,
-};
 use serenity::model::user::OnlineStatus;
 use sqlx::Row;
 
 #[allow(clippy::similar_names)]
 // Replies to msg with the duration since the user was last online
-pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
-    let Some(user) = interaction.data.options.first().and_then(|o| {
-        o.resolved.as_ref().and_then(|r| {
-            if let CommandDataOptionValue::User(u, _) = r {
-                Some(u)
-            } else {
-                None
-            }
-        })
+pub async fn lastseen(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
+    let Some(user_id) = interaction.data.options.first().and_then(|o| {
+        if let CommandDataOptionValue::User(u) = o.value {
+            Some(u)
+        } else {
+            None
+        }
     }) else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Unable to find user")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content("Unable to find user"),
+            )
             .await?;
         return Ok(());
     };
 
     let Some(guild_id) = interaction.guild_id else {
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content("Command can only be used in a server")
-            })
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new().content("Command can only be used in a server"),
+            )
             .await?;
         return Ok(());
     };
 
-    if let Some(status) = util::get_user_status(ctx, guild_id, user.id).await {
+    let username = if let Ok(user) = user_id.to_user(ctx).await {
+        user.nick_in(ctx, guild_id).await.or(Some(user.name))
+    } else {
+        None
+    };
+
+    if let Some(status) = util::get_user_status(ctx, guild_id, user_id).await {
         if status != OnlineStatus::Offline && status != OnlineStatus::Invisible {
+            let content = if let Some(username) = username {
+                format!("{username} is currently offline")
+            } else {
+                "offline".to_string()
+            };
             interaction
-                .edit_original_interaction_response(&ctx.http, |response| {
-                    response.content(format!("{} is currently online", user.name))
-                })
+                .edit_response(&ctx.http, EditInteractionResponse::new().content(content))
                 .await?;
             return Ok(());
         }
@@ -53,12 +61,15 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
-        sqlx::query(r"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1").bind(i64::from(user.id)).fetch_optional(db).await?
+        sqlx::query(r"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1").bind(i64::from(user_id)).fetch_optional(db).await?
     }) else {
+        let content = if let Some(username) = username {
+            format!("I've never seen {username}")
+        } else {
+            "I've never seen them".to_string()
+        };
         interaction
-            .edit_original_interaction_response(&ctx.http, |response| {
-                response.content(format!("I've never seen {}", user.name))
-            })
+            .edit_response(&ctx.http, EditInteractionResponse::new().content(content))
             .await?;
         return Ok(());
     };
@@ -79,10 +90,13 @@ pub async fn lastseen(ctx: &Context, interaction: &ApplicationCommandInteraction
         format!("{} days", since.num_days())
     };
 
+    let content = if let Some(username) = username {
+        format!("{username} was last seen {since_str} ago")
+    } else {
+        format!("last seen {since_str} ago")
+    };
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| {
-            response.content(format!("{} was last seen {since_str} ago", user.name))
-        })
+        .edit_response(&ctx.http, EditInteractionResponse::new().content(content))
         .await?;
 
     Ok(())

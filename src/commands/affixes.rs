@@ -1,7 +1,8 @@
 use crate::error::CommandResult;
 use serde::Deserialize;
+use serenity::all::CommandInteraction;
+use serenity::builder::{CreateEmbed, EditInteractionResponse};
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 
 #[derive(Debug, Deserialize)]
 struct Affixes {
@@ -17,7 +18,7 @@ struct Affix {
 }
 
 // Returns this week's M+ affixes for US
-pub async fn affixes(ctx: &Context, interaction: &ApplicationCommandInteraction) -> CommandResult {
+pub async fn affixes(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let client = reqwest::Client::new();
     let affixes = client
         .get("https://raider.io/api/v1/mythic-plus/affixes?region=us&locale=en")
@@ -30,9 +31,11 @@ pub async fn affixes(ctx: &Context, interaction: &ApplicationCommandInteraction)
     }
 
     interaction
-        .edit_original_interaction_response(&ctx.http, |response| {
-            response.embed(|e| {
-                e.title(affixes.title)
+        .edit_response(
+            &ctx.http,
+            EditInteractionResponse::new().embed(
+                CreateEmbed::new()
+                    .title(affixes.title)
                     .url("https://mythicpl.us/")
                     .field(
                         &affixes.details[0].name,
@@ -48,9 +51,9 @@ pub async fn affixes(ctx: &Context, interaction: &ApplicationCommandInteraction)
                         format!("{} (+14)", affixes.details[2].name),
                         &affixes.details[2].description,
                         false,
-                    )
-            })
-        })
+                    ),
+            ),
+        )
         .await?;
 
     Ok(())
