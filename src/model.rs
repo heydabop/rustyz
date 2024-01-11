@@ -14,12 +14,6 @@ use std::{
 };
 use tokio::sync::Mutex;
 
-pub struct OldDB;
-
-impl TypeMapKey for OldDB {
-    type Value = Pool<Postgres>;
-}
-
 pub struct DB;
 
 impl TypeMapKey for DB {

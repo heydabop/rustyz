@@ -1,11 +1,10 @@
 use crate::error::{CommandError, CommandResult};
-use crate::model::{OldDB, DB};
+use crate::model::DB;
 use chrono::naive::NaiveDateTime;
 use num_format::{Locale, ToFormattedString};
 use serenity::all::{CommandDataOptionValue, CommandInteraction};
 use serenity::builder::{CreateEmbed, EditInteractionResponse};
 use serenity::client::Context;
-use sqlx::Row;
 
 pub async fn userinfo(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let Some(user) = interaction.data.options.first().and_then(|o| {
@@ -41,13 +40,10 @@ pub async fn userinfo(ctx: &Context, interaction: &CommandInteraction) -> Comman
     let no = "\u{274C}";
     let date_format_str = "%b %e, %Y";
 
-    let (old_db, db) = {
+    let db = {
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
-        (
-            data.get::<OldDB>().unwrap().clone(),
-            data.get::<DB>().unwrap().clone(),
-        )
+        data.get::<DB>().unwrap().clone()
     };
     #[allow(clippy::panic)]
     let guild_messages: i64 = sqlx::query!(
@@ -78,19 +74,20 @@ AND author_id = $2"#,
     .count
     .unwrap_or(0);
     let karma: i32 = {
-        let row = sqlx::query(
+        #[allow(clippy::panic)]
+        let row = sqlx::query!(
             r"
 SELECT karma
 FROM user_karma
 WHERE guild_id = $1
 AND user_id = $2",
+            i64::from(guild_id),
+            i64::from(user.id)
         )
-        .bind(guild_id.to_string())
-        .bind(user.id.to_string())
-        .fetch_optional(&old_db)
+        .fetch_optional(&db)
         .await?;
         if let Some(r) = row {
-            r.get(0)
+            r.karma
         } else {
             0
         }

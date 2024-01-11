@@ -248,6 +248,17 @@ ALTER SEQUENCE public.shipment_id_seq OWNED BY public.shipment.id;
 
 
 --
+-- Name: user_karma; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_karma (
+    guild_id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    karma integer NOT NULL
+);
+
+
+--
 -- Name: user_presence; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -277,6 +288,40 @@ CREATE SEQUENCE public.user_presence_id_seq
 --
 
 ALTER SEQUENCE public.user_presence_id_seq OWNED BY public.user_presence.id;
+
+
+--
+-- Name: vote; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.vote (
+    id integer NOT NULL,
+    create_date timestamp with time zone DEFAULT now() NOT NULL,
+    guild_id bigint NOT NULL,
+    voter_id bigint NOT NULL,
+    votee_id bigint NOT NULL,
+    is_upvote boolean NOT NULL
+);
+
+
+--
+-- Name: vote_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.vote_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: vote_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.vote_id_seq OWNED BY public.vote.id;
 
 
 --
@@ -322,6 +367,13 @@ ALTER TABLE ONLY public.user_presence ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
+-- Name: vote id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vote ALTER COLUMN id SET DEFAULT nextval('public.vote_id_seq'::regclass);
+
+
+--
 -- Name: bot_start bot_start_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -362,11 +414,41 @@ ALTER TABLE ONLY public.shipment
 
 
 --
+-- Name: user_karma user_karma_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_karma
+    ADD CONSTRAINT user_karma_pkey PRIMARY KEY (guild_id, user_id);
+
+
+--
 -- Name: user_presence user_presence_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_presence
     ADD CONSTRAINT user_presence_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: vote vote_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vote
+    ADD CONSTRAINT vote_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_karma_guild_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX user_karma_guild_id_idx ON public.user_karma USING btree (guild_id);
+
+
+--
+-- Name: vote_voter_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX vote_voter_id_idx ON public.vote USING btree (voter_id);
 
 
 --
@@ -461,6 +543,13 @@ GRANT USAGE ON SEQUENCE public.shipment_id_seq TO rustyz;
 
 
 --
+-- Name: TABLE user_karma; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,UPDATE ON TABLE public.user_karma TO rustyz;
+
+
+--
 -- Name: TABLE user_presence; Type: ACL; Schema: public; Owner: -
 --
 
@@ -472,6 +561,20 @@ GRANT SELECT,INSERT ON TABLE public.user_presence TO rustyz;
 --
 
 GRANT USAGE ON SEQUENCE public.user_presence_id_seq TO rustyz;
+
+
+--
+-- Name: TABLE vote; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT,INSERT,UPDATE ON TABLE public.vote TO rustyz;
+
+
+--
+-- Name: SEQUENCE vote_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT USAGE ON SEQUENCE public.vote_id_seq TO rustyz;
 
 
 --

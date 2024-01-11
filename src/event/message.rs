@@ -1,6 +1,8 @@
-use crate::twitch;
+use crate::event::report_interaction_error;
+use crate::{commands, twitch};
 
 use num_format::{Locale, ToFormattedString};
+use serenity::all::UserId;
 use serenity::builder::CreateMessage;
 use serenity::client::Context;
 use serenity::model::{
@@ -12,7 +14,9 @@ use sqlx::types::Decimal;
 use sqlx::{Pool, Postgres};
 use tracing::error;
 
-pub async fn create(ctx: Context, db: &Pool<Postgres>, twitch_regex: &regex::Regex, msg: Message) {
+use super::Handler;
+
+pub async fn create(handler: &Handler, ctx: Context, msg: Message) {
     {
         #[allow(clippy::panic)]
         if let Err(e) = sqlx::query!(
@@ -25,13 +29,46 @@ VALUES ($1, $2, $3, $4, $5)"#,
             msg.guild_id.map(i64::from),
             msg.content
         )
-        .execute(db)
+        .execute(&handler.db)
         .await
         {
             error!(%e, "error inserting message into db");
         }
     }
-    if let Some(caps) = twitch_regex.captures(&msg.content) {
+    if let Some(caps) = handler.vote_regex.captures(&msg.content) {
+        if let Ok(user_id) = caps[1].parse::<u64>().map(UserId::new) {
+            let is_upvote = &caps[2] == "++";
+            if let Some(guild_id) = msg.guild_id {
+                match commands::vote::process_vote(
+                    &ctx,
+                    is_upvote,
+                    msg.author.id,
+                    guild_id,
+                    user_id,
+                )
+                .await
+                {
+                    Ok(Some(reply)) => {
+                        if let Err(e) = msg.reply(&ctx, reply).await {
+                            error!(%e, "unable to reply to message");
+                        }
+                    }
+                    Err(e) => {
+                        error!(%e, "unable to process vote message");
+                        report_interaction_error(
+                            &ctx,
+                            format!("error running vote from message: `{e}`",),
+                        )
+                        .await;
+                    }
+                    _ => {}
+                }
+            } else if let Err(e) = msg.reply(&ctx, "Votes can only be done in a server").await {
+                error!(%e, "unable to reply to message");
+            }
+        }
+    }
+    if let Some(caps) = handler.twitch_regex.captures(&msg.content) {
         if let Some(channel_match) = caps.get(2) {
             let channel_name = channel_match.as_str();
             let (access_token, client_id) = match twitch::get_access_token(&ctx).await {

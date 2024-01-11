@@ -27,18 +27,19 @@ use tracing::{error, info, warn};
 pub struct Handler {
     db: Pool<Postgres>,
     twitch_regex: regex::Regex,
+    vote_regex: regex::Regex,
 }
 
 impl Handler {
-    pub fn new(db: Pool<Postgres>) -> Self {
+    pub fn new(db: Pool<Postgres>) -> Result<Self, regex::Error> {
         #[allow(clippy::unwrap_used)]
-        Self {
+        Ok(Self {
             db,
             twitch_regex: regex::RegexBuilder::new(r"https?://(www\.)?twitch.tv/(\w+)")
                 .case_insensitive(true)
-                .build()
-                .unwrap(),
-        }
+                .build()?,
+            vote_regex: regex::RegexBuilder::new(r"<@!?(\d+?)>\s*(\+\+|--)").build()?,
+        })
     }
 }
 
@@ -76,6 +77,9 @@ impl EventHandler for Handler {
             CreateCommand::new("affixes").description("Sends this week's US Mythic+ affixes"),
             CreateCommand::new("asuh").description("Joins your voice channel and plays bothersome audio"),
             CreateCommand::new("botinfo").description("Displays details about the bot"),
+            CreateCommand::new("downvote").description("Downvote a user (lowering their karma by one)")
+                .add_option(CreateCommandOption::new(CommandOptionType::User, "user", "User to downvote")
+                            .required(true)),
             CreateCommand::new("forecast")
                 .description("Sends hourly weather conditions over the next 12 hours for an area")
                 .set_options(vec![
@@ -167,6 +171,9 @@ impl EventHandler for Handler {
                 ]),
             CreateCommand::new("userinfo").description("Displays details about a user")
                 .add_option(CreateCommandOption::new(CommandOptionType::User, "user", "User to display")
+                            .required(true)),
+            CreateCommand::new("upvote").description("Upvote a user (increasing their karma by one)")
+                .add_option(CreateCommandOption::new(CommandOptionType::User, "user", "User to upvote")
                             .required(true)),
             CreateCommand::new("weather")
                 .description("Sends weather conditions for an area")
@@ -277,7 +284,7 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
-        message::create(ctx, &self.db, &self.twitch_regex, msg).await;
+        message::create(self, ctx, msg).await;
     }
 
     async fn message_delete(

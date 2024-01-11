@@ -34,6 +34,20 @@
     },
     "query": "SELECT create_date, user_id, game_name FROM user_presence WHERE user_id = any($1) AND (create_date > $2) IS NOT FALSE AND create_date <= $3 ORDER BY create_date"
   },
+  "06cfe0bed97d5dcce3e836afc927189bdb9e8d6724043b866cee9deaee568839": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8",
+          "Int4"
+        ]
+      }
+    },
+    "query": "INSERT INTO user_karma(guild_id, user_id, karma) VALUES ($1, $2, $3)\n         ON CONFLICT ON CONSTRAINT user_karma_pkey DO UPDATE SET karma = user_karma.karma + $3"
+  },
   "1b3038fb2f18c66659e744837127dfd49ade6e9b5c25a331104f95c56b2c923e": {
     "describe": {
       "columns": [
@@ -72,6 +86,33 @@
     },
     "query": "UPDATE bot_start SET update_date = now() WHERE id = $1"
   },
+  "2efaae8343edc5da8945d349947ac63b7bc12f5e4941cf3e79a3dd4bec795f2b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "voter_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "create_date",
+          "ordinal": 1,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT voter_id, create_date FROM vote WHERE guild_id = $1 AND votee_id = $2 ORDER BY create_date DESC LIMIT 1"
+  },
   "330d919f3c7823c46e700338b1977ff2e55a146e722a381a90443c7b4c271445": {
     "describe": {
       "columns": [
@@ -92,6 +133,42 @@
       }
     },
     "query": "\nSELECT count(id)\nFROM message\nWHERE channel_id = $1\nAND author_id = $2"
+  },
+  "3bc4e76769cf49a5bc6cf7ad4c4d129cd130a1ed0c715adede115468d5e2bb38": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8",
+          "Int8",
+          "Bool"
+        ]
+      }
+    },
+    "query": "INSERT INTO vote(guild_id, voter_id, votee_id, is_upvote) VALUES ($1, $2, $3, $4)"
+  },
+  "48a142733fb3f8cbdfbbbe4f01adb9155cc77252b1913742fd24eb8121f371b6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "karma",
+          "ordinal": 0,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT karma\nFROM user_karma\nWHERE guild_id = $1\nAND user_id = $2"
   },
   "48c730ce1c152398786067f18d19d5a92cc68ef03b9136633669928490c0be00": {
     "describe": {
@@ -251,6 +328,33 @@
     },
     "query": "\nSELECT min(create_date) as min_date\nFROM message\nWHERE guild_id = $1\nAND author_id = $2"
   },
+  "6f5cbe88bbba1f2544d7acdc79ecbfac1e2a40abfebed14c8d035f91b0dea082": {
+    "describe": {
+      "columns": [
+        {
+          "name": "votee_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "create_date",
+          "ordinal": 1,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT votee_id, create_date FROM vote WHERE guild_id = $1 AND voter_id = $2 ORDER BY create_date DESC LIMIT 1"
+  },
   "77dba4936ccf9b17054b6e917681c530b7c90e699f96e93c484a8599c577e2f0": {
     "describe": {
       "columns": [],
@@ -301,6 +405,33 @@
     },
     "query": "SELECT create_date FROM user_presence WHERE user_id = $1 AND game_name IS NULL AND create_date > $2 ORDER BY create_date ASC LIMIT 1"
   },
+  "978ad001eadd2fbc452f9044c0c936acccdf2f800e91b8148a5313625cbf04b6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "karma",
+          "ordinal": 1,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT user_id, karma\nFROM user_karma\nWHERE guild_id = $1\nORDER BY karma DESC\nLIMIT $2"
+  },
   "999d57977754292675156625165587188d51a2a60da6862d1edb87db5b81d585": {
     "describe": {
       "columns": [
@@ -320,6 +451,26 @@
       }
     },
     "query": "\nSELECT count(id)\nFROM message\nWHERE guild_id = $1"
+  },
+  "9bed3ff56901fa21b9e71756f9b8932738faaec255b9a3d1d95c7c8effd422bd": {
+    "describe": {
+      "columns": [
+        {
+          "name": "last",
+          "ordinal": 0,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "SELECT MAX(create_date) AS last FROM vote WHERE voter_id = $1"
   },
   "9c1f8b50b303ac71c82c5f2e1089562f7b088a0bda659393715b169ecffdfe7d": {
     "describe": {

@@ -19,6 +19,7 @@ pub mod top;
 pub mod topcommand;
 pub mod toplength;
 pub mod userinfo;
+pub mod vote;
 pub mod weather;
 pub mod whois;
 pub mod wolframalpha;

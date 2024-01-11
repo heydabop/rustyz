@@ -60,30 +60,6 @@ async fn main() {
         }
     };
 
-    let old_pool = {
-        let mut old_options = match PgConnectOptions::from_str(cfg.psql.old_url.as_str()) {
-            Ok(s) => s,
-            Err(e) => {
-                error!(%e, "Error parsing old DB connection string");
-                exit(1);
-            }
-        };
-        old_options.disable_statement_logging();
-
-        match PgPoolOptions::new()
-            .min_connections(1)
-            .max_connections(4)
-            .connect_with(old_options)
-            .await
-        {
-            Ok(p) => p,
-            Err(e) => {
-                error!(%e, "Error connecting to old PSQL database");
-                exit(1);
-            }
-        }
-    };
-
     let pool = {
         let mut options = match PgConnectOptions::from_str(cfg.psql.url.as_str()) {
             Ok(s) => s,
@@ -113,6 +89,14 @@ async fn main() {
 
     let shippo_api_key = cfg.shippo.api_key.clone();
 
+    let event_handler = match event::Handler::new(pool.clone()) {
+        Ok(h) => h,
+        Err(e) => {
+            error!(%e, "Error creating event handler");
+            exit(1);
+        }
+    };
+
     let intents = GatewayIntents::GUILDS
         | GatewayIntents::GUILD_MEMBERS
         | GatewayIntents::GUILD_PRESENCES
@@ -122,7 +106,6 @@ async fn main() {
         | GatewayIntents::MESSAGE_CONTENT;
     let mut client = match Client::builder(cfg.discord.bot_token, intents)
         .application_id(ApplicationId::new(cfg.discord.application_id))
-        .type_map_insert::<model::OldDB>(old_pool)
         .type_map_insert::<model::DB>(pool.clone())
         .type_map_insert::<config::Google>(cfg.google)
         .type_map_insert::<config::Shippo>(cfg.shippo)
@@ -136,7 +119,7 @@ async fn main() {
         .type_map_insert::<model::UserGuildList>(Arc::new(RwLock::new(HashMap::new())))
         .type_map_insert::<model::StartInstant>(Instant::now())
         .type_map_insert::<model::GuildVoiceLocks>(Arc::new(Mutex::new(HashMap::new())))
-        .event_handler(event::Handler::new(pool.clone()))
+        .event_handler(event_handler)
         .register_songbird()
         .await
     {
