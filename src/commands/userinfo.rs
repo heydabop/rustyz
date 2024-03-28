@@ -1,6 +1,6 @@
 use crate::error::{CommandError, CommandResult};
 use crate::model::DB;
-use chrono::naive::NaiveDateTime;
+use chrono::DateTime;
 use num_format::{Locale, ToFormattedString};
 use serenity::all::{CommandDataOptionValue, CommandInteraction};
 use serenity::builder::{CreateEmbed, EditInteractionResponse};
@@ -112,7 +112,7 @@ AND author_id = $2"#,
 
     let boost_timestamp = if let Some(since) = member.premium_since {
         Some(
-            NaiveDateTime::from_timestamp_opt(since.unix_timestamp(), 0).ok_or_else(|| {
+            DateTime::from_timestamp(since.unix_timestamp(), 0).ok_or_else(|| {
                 CommandError::from(format!(
                     "Invalid boost timestamp: {}",
                     since.unix_timestamp()
@@ -122,8 +122,8 @@ AND author_id = $2"#,
     } else {
         None
     };
-    let discord_join = NaiveDateTime::from_timestamp_opt(user.created_at().unix_timestamp(), 0)
-        .ok_or_else(|| {
+    let discord_join =
+        DateTime::from_timestamp(user.created_at().unix_timestamp(), 0).ok_or_else(|| {
             CommandError::from(format!(
                 "Invalid discord join timestamp: {}",
                 user.created_at().unix_timestamp()
@@ -131,7 +131,7 @@ AND author_id = $2"#,
         })?;
     let server_join = if let Some(joined_at) = member.joined_at {
         Some(
-            NaiveDateTime::from_timestamp_opt(joined_at.unix_timestamp(), 0).ok_or_else(|| {
+            DateTime::from_timestamp(joined_at.unix_timestamp(), 0).ok_or_else(|| {
                 CommandError::from(format!(
                     "Invalid server join timestamp: {}",
                     joined_at.unix_timestamp()

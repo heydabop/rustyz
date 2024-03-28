@@ -85,30 +85,30 @@ pub async fn process_vote(
     .unwrap_or_default();
 
     let now = Utc::now();
-    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_possible_truncation, clippy::unwrap_used)]
     if now.signed_duration_since(last_vote_time)
-        < Duration::seconds((300.0 + (300.0 * thread_rng().gen::<f64>())) as i64)
+        < Duration::try_seconds((300.0 + (300.0 * thread_rng().gen::<f64>())) as i64).unwrap()
     {
         return Ok(Some("Slow down champ."));
     }
 
-    #[allow(clippy::panic)]
+    #[allow(clippy::panic, clippy::unwrap_used)]
     if let Some(last_vote_against) = sqlx::query!(
         "SELECT voter_id, create_date FROM vote WHERE guild_id = $1 AND votee_id = $2 ORDER BY create_date DESC LIMIT 1",
         guild_id,
         author_id)
         .fetch_optional(&db).await? {
-            if last_vote_against.voter_id == user_id && now.signed_duration_since(last_vote_against.create_date) < Duration::hours(12) {
+            if last_vote_against.voter_id == user_id && now.signed_duration_since(last_vote_against.create_date) < Duration::try_hours(12).unwrap() {
                 return Ok(Some("Really?..."));
             }
         }
-    #[allow(clippy::panic)]
+    #[allow(clippy::panic, clippy::unwrap_used)]
     if let Some(last_vote_from) = sqlx::query!(
         "SELECT votee_id, create_date FROM vote WHERE guild_id = $1 AND voter_id = $2 ORDER BY create_date DESC LIMIT 1",
         guild_id,
         author_id)
         .fetch_optional(&db).await? {
-            if last_vote_from.votee_id == user_id && now.signed_duration_since(last_vote_from.create_date) < Duration::hours(12) {
+            if last_vote_from.votee_id == user_id && now.signed_duration_since(last_vote_from.create_date) < Duration::try_hours(12).unwrap() {
                 return Ok(Some("Really?..."));
             }
         }

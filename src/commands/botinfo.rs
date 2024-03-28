@@ -1,6 +1,6 @@
 use crate::error::{CommandError, CommandResult};
 use crate::model::StartInstant;
-use chrono::naive::NaiveDateTime;
+use chrono::DateTime;
 use serenity::all::CommandInteraction;
 use serenity::builder::{CreateEmbed, EditInteractionResponse};
 use serenity::client::Context;
@@ -69,8 +69,8 @@ pub async fn botinfo(ctx: &Context, interaction: &CommandInteraction) -> Command
         ));
     }
 
-    let discord_join = NaiveDateTime::from_timestamp_opt(user.created_at().unix_timestamp(), 0)
-        .ok_or_else(|| {
+    let discord_join =
+        DateTime::from_timestamp(user.created_at().unix_timestamp(), 0).ok_or_else(|| {
             CommandError::from(format!(
                 "Invalid discord join timestamp: {}",
                 user.created_at().unix_timestamp()
@@ -78,7 +78,7 @@ pub async fn botinfo(ctx: &Context, interaction: &CommandInteraction) -> Command
         })?;
     let server_join = if let Some(joined_at) = member.joined_at {
         Some(
-            NaiveDateTime::from_timestamp_opt(joined_at.unix_timestamp(), 0).ok_or_else(|| {
+            DateTime::from_timestamp(joined_at.unix_timestamp(), 0).ok_or_else(|| {
                 CommandError::from(format!(
                     "Invalid server join timestamp: {}",
                     joined_at.unix_timestamp()

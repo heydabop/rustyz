@@ -1,6 +1,6 @@
 use crate::error::{CommandError, CommandResult};
 use crate::model::DB;
-use chrono::naive::NaiveDateTime;
+use chrono::DateTime;
 use num_format::{Locale, ToFormattedString};
 use serenity::all::CommandInteraction;
 use serenity::builder::{CreateEmbed, EditInteractionResponse};
@@ -39,8 +39,8 @@ WHERE guild_id = $1"#,
     .count
     .unwrap_or(0);
 
-    let created = NaiveDateTime::from_timestamp_opt(guild.id.created_at().unix_timestamp(), 0)
-        .ok_or_else(|| {
+    let created =
+        DateTime::from_timestamp(guild.id.created_at().unix_timestamp(), 0).ok_or_else(|| {
             CommandError::from(format!(
                 "Invalid server creation timestamp: {}",
                 guild.id.created_at().unix_timestamp()

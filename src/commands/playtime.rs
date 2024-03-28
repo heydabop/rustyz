@@ -81,15 +81,22 @@ pub async fn recent_playtime(ctx: &Context, interaction: &CommandInteraction) ->
         let minutes = get_digit_from_match(captures.get(6))?;
         let seconds = get_digit_from_match(captures.get(7))?;
         let Some(month_days) = months_to_days(now, months) else {
-            return Err("date overflow".into());
+            return Err("months overflow".into());
         };
-        now - Duration::days(years * 365)
-            - Duration::days(month_days)
-            - Duration::days(weeks * 7)
-            - Duration::days(days)
-            - Duration::hours(hours)
-            - Duration::minutes(minutes)
-            - Duration::seconds(seconds)
+        now - Duration::try_days(years * 365)
+            .ok_or_else(|| CommandError::from("invalid number of years"))?
+            - Duration::try_days(month_days)
+                .ok_or_else(|| CommandError::from("invalid number of months"))?
+            - Duration::try_days(weeks * 7)
+                .ok_or_else(|| CommandError::from("invalid number of weeks"))?
+            - Duration::try_days(days)
+                .ok_or_else(|| CommandError::from("invalid number of days"))?
+            - Duration::try_hours(hours)
+                .ok_or_else(|| CommandError::from("invalid number of hours"))?
+            - Duration::try_minutes(minutes)
+                .ok_or_else(|| CommandError::from("invalid number of minutes"))?
+            - Duration::try_seconds(seconds)
+                .ok_or_else(|| CommandError::from("invalid number of seconds"))?
     } else {
         interaction
             .edit_response(
@@ -129,7 +136,7 @@ fn months_to_days(now: DateTime<Utc>, mut months: i64) -> Option<i64> {
         if months == 0 {
             break Some((end - now).num_days());
         }
-        end = match end.checked_add_signed(Duration::days(
+        end = match end.checked_add_signed(Duration::try_days(
             NaiveDate::from_ymd_opt(
                 match end.month() {
                     12 => end.year() + 1,
@@ -143,7 +150,7 @@ fn months_to_days(now: DateTime<Utc>, mut months: i64) -> Option<i64> {
             )?
             .signed_duration_since(NaiveDate::from_ymd_opt(end.year(), end.month(), 1)?)
             .num_days(),
-        )) {
+        )?) {
             Some(e) => e,
             None => return None,
         };
@@ -255,7 +262,7 @@ pub async fn gen_playtime_message(
         // user is playing something different (or nothing), record how long they played last game
         if let Some(gametime) = gametimes.get_mut(&last.game) {
             // increment existing game time
-            *gametime = *gametime + (date - last.date);
+            *gametime += date - last.date;
         } else {
             // or insert new entry for first-seen game
             gametimes.insert(last.game.clone(), date - last.date);
@@ -272,7 +279,7 @@ pub async fn gen_playtime_message(
     for last in last_user_game.values() {
         if let Some(gametime) = gametimes.get_mut(&last.game) {
             // increment existing game time
-            *gametime = *gametime + (end_date - last.date);
+            *gametime += end_date - last.date;
         } else {
             // or insert new entry for first-seen game
             gametimes.insert(last.game.clone(), end_date - last.date);
