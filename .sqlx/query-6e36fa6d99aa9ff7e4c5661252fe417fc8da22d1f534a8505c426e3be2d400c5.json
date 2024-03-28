@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        {
+          "Custom": {
+            "name": "online_status",
+            "kind": {
+              "Enum": [
+                "dnd",
+                "idle",
+                "invisible",
+                "offline",
+                "online"
+              ]
+            }
+          }
+        },
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6e36fa6d99aa9ff7e4c5661252fe417fc8da22d1f534a8505c426e3be2d400c5"
+}

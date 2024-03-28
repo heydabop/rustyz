@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO vote(guild_id, voter_id, votee_id, is_upvote) VALUES ($1, $2, $3, $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3bc4e76769cf49a5bc6cf7ad4c4d129cd130a1ed0c715adede115468d5e2bb38"
+}

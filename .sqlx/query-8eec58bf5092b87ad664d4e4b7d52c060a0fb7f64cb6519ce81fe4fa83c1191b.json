@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM message WHERE channel_id = $1 AND discord_id = ANY($2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "NumericArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8eec58bf5092b87ad664d4e4b7d52c060a0fb7f64cb6519ce81fe4fa83c1191b"
+}

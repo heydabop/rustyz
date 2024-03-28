@@ -61,15 +61,15 @@ async fn main() {
     };
 
     let pool = {
-        let mut options = match PgConnectOptions::from_str(cfg.psql.url.as_str()) {
-            Ok(s) => s,
+        let options = match PgConnectOptions::from_str(cfg.psql.url.as_str()) {
+            Ok(s) => s
+                .log_statements(LevelFilter::Trace)
+                .log_slow_statements(LevelFilter::Warn, Duration::from_secs_f32(0.5)),
             Err(e) => {
                 error!(%e, "Error parsing DB connection string");
                 exit(1);
             }
         };
-        options.log_statements(LevelFilter::Trace);
-        options.log_slow_statements(LevelFilter::Warn, Duration::from_secs_f32(0.5));
 
         match PgPoolOptions::new()
             .min_connections(1)

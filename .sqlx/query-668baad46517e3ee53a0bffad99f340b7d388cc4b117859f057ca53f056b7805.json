@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT author_id, count(author_id) AS num_messages\nFROM message\nWHERE channel_id = $1\nAND content NOT LIKE '/%'\nGROUP BY author_id\nORDER BY count(author_id) DESC\nLIMIT $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "author_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "num_messages",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "668baad46517e3ee53a0bffad99f340b7d388cc4b117859f057ca53f056b7805"
+}

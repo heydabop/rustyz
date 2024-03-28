@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE message SET content = $1 WHERE channel_id = $2 AND discord_id = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Numeric"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e9bf428324b1e1903f753a6e919fcd357f7a820b474e1d247a6fd9a540089957"
+}

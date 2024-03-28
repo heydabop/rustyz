@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO user_presence (user_id, status) VALUES ($1, 'offline'::online_status)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cd05fdd8df6a51649ae13bb0a18010e3f823a46a2ec9c14f8f2415e2ebdea286"
+}

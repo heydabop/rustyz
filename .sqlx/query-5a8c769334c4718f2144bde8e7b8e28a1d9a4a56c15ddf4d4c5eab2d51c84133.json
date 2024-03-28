@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE bot_start SET update_date = now(), clean_shutdown = true WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5a8c769334c4718f2144bde8e7b8e28a1d9a4a56c15ddf4d4c5eab2d51c84133"
+}
