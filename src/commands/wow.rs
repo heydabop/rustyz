@@ -1,7 +1,7 @@
 use crate::config;
 use crate::error::CommandResult;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
-use image::{codecs::png::PngEncoder, imageops, ColorType, ImageEncoder, ImageFormat};
+use image::{codecs::png::PngEncoder, imageops, ExtendedColorType, ImageEncoder, ImageFormat};
 use reqwest::StatusCode;
 use serde::Deserialize;
 use serenity::all::{CommandDataOption, CommandDataOptionValue, CommandInteraction};
@@ -564,7 +564,7 @@ pub async fn transmog(
         &cropped_image,
         right - left,
         bottom - top,
-        ColorType::Rgba8,
+        ExtendedColorType::Rgba8,
     )?;
 
     // Send message with attached cropped image
