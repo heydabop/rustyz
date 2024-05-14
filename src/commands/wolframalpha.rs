@@ -26,7 +26,7 @@ pub async fn simple(ctx: &Context, interaction: &CommandInteraction) -> CommandR
         &[
             ("appid", &wolfram_alpha_app_id[..]),
             ("units", "imperial"),
-            ("i", &input),
+            ("i", input),
         ],
     )?;
     let response = reqwest::get(url).await?;

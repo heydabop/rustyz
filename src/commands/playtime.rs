@@ -189,7 +189,7 @@ async fn user_ids_and_name_from_option(
         let guild = { ctx.cache.guild(guild_id).map(|g| g.clone()) };
         if let Some(guild) = guild {
             if let Ok(member) = guild.member(ctx, user_id).await {
-                username = member.nick.clone();
+                username.clone_from(&member.nick);
             }
         }
         if username.is_none() {

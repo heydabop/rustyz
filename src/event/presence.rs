@@ -48,9 +48,10 @@ pub async fn update(
     }
     let game_name = presence.activities.iter().find_map(|a| {
         if a.kind == ActivityType::Playing {
-            // clients reporting ® and ™ seems inconsistent, so the same game gets different names overtime
+            // clients reporting ® and ™ seems inconsistent, so the same game gets different names over time
             let mut game_name = a.name.replace(&['®', '™'][..], "");
             game_name.truncate(512);
+            #[allow(clippy::assigning_clones)]
             if game_name.starts_with(char::is_whitespace)
                 || game_name.ends_with(char::is_whitespace)
             {
