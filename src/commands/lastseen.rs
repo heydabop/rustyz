@@ -43,16 +43,21 @@ pub async fn lastseen(ctx: &Context, interaction: &CommandInteraction) -> Comman
     };
 
     if let Some(status) = util::get_user_status(ctx, guild_id, user_id).await {
-        if status != OnlineStatus::Offline && status != OnlineStatus::Invisible {
-            let content = if let Some(username) = username {
-                format!("{username} is currently offline")
-            } else {
-                "offline".to_string()
-            };
-            interaction
-                .edit_response(&ctx.http, EditInteractionResponse::new().content(content))
-                .await?;
-            return Ok(());
+        use OnlineStatus::*;
+        match status {
+            Online | DoNotDisturb => {
+                let content = if let Some(username) = username {
+                    format!("{username} is currently online")
+                } else {
+                    "They're currently online".to_string()
+                };
+                interaction
+                    .edit_response(&ctx.http, EditInteractionResponse::new().content(content))
+                    .await?;
+                return Ok(());
+            }
+            Idle | Invisible | Offline => {}
+            _ => return Err(format!("unrecognized OnlineStatus: {status:?}").into()),
         }
     }
 
@@ -61,7 +66,7 @@ pub async fn lastseen(ctx: &Context, interaction: &CommandInteraction) -> Comman
         #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
         #[allow(clippy::panic)]
-        sqlx::query!(r"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible') ORDER BY create_date DESC LIMIT 1", i64::from(user_id)).fetch_optional(db).await?
+        sqlx::query!(r"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible' OR status = 'idle') ORDER BY create_date DESC LIMIT 1", i64::from(user_id)).fetch_optional(db).await?
     }) else {
         let content = if let Some(username) = username {
             format!("I've never seen {username}")
