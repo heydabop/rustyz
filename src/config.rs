@@ -7,7 +7,6 @@ use std::time::SystemTime;
 pub struct Discord {
     pub application_id: u64,
     pub bot_token: String,
-    pub user_id: u64,
 }
 
 #[derive(Deserialize)]
@@ -17,7 +16,6 @@ pub struct Google {
 
 #[derive(Deserialize)]
 pub struct Psql {
-    pub old_url: String,
     pub url: String,
 }
 

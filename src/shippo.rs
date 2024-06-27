@@ -71,8 +71,6 @@ impl fmt::Display for Status {
 
 #[derive(Debug, Deserialize)]
 pub struct TrackingResponse {
-    pub carrier: Option<String>,
-    pub tracking_number: String,
     pub eta: Option<DateTime<Utc>>,
     pub tracking_status: Option<TrackingStatus>,
 }
@@ -82,13 +80,6 @@ pub struct TrackingStatus {
     pub status: Status,
     pub status_details: String,
     pub status_date: DateTime<Utc>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TrackUpdatedRequest {
-    pub event: String,
-    pub data: TrackingResponse,
-    pub carrier: Option<String>,
 }
 
 pub async fn get_tracking_status(
