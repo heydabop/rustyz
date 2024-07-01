@@ -215,7 +215,7 @@ impl EventHandler for Handler {
     }
 
     async fn presence_update(&self, ctx: Context, update: Presence) {
-        presence::update(&ctx, &self.db, update.guild_id, update).await;
+        presence::update(&ctx, &self.db, update.guild_id, update, false).await;
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
@@ -233,8 +233,12 @@ impl EventHandler for Handler {
                 "joined guild"
             );
         }
+        let is_startup = match is_new {
+            Some(true) => false,
+            Some(false) | None => true,
+        };
         for (_, presence) in guild.presences {
-            presence::update(&ctx, &self.db, Some(guild.id), presence).await;
+            presence::update(&ctx, &self.db, Some(guild.id), presence, is_startup).await;
         }
     }
 

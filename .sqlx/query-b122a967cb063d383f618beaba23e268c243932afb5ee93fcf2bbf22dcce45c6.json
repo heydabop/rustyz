@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible' OR status = 'idle') ORDER BY create_date DESC LIMIT 1",
+  "query": "SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible' OR status = 'idle') AND NOT is_startup ORDER BY create_date DESC LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       false
     ]
   },
-  "hash": "012d46fd5ea3116f2b0df7f5d771b623ac9dbb20132eae83391d03a16ee48a69"
+  "hash": "b122a967cb063d383f618beaba23e268c243932afb5ee93fcf2bbf22dcce45c6"
 }

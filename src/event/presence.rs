@@ -13,6 +13,7 @@ pub async fn update(
     db: &Pool<Postgres>,
     guild_id: Option<GuildId>,
     presence: Presence,
+    is_startup: bool,
 ) {
     let user_id = presence.user.id;
     if match presence.user.bot {
@@ -113,10 +114,11 @@ pub async fn update(
 
         #[allow(clippy::panic)]
         if let Err(e) = sqlx::query!(
-            r"INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)",
+            r"INSERT INTO user_presence (user_id, status, game_name, is_startup) VALUES ($1, $2::online_status, $3, $4)",
             i64::from(user_id),
             presence.status.name() as _,
-            game_name
+            game_name,
+            is_startup
         )
             .execute(db)
             .await

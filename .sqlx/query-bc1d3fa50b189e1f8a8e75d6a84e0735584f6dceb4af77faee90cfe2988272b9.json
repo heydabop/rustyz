@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO user_presence (user_id, status, game_name) VALUES ($1, $2::online_status, $3)",
+  "query": "INSERT INTO user_presence (user_id, status, game_name, is_startup) VALUES ($1, $2::online_status, $3, $4)",
   "describe": {
     "columns": [],
     "parameters": {
@@ -20,10 +20,11 @@
             }
           }
         },
-        "Varchar"
+        "Varchar",
+        "Bool"
       ]
     },
     "nullable": []
   },
-  "hash": "6e36fa6d99aa9ff7e4c5661252fe417fc8da22d1f534a8505c426e3be2d400c5"
+  "hash": "bc1d3fa50b189e1f8a8e75d6a84e0735584f6dceb4af77faee90cfe2988272b9"
 }

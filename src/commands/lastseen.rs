@@ -66,7 +66,7 @@ pub async fn lastseen(ctx: &Context, interaction: &CommandInteraction) -> Comman
         #[allow(clippy::unwrap_used)]
         let db = data.get::<DB>().unwrap();
         #[allow(clippy::panic)]
-        sqlx::query!(r"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible' OR status = 'idle') ORDER BY create_date DESC LIMIT 1", i64::from(user_id)).fetch_optional(db).await?
+        sqlx::query!(r"SELECT create_date FROM user_presence WHERE user_id = $1 AND (status = 'offline' OR status = 'invisible' OR status = 'idle') AND NOT is_startup ORDER BY create_date DESC LIMIT 1", i64::from(user_id)).fetch_optional(db).await?
     }) else {
         let content = if let Some(username) = username {
             format!("I've never seen {username}")
