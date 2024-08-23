@@ -370,33 +370,41 @@ async fn send_message_with_buttons(
     let now = Utc::now();
     let content = gen_playtime_message(ctx, user_ids, username, start_date, now, 0).await?;
 
-    let button_id = {
-        let data = ctx.data.read().await;
-        #[allow(clippy::unwrap_used)]
-        let db = data.get::<DB>().unwrap();
-        #[allow(clippy::panic)]
-        sqlx::query!(r#"INSERT INTO playtime_button(author_id, user_ids, username, start_date, end_date, start_offset) VALUES ($1, $2, $3, $4, $5, 0) RETURNING id"#, i64::try_from(interaction.user.id)?, user_ids, username as _, start_date, now).fetch_one(db).await?.id
-    };
+    let newlines =
+        u16::try_from(content.chars().filter(|c| *c == '\n').count()).unwrap_or(u16::MAX);
+    if newlines <= OFFSET_INC {
+        interaction
+            .edit_response(&ctx.http, EditInteractionResponse::new().content(&content))
+            .await?;
+    } else {
+        let button_id = {
+            let data = ctx.data.read().await;
+            #[allow(clippy::unwrap_used)]
+            let db = data.get::<DB>().unwrap();
+            #[allow(clippy::panic)]
+            sqlx::query!(r#"INSERT INTO playtime_button(author_id, user_ids, username, start_date, end_date, start_offset) VALUES ($1, $2, $3, $4, $5, 0) RETURNING id"#, i64::try_from(interaction.user.id)?, user_ids, username as _, start_date, now).fetch_one(db).await?.id
+        };
 
-    interaction
-        .edit_response(
-            &ctx.http,
-            EditInteractionResponse::new()
-                .content(&content)
-                .components(create_components(0, &content, button_id, true)),
-        )
-        .await?;
+        interaction
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new()
+                    .content(&content)
+                    .components(create_components(0, &content, button_id, true)),
+            )
+            .await?;
 
-    // leave buttons disabled for 2 seconds, then send the message again with buttons enabled
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        // leave buttons disabled for 2 seconds, then send the message again with buttons enabled
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
-    interaction
-        .edit_response(
-            &ctx.http,
-            EditInteractionResponse::new()
-                .components(create_components(0, &content, button_id, false)),
-        )
-        .await?;
+        interaction
+            .edit_response(
+                &ctx.http,
+                EditInteractionResponse::new()
+                    .components(create_components(0, &content, button_id, false)),
+            )
+            .await?;
+    }
 
     Ok(())
 }
