@@ -5,7 +5,7 @@ use image::{codecs::png::PngEncoder, imageops, ExtendedColorType, ImageEncoder, 
 use reqwest::StatusCode;
 use serde::Deserialize;
 use serenity::all::{CommandDataOption, CommandDataOptionValue, CommandInteraction};
-use serenity::builder::{CreateAttachment, CreateEmbed, CreateMessage, EditInteractionResponse};
+use serenity::builder::{CreateAttachment, CreateEmbed, EditInteractionResponse};
 use serenity::client::Context;
 use serenity::model::colour::Colour;
 use serenity::model::Timestamp;
@@ -571,17 +571,12 @@ pub async fn transmog(
     interaction
         .edit_response(
             &ctx.http,
-            EditInteractionResponse::new().content(msg_content),
-        )
-        .await?;
-    interaction
-        .channel_id
-        .send_message(
-            &ctx.http,
-            CreateMessage::new().add_file(CreateAttachment::bytes(
-                Cow::from(cropped_buffer),
-                format!("{realm}-{character}.png"),
-            )),
+            EditInteractionResponse::new()
+                .content(msg_content)
+                .new_attachment(CreateAttachment::bytes(
+                    Cow::from(cropped_buffer),
+                    format!("{realm}-{character}.png"),
+                )),
         )
         .await?;
 
