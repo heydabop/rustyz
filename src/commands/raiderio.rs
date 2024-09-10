@@ -111,7 +111,7 @@ pub async fn raiderio(ctx: &Context, interaction: &CommandInteraction) -> Comman
         .await?
         .dungeons;
 
-    let profile = match client.get(&format!("https://raider.io/api/v1/characters/profile?region=us&realm={realm}&name={character}&fields=raid_progression%2Cmythic_plus_scores_by_season%3Acurrent%2Cmythic_plus_best_runs%3Aall%2Cmythic_plus_highest_level_runs%2Cmythic_plus_recent_runs")).send().await?.error_for_status() {
+    let profile = match client.get(format!("https://raider.io/api/v1/characters/profile?region=us&realm={realm}&name={character}&fields=raid_progression%2Cmythic_plus_scores_by_season%3Acurrent%2Cmythic_plus_best_runs%3Aall%2Cmythic_plus_highest_level_runs%2Cmythic_plus_recent_runs")).send().await?.error_for_status() {
         Ok(resp) => if let Ok(profile) = resp.json::<CharacterProfile>().await {
             profile
         } else {

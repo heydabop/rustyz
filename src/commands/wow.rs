@@ -308,7 +308,7 @@ async fn get_character_media(
     };
 
     // Get JSON info of character's appearance and last modified time of images
-    let resp = client.get(&format!("https://us.api.blizzard.com/profile/wow/character/{realm_name}/{character_name}/character-media?namespace=profile-us&locale=en_US&access_token={access_token}{alt_avatar}"))
+    let resp = client.get(format!("https://us.api.blizzard.com/profile/wow/character/{realm_name}/{character_name}/character-media?namespace=profile-us&locale=en_US&access_token={access_token}{alt_avatar}"))
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => {
@@ -342,7 +342,7 @@ async fn get_character_statistics(
 ) -> Result<CharacterStats, reqwest::Error> {
     let client = reqwest::Client::new();
 
-    let resp = client.get(&format!("https://us.api.blizzard.com/profile/wow/character/{realm_name}/{character_name}/statistics?namespace=profile-us&locale=en_US&access_token={access_token}"))
+    let resp = client.get(format!("https://us.api.blizzard.com/profile/wow/character/{realm_name}/{character_name}/statistics?namespace=profile-us&locale=en_US&access_token={access_token}"))
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => Ok(resp.json::<CharacterStats>().await?),
@@ -357,7 +357,7 @@ async fn get_character_titles(
 ) -> Result<CharacterTitles, reqwest::Error> {
     let client = reqwest::Client::new();
 
-    let resp = client.get(&format!("https://us.api.blizzard.com/profile/wow/character/{realm_name}/{character_name}/titles?namespace=profile-us&locale=en_US&access_token={access_token}"))
+    let resp = client.get(format!("https://us.api.blizzard.com/profile/wow/character/{realm_name}/{character_name}/titles?namespace=profile-us&locale=en_US&access_token={access_token}"))
         .send().await?;
     match resp.error_for_status() {
         Ok(resp) => Ok(resp.json::<CharacterTitles>().await?),
@@ -378,7 +378,7 @@ async fn auth(client_id: &str, client_secret: &str) -> Result<config::WowAuth, r
         .await?;
 
     // Mark auth as expiring a little early so that we refresh before absolutely necessary
-    let expires_at = SystemTime::now() + Duration::from_secs((resp.expires_in - 60).max(0));
+    let expires_at = SystemTime::now() + Duration::from_secs(resp.expires_in.max(60) - 60);
 
     Ok(config::WowAuth {
         access_token: resp.access_token,
@@ -851,7 +851,7 @@ pub async fn realm(
 
     let client = reqwest::Client::new();
 
-    let search: Search = client.get(&format!("https://us.api.blizzard.com/data/wow/search/connected-realm?namespace=dynamic-us&locale=en_US&realms.slug={realm_slug}&orderby=id&_page=1&access_token={access_token}"))
+    let search: Search = client.get(format!("https://us.api.blizzard.com/data/wow/search/connected-realm?namespace=dynamic-us&locale=en_US&realms.slug={realm_slug}&orderby=id&_page=1&access_token={access_token}"))
         .send().await?.json().await?;
 
     if search.results.is_empty() || search.results[0].data.realms.is_empty() {

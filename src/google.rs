@@ -66,7 +66,7 @@ pub async fn geocode(address: &str, api_key: &str) -> Result<(Point, Option<Stri
     let client = reqwest::Client::new();
 
     let resp = client
-        .get(&format!(
+        .get(format!(
             "https://maps.googleapis.com/maps/api/geocode/json?&address={address}&key={api_key}"
         ))
         .send()
@@ -97,7 +97,7 @@ pub async fn timezone(location: &Point, timestamp: i64, api_key: &str) -> Result
     let client = reqwest::Client::new();
 
     let resp = client
-        .get(&format!(
+        .get(format!(
             "https://maps.googleapis.com/maps/api/timezone/json?location={location}&timestamp={timestamp}&key={api_key}"
         ))
         .send()
