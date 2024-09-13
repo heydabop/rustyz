@@ -3,6 +3,7 @@ pub mod asuh;
 pub mod botinfo;
 pub mod fortune;
 pub mod invite;
+pub mod jpg;
 pub mod karma;
 pub mod lastplayed;
 pub mod lastseen;

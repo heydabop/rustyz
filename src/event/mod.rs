@@ -55,7 +55,7 @@ impl EventHandler for Handler {
                 &ctx.http,
                 vec![
                     CreateCommand::new("birdtime").description("Sends the current time for bird"),
-                    CreateCommand::new("mirotim").description("Sends the current time for miro"),
+                    CreateCommand::new("mirotime").description("Sends the current time for miro"),
                     CreateCommand::new("nieltime").description("Sends the current time for niel"),
                     CreateCommand::new("realtime")
                         .description("Sends the current time for the mainlanders"),
@@ -89,6 +89,7 @@ impl EventHandler for Handler {
                         .max_int_value(12)
                 ]),
             CreateCommand::new("fortune").description("Sends a random adage"),
+            CreateCommand::new("jpg").description("Efficiently compresses the most recently posted image"),
             CreateCommand::new("serverinfo").description("Displays details about this server"),
             CreateCommand::new("invite").description("Generates link to add bot to a server you administrate"),
             CreateCommand::new("karma").description("Lists members by karma points")

@@ -33,6 +33,7 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
             "forecast" => commands::weather::forecast(&ctx, &command).await,
             "fortune" => commands::fortune::fortune(&ctx, &command).await,
             "invite" => commands::invite::invite(&ctx, &command).await,
+            "jpg" => commands::jpg::jpg(&ctx, &command).await,
             "karma" => commands::karma::karma(&ctx, &command).await,
             "lastseen" => commands::lastseen::lastseen(&ctx, &command).await,
             "lastplayed" => commands::lastplayed::lastplayed(&ctx, &command).await,
