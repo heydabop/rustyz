@@ -26,7 +26,7 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
         crate::event::record_command(&db, &command).await;
         if let Err(e) = match command.data.name.as_str() {
             "affixes" => commands::affixes::affixes(&ctx, &command).await,
-            "asuh" => commands::asuh::asuh(&ctx, &command).await,
+            //"asuh" => commands::asuh::asuh(&ctx, &command).await,
             "birdtime" => commands::time::time(&ctx, &command, "Europe/Oslo").await,
             "botinfo" => commands::botinfo::botinfo(&ctx, &command).await,
             "downvote" => commands::vote::vote_from_interaction(&ctx, &command, false).await,

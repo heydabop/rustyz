@@ -75,7 +75,7 @@ impl EventHandler for Handler {
 
         match Command::set_global_commands(&ctx.http, vec![
             CreateCommand::new("affixes").description("Sends this week's US Mythic+ affixes"),
-            CreateCommand::new("asuh").description("Joins your voice channel and plays bothersome audio"),
+            //CreateCommand::new("asuh").description("Joins your voice channel and plays bothersome audio"),
             CreateCommand::new("botinfo").description("Displays details about the bot"),
             CreateCommand::new("downvote").description("Downvote a user (lowering their karma by one)")
                 .add_option(CreateCommandOption::new(CommandOptionType::User, "user", "User to downvote")

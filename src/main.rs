@@ -14,7 +14,6 @@ use serenity::all::ApplicationId;
 use serenity::client::Client;
 use serenity::model::gateway::GatewayIntents;
 use serenity::prelude::*;
-use songbird::SerenityInit;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{ConnectOptions, Pool, Postgres};
 use std::collections::HashMap;
@@ -120,7 +119,6 @@ async fn main() {
         .type_map_insert::<model::StartInstant>(Instant::now())
         .type_map_insert::<model::GuildVoiceLocks>(Arc::new(Mutex::new(HashMap::new())))
         .event_handler(event_handler)
-        .register_songbird()
         .await
     {
         Ok(c) => c,
