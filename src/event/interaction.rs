@@ -100,9 +100,18 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
                 Ok(())
             }
         } {
-            error!(%e, command = command.data.name, "Error running command");
-            report_interaction_error(&ctx, format!("error running {}: `{e}`", command.data.name))
-                .await;
+            error!(
+                command = command.data.name,
+                error = ?e,
+                source = ?e.source(),
+                "Error running command"
+            );
+            let source_str: String = e.source().map(|s| format!("\n(`{s}`)")).unwrap_or_default();
+            report_interaction_error(
+                &ctx,
+                format!("error running {}: `{e}`{source_str}", command.data.name),
+            )
+            .await;
             if let Err(resp_e) = command
                 .edit_response(
                     &ctx.http,
