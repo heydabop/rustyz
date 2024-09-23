@@ -89,7 +89,10 @@ impl EventHandler for Handler {
                         .max_int_value(12)
                 ]),
             CreateCommand::new("fortune").description("Sends a random adage"),
-            CreateCommand::new("jpg").description("Efficiently compresses the most recently posted image"),
+            CreateCommand::new("jpg")
+                .description("Efficiently compresses the most recently posted image")
+                .add_option(
+                    CreateCommandOption::new(CommandOptionType::Attachment, "image", "Or directly upload an image to be efficiently compressed")),
             CreateCommand::new("serverinfo").description("Displays details about this server"),
             CreateCommand::new("invite").description("Generates link to add bot to a server you administrate"),
             CreateCommand::new("karma").description("Lists members by karma points")
