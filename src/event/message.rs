@@ -69,37 +69,39 @@ VALUES ($1, $2, $3, $4, $5)"#,
         }
     }
     if let Some(caps) = handler.twitch_regex.captures(&msg.content) {
-        if let Some(channel_match) = caps.get(2) {
-            let channel_name = channel_match.as_str();
-            let (access_token, client_id) = match twitch::get_access_token(&ctx).await {
-                Ok(a) => a,
-                Err(e) => {
-                    error!(%e, "error getting twitch auth");
-                    return;
-                }
-            };
-            match twitch::get_stream_info(&access_token, &client_id, channel_name).await {
-                Ok(s) => {
-                    if let Some(stream) = s {
-                        if let Err(e) = msg
-                            .channel_id
-                            .send_message(
-                                ctx,
-                                CreateMessage::new().content(format!(
-                                    "{} playing {}\n{}\n{} viewers",
-                                    stream.user_name,
-                                    stream.game_name,
-                                    stream.title,
-                                    stream.viewer_count.to_formatted_string(&Locale::en)
-                                )),
-                            )
-                            .await
-                        {
-                            error!(%e, "error sending twitch message");
+        if !handler.twitch_clip_regex.is_match(&msg.content) {
+            if let Some(channel_match) = caps.get(2) {
+                let channel_name = channel_match.as_str();
+                let (access_token, client_id) = match twitch::get_access_token(&ctx).await {
+                    Ok(a) => a,
+                    Err(e) => {
+                        error!(%e, "error getting twitch auth");
+                        return;
+                    }
+                };
+                match twitch::get_stream_info(&access_token, &client_id, channel_name).await {
+                    Ok(s) => {
+                        if let Some(stream) = s {
+                            if let Err(e) = msg
+                                .channel_id
+                                .send_message(
+                                    ctx,
+                                    CreateMessage::new().content(format!(
+                                        "{} playing {}\n{}\n{} viewers",
+                                        stream.user_name,
+                                        stream.game_name,
+                                        stream.title,
+                                        stream.viewer_count.to_formatted_string(&Locale::en)
+                                    )),
+                                )
+                                .await
+                            {
+                                error!(%e, "error sending twitch message");
+                            }
                         }
                     }
+                    Err(e) => error!(%e, "error getting twitch stream info"),
                 }
-                Err(e) => error!(%e, "error getting twitch stream info"),
             }
         }
     }

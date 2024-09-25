@@ -27,6 +27,7 @@ use tracing::{error, info, warn};
 pub struct Handler {
     db: Pool<Postgres>,
     twitch_regex: regex::Regex,
+    twitch_clip_regex: regex::Regex,
     vote_regex: regex::Regex,
 }
 
@@ -36,6 +37,9 @@ impl Handler {
         Ok(Self {
             db,
             twitch_regex: regex::RegexBuilder::new(r"https?://(www\.)?twitch.tv/(\w+)")
+                .case_insensitive(true)
+                .build()?,
+            twitch_clip_regex: regex::RegexBuilder::new(r"https?://(www\.)?twitch.tv/(\w+)/clip")
                 .case_insensitive(true)
                 .build()?,
             vote_regex: regex::RegexBuilder::new(r"<@!?(\d+?)>\s*(\+\+|--)").build()?,
