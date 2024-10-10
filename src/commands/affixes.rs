@@ -43,13 +43,23 @@ pub async fn affixes(ctx: &Context, interaction: &CommandInteraction) -> Command
                         false,
                     )
                     .field(
-                        format!("{} (+7)", affixes.details[1].name),
+                        format!("{} (+4)", affixes.details[1].name),
                         &affixes.details[1].description,
                         false,
                     )
                     .field(
-                        format!("{} (+14)", affixes.details[2].name),
+                        format!("{} (+7)", affixes.details[2].name),
                         &affixes.details[2].description,
+                        false,
+                    )
+                    .field(
+                        format!("{} (+10)", affixes.details[3].name),
+                        &affixes.details[3].description,
+                        false,
+                    )
+                    .field(
+                        "Xal'atath's Guile (+12)",
+                        "Xal'atath betrays players, revoking her bargains and increasing the health and damage of enemies by 20%.",
                         false,
                     ),
             ),
