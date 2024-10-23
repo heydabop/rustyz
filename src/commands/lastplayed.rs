@@ -1,5 +1,5 @@
 use crate::error::CommandResult;
-use crate::model::{LastUserPresence, DB};
+use crate::model::{DB, LastUserPresence};
 use chrono::prelude::*;
 use serenity::all::{CommandDataOptionValue, CommandInteraction};
 use serenity::builder::EditInteractionResponse;

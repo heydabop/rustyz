@@ -1,14 +1,14 @@
 use crate::config;
 use crate::error::CommandResult;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
-use image::{codecs::png::PngEncoder, imageops, ExtendedColorType, ImageEncoder, ImageFormat};
+use image::{ExtendedColorType, ImageEncoder, ImageFormat, codecs::png::PngEncoder, imageops};
 use reqwest::StatusCode;
 use serde::Deserialize;
 use serenity::all::{CommandDataOption, CommandDataOptionValue, CommandInteraction};
 use serenity::builder::{CreateAttachment, CreateEmbed, EditInteractionResponse};
 use serenity::client::Context;
-use serenity::model::colour::Colour;
 use serenity::model::Timestamp;
+use serenity::model::colour::Colour;
 use std::borrow::Cow;
 use std::fmt;
 use std::time::{Duration, SystemTime};
@@ -420,13 +420,10 @@ pub async fn transmog(
 
     // Get character last login time (and check if they exist)
     let last_login: String = match get_character(&realm, &character, &access_token).await {
-        Ok(c) => format!(
-            "Player last seen on {}",
-            match c.last_login_local() {
-                None => String::from("UNKNOWN"),
-                Some(l) => l.format(date_format).to_string(),
-            }
-        ),
+        Ok(c) => format!("Player last seen on {}", match c.last_login_local() {
+            None => String::from("UNKNOWN"),
+            Some(l) => l.format(date_format).to_string(),
+        }),
         Err(e)
             if e.status() == Some(StatusCode::NOT_FOUND)
                 || e.status() == Some(StatusCode::FORBIDDEN) =>

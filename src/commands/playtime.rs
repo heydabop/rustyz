@@ -1,7 +1,7 @@
 use crate::error::{CommandError, CommandResult};
 use crate::model::DB;
 use crate::util;
-use chrono::{prelude::*, Duration};
+use chrono::{Duration, prelude::*};
 use regex::{Match, Regex};
 use serenity::all::{ButtonStyle, CommandDataOption, CommandDataOptionValue, CommandInteraction};
 use serenity::builder::CreateActionRow;
@@ -43,7 +43,7 @@ pub async fn playtime(ctx: &Context, interaction: &CommandInteraction) -> Comman
             None => return Ok(()),
         };
 
-    send_message_with_buttons(ctx, interaction, &user_ids, &username, None).await?;
+    send_message_with_buttons(ctx, interaction, &user_ids, username.as_ref(), None).await?;
 
     Ok(())
 }
@@ -117,7 +117,14 @@ pub async fn recent_playtime(ctx: &Context, interaction: &CommandInteraction) ->
         None => return Ok(()),
     };
 
-    send_message_with_buttons(ctx, interaction, &user_ids, &username, Some(start_date)).await?;
+    send_message_with_buttons(
+        ctx,
+        interaction,
+        &user_ids,
+        username.as_ref(),
+        Some(start_date),
+    )
+    .await?;
 
     Ok(())
 }
@@ -212,7 +219,7 @@ async fn user_ids_and_name_from_option(
 pub async fn gen_playtime_message(
     ctx: &Context,
     user_ids: &[i64],
-    username: &Option<String>,
+    username: Option<&String>,
     start_date: Option<DateTime<Utc>>,
     end_date: DateTime<Utc>,
     offset: usize,
@@ -364,7 +371,7 @@ async fn send_message_with_buttons(
     ctx: &Context,
     interaction: &CommandInteraction,
     user_ids: &[i64],
-    username: &Option<String>,
+    username: Option<&String>,
     start_date: Option<DateTime<Utc>>,
 ) -> CommandResult {
     let now = Utc::now();

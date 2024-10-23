@@ -55,17 +55,14 @@ impl EventHandler for Handler {
         #[allow(clippy::unreadable_literal)]
         let g = GuildId::new(184428741450006528);
         match g
-            .set_commands(
-                &ctx.http,
-                vec![
-                    CreateCommand::new("birdtime").description("Sends the current time for bird"),
-                    CreateCommand::new("mirotime").description("Sends the current time for miro"),
-                    CreateCommand::new("nieltime").description("Sends the current time for niel"),
-                    CreateCommand::new("realtime")
-                        .description("Sends the current time for the mainlanders"),
-                    CreateCommand::new("sebbitime").description("Sends the current time for sebbi"),
-                ],
-            )
+            .set_commands(&ctx.http, vec![
+                CreateCommand::new("birdtime").description("Sends the current time for bird"),
+                CreateCommand::new("mirotime").description("Sends the current time for miro"),
+                CreateCommand::new("nieltime").description("Sends the current time for niel"),
+                CreateCommand::new("realtime")
+                    .description("Sends the current time for the mainlanders"),
+                CreateCommand::new("sebbitime").description("Sends the current time for sebbi"),
+            ])
             .await
         {
             Ok(guild_commands) => info!(guild_commands = ?guild_commands

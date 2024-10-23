@@ -1,5 +1,5 @@
 use crate::error::CommandResult;
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 use serenity::all::{CommandDataOptionValue, CommandInteraction};
 use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;

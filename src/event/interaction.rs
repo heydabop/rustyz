@@ -167,7 +167,7 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
         let new_content = match commands::playtime::gen_playtime_message(
             &ctx,
             &user_ids,
-            &username,
+            username.as_ref(),
             start_date,
             end_date,
             usize::try_from(offset).unwrap(),

@@ -86,11 +86,7 @@ AND user_id = $2",
         )
         .fetch_optional(&db)
         .await?;
-        if let Some(r) = row {
-            r.karma
-        } else {
-            0
-        }
+        if let Some(r) = row { r.karma } else { 0 }
     };
     #[allow(clippy::panic)]
     let first_message_date: String = match sqlx::query!(

@@ -131,11 +131,8 @@ pub async fn update(
         data.get::<model::LastUserPresence>().unwrap().clone()
     };
     let mut last_presence_map = last_presence_map.write().await;
-    last_presence_map.insert(
-        user_id,
-        model::UserPresence {
-            status: presence.status,
-            game_name,
-        },
-    );
+    last_presence_map.insert(user_id, model::UserPresence {
+        status: presence.status,
+        game_name,
+    });
 }

@@ -21,14 +21,11 @@ pub async fn simple(ctx: &Context, interaction: &CommandInteraction) -> CommandR
         data.get::<config::WolframAlpha>().unwrap().app_id.clone()
     };
 
-    let url = Url::parse_with_params(
-        "https://api.wolframalpha.com/v1/simple",
-        &[
-            ("appid", &wolfram_alpha_app_id[..]),
-            ("units", "imperial"),
-            ("i", input),
-        ],
-    )?;
+    let url = Url::parse_with_params("https://api.wolframalpha.com/v1/simple", &[
+        ("appid", &wolfram_alpha_app_id[..]),
+        ("units", "imperial"),
+        ("i", input),
+    ])?;
     let response = reqwest::get(url).await?;
     if let Err(e) = response.error_for_status_ref() {
         if response.status() == 501 {
@@ -72,14 +69,11 @@ pub async fn short(ctx: &Context, interaction: &CommandInteraction) -> CommandRe
         data.get::<config::WolframAlpha>().unwrap().app_id.clone()
     };
 
-    let url = Url::parse_with_params(
-        "https://api.wolframalpha.com/v1/result",
-        &[
-            ("appid", &wolfram_alpha_app_id[..]),
-            ("units", "imperial"),
-            ("i", input),
-        ],
-    )?;
+    let url = Url::parse_with_params("https://api.wolframalpha.com/v1/result", &[
+        ("appid", &wolfram_alpha_app_id[..]),
+        ("units", "imperial"),
+        ("i", input),
+    ])?;
     let response = reqwest::get(url).await?;
     if let Err(e) = response.error_for_status_ref() {
         if response.status() == 501 {

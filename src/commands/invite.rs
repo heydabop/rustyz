@@ -10,7 +10,10 @@ pub async fn invite(ctx: &Context, interaction: &CommandInteraction) -> CommandR
         | Permissions::SEND_MESSAGES
         | Permissions::READ_MESSAGE_HISTORY)
         .bits();
-    let url = format!("https://discord.com/api/oauth2/authorize?client_id={}&permissions={permissions}&scope=bot%20applications.commands", interaction.application_id);
+    let url = format!(
+        "https://discord.com/api/oauth2/authorize?client_id={}&permissions={permissions}&scope=bot%20applications.commands",
+        interaction.application_id
+    );
     interaction
         .edit_response(&ctx.http, EditInteractionResponse::new().content(url))
         .await?;

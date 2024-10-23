@@ -1,7 +1,7 @@
 use crate::error::{CommandError, CommandResult};
 use crate::model::DB;
-use chrono::{prelude::*, Duration};
-use rand::{thread_rng, Rng};
+use chrono::{Duration, prelude::*};
+use rand::{Rng, thread_rng};
 use serenity::all::{CommandDataOptionValue, CommandInteraction, UserId};
 use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
@@ -87,7 +87,7 @@ pub async fn process_vote(
     let now = Utc::now();
     #[allow(clippy::cast_possible_truncation, clippy::unwrap_used)]
     if now.signed_duration_since(last_vote_time)
-        < Duration::try_seconds((300.0 + (300.0 * thread_rng().gen::<f64>())) as i64).unwrap()
+        < Duration::try_seconds((300.0 + (300.0 * thread_rng().r#gen::<f64>())) as i64).unwrap()
     {
         return Ok(Some("Slow down champ."));
     }

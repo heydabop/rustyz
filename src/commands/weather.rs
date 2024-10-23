@@ -114,14 +114,14 @@ pub async fn weather(ctx: &Context, interaction: &CommandInteraction) -> Command
     };
 
     let response_msg = format!(
-        r#"weather in {}
+        "weather in {}
 temperature | {} {}
 conditions | {}
 relative humidty | {} {}
 wind | {} {} {}
 uv index | {}
 air quality index | {} {}
-pollen | {}"#,
+pollen | {}",
         location_name,
         conditions
             .temperature
