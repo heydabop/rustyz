@@ -9,6 +9,7 @@ use serenity::builder::EditInteractionResponse;
 use serenity::client::Context;
 use std::borrow::Cow;
 use std::sync::LazyLock;
+use tracing::{info, warn};
 
 #[allow(clippy::unwrap_used)]
 static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -26,27 +27,33 @@ pub async fn jpg(ctx: &Context, interaction: &CommandInteraction) -> CommandResu
         .collect::<Vec<_>>()
         .first()
     {
+        info!(?attachment, "attachment found");
         dynamic_image_opt = attachment_to_image(attachment).await?;
     }
 
     if dynamic_image_opt.is_none() {
         let mut messages = interaction.channel_id.messages_iter(&ctx).take(30).boxed();
-        while let Some(res) = messages.next().await {
+        'outer: while let Some(res) = messages.next().await {
             let message = res?;
 
-            for attachment in message.attachments {
-                dynamic_image_opt = attachment_to_image(&attachment).await?;
+            for attachment in &message.attachments {
+                info!(?attachment, ?message.id, ?message.channel_id, ?message.author.id, message.author.name, message.content, ?message.timestamp, "attachment found in message");
+                dynamic_image_opt = attachment_to_image(attachment).await?;
                 if dynamic_image_opt.is_some() {
-                    break;
+                    info!("dynamic image loaded from attachment");
+                    break 'outer;
                 }
             }
 
-            if dynamic_image_opt.is_none() && URL_REGEX.is_match(&message.content) {
+            if URL_REGEX.is_match(&message.content) {
+                info!(message.content, "url found");
                 let image_bytes = reqwest::get(message.content).await?.bytes().await?;
                 dynamic_image_opt = Some(image::load_from_memory(&image_bytes)?);
             }
         }
     }
+
+    info!(image_loaded = dynamic_image_opt.is_some());
 
     if let Some(mut dynamic_image) = dynamic_image_opt {
         if dynamic_image.width() > 400 || dynamic_image.height() > 400 {
@@ -92,6 +99,12 @@ async fn attachment_to_image(
                 image_format,
             )?));
         }
+        warn!(
+            attachment.content_type,
+            mime_type, "failed to get image format"
+        );
+    } else {
+        warn!(attachment.content_type, "failed to get mime type");
     }
     Ok(None)
 }
