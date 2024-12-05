@@ -143,7 +143,7 @@ fn months_to_days(now: DateTime<Utc>, mut months: i64) -> Option<i64> {
         if months == 0 {
             break Some((end - now).num_days());
         }
-        end = match end.checked_add_signed(Duration::try_days(
+        end = end.checked_add_signed(Duration::try_days(
             NaiveDate::from_ymd_opt(
                 match end.month() {
                     12 => end.year() + 1,
@@ -157,10 +157,7 @@ fn months_to_days(now: DateTime<Utc>, mut months: i64) -> Option<i64> {
             )?
             .signed_duration_since(NaiveDate::from_ymd_opt(end.year(), end.month(), 1)?)
             .num_days(),
-        )?) {
-            Some(e) => e,
-            None => return None,
-        };
+        )?)?;
         if months > 0 {
             months -= 1;
         } else {
