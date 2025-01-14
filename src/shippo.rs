@@ -171,7 +171,6 @@ pub async fn poll_shipments_loop(discord_http: Arc<Http>, db: Pool<Postgres>, ap
                     #[allow(clippy::panic)]
                     if let Err(e) = sqlx::query!("UPDATE shipment SET status = 'delivered' WHERE carrier = $1::shipment_carrier AND tracking_number = $2 AND status <> 'delivered'", &row.carrier as _, row.tracking_number).fetch_optional(&db).await {
                         error!(error = %e, "error updating polled shipment");
-                        continue;
                     }
                 }
             }
