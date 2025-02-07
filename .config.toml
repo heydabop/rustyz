@@ -25,6 +25,9 @@ default_location_name = "mit" # name displayed in response when default location
 lat = 42.359722
 lng = -71.091944
 
+[air_now]
+api_key = "" # airnowapi.org API key
+
 [twitch]
 # twitch.tv auth info
 client_id = ""

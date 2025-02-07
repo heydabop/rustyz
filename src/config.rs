@@ -37,6 +37,11 @@ pub struct TomorrowIO {
 }
 
 #[derive(Clone, Deserialize)]
+pub struct AirNow {
+    pub api_key: String,
+}
+
+#[derive(Clone, Deserialize)]
 pub struct Twitch {
     pub client_id: String,
     pub client_secret: String,
@@ -83,6 +88,10 @@ impl TypeMapKey for TomorrowIO {
     type Value = TomorrowIO;
 }
 
+impl TypeMapKey for AirNow {
+    type Value = AirNow;
+}
+
 impl TypeMapKey for Twitch {
     type Value = Twitch;
 }
@@ -104,6 +113,7 @@ pub struct Main {
     pub shippo: Shippo,
     pub tarkov_market: TarkovMarket,
     pub tomorrow_io: TomorrowIO,
+    pub air_now: AirNow,
     pub twitch: Twitch,
     pub wolfram_alpha: WolframAlpha,
     pub wow: Wow,

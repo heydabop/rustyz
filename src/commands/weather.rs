@@ -1,5 +1,5 @@
 use crate::{
-    config,
+    airnow, config,
     error::{CommandError, CommandResult},
     google,
     model::Point,
@@ -34,34 +34,17 @@ pub async fn weather(ctx: &Context, interaction: &CommandInteraction) -> Command
         }
     };
 
-    let api_key = {
+    let (tomorrowio_api_key, airnow_api_key) = {
         let data = ctx.data.read().await;
         #[allow(clippy::unwrap_used)]
-        data.get::<config::TomorrowIO>().unwrap().api_key.clone()
+        (
+            data.get::<config::TomorrowIO>().unwrap().api_key.clone(),
+            data.get::<config::AirNow>().unwrap().api_key.clone(),
+        )
     };
-    let conditions = match tomorrowio::get_current(&location, &api_key).await {
-        Ok(c) => c,
-        Err(e) => return Err(e.into()),
-    };
+    let conditions = tomorrowio::get_current(&location, &tomorrowio_api_key).await?;
 
-    let aqi_health = match conditions.epa_index {
-        Some(a) => {
-            if a < 51 {
-                "(Good)"
-            } else if a < 101 {
-                "(Moderate)"
-            } else if a < 151 {
-                "(Unhealthy for sensitive groups)"
-            } else if a < 201 {
-                "(Unhealthy)"
-            } else if a < 301 {
-                "(Very Unhealthy)"
-            } else {
-                "(Hazardous)"
-            }
-        }
-        None => "",
-    };
+    let aqi = airnow::get_current_aqi(&location, &airnow_api_key).await?;
 
     let conditions_str = match conditions.weather_code {
         Some(c) => match c {
@@ -96,23 +79,6 @@ pub async fn weather(ctx: &Context, interaction: &CommandInteraction) -> Command
         None => "unknown",
     };
 
-    let pollen = match conditions
-        .tree_index
-        .max(conditions.grass_index)
-        .max(conditions.weed_index)
-    {
-        Some(t) => match t {
-            0 => "none",
-            1 => "very low",
-            2 => "low",
-            3 => "medium",
-            4 => "high",
-            5 => "very high",
-            _ => "unknown",
-        },
-        None => "unknown",
-    };
-
     let response_msg = format!(
         "weather in {}
 temperature | {} {}
@@ -120,8 +86,7 @@ conditions | {}
 relative humidty | {} {}
 wind | {} {} {}
 uv index | {}
-air quality index | {} {}
-pollen | {}",
+air quality index | {}",
         location_name,
         conditions
             .temperature
@@ -148,11 +113,7 @@ pollen | {}",
         conditions
             .uv_index
             .map_or_else(|| "--".to_string(), |u| format!("{u}")),
-        conditions
-            .epa_index
-            .map_or_else(|| "--".to_string(), |e| format!("{e}")),
-        aqi_health,
-        pollen
+        aqi.map_or_else(|| "--".to_string(), |(i, c)| format!("{i} ({c})"))
     );
 
     interaction

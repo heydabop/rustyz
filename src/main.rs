@@ -1,3 +1,4 @@
+mod airnow;
 mod commands;
 mod config;
 mod error;
@@ -110,6 +111,7 @@ async fn main() {
         .type_map_insert::<config::Shippo>(cfg.shippo)
         .type_map_insert::<config::TarkovMarket>(cfg.tarkov_market)
         .type_map_insert::<config::TomorrowIO>(cfg.tomorrow_io)
+        .type_map_insert::<config::AirNow>(cfg.air_now)
         .type_map_insert::<config::Twitch>(cfg.twitch)
         .type_map_insert::<config::WolframAlpha>(cfg.wolfram_alpha)
         .type_map_insert::<config::Wow>(cfg.wow)
