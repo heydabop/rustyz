@@ -21,7 +21,7 @@ jobs:
       run: rustc --version
 
     - name: Rustup Update
-      run: rustup update nightly
+      run: rustup update
 
     - name: Updated Rust Version
       run: rustc --version
