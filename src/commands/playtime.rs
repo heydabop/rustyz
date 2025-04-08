@@ -348,7 +348,7 @@ pub async fn gen_playtime_message(
         if (end_date - start_date).num_days() < 1 {
             time_format_string = "%l:%M%p";
         }
-    };
+    }
 
     Ok(format!(
         "```{} {} - Page {}/{}\n\n{}```",

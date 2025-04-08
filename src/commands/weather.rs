@@ -44,7 +44,13 @@ pub async fn weather(ctx: &Context, interaction: &CommandInteraction) -> Command
     };
     let conditions = tomorrowio::get_current(&location, &tomorrowio_api_key).await?;
 
-    let aqi = airnow::get_current_aqi(&location, &airnow_api_key).await?;
+    let aqi = match airnow::get_current_aqi(&location, &airnow_api_key).await {
+        Ok(a) => a,
+        Err(error) => {
+            tracing::error!(%error, "unable to get AQI");
+            None
+        }
+    };
 
     let conditions_str = match conditions.weather_code {
         Some(c) => match c {
