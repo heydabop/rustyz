@@ -733,10 +733,10 @@ pub async fn character(
     if let Some(inset_url) = inset_url {
         embed = embed.image(inset_url);
     }
-    if let Some(last_login) = character.last_login_utc() {
-        if let Ok(last_login_ts) = Timestamp::parse(&last_login.to_rfc3339()) {
-            embed = embed.timestamp(last_login_ts);
-        }
+    if let Some(last_login) = character.last_login_utc()
+        && let Ok(last_login_ts) = Timestamp::parse(&last_login.to_rfc3339())
+    {
+        embed = embed.timestamp(last_login_ts);
     }
 
     interaction

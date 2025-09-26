@@ -46,20 +46,20 @@ pub async fn lastplayed(ctx: &Context, interaction: &CommandInteraction) -> Comm
         data.get::<LastUserPresence>().unwrap().clone()
     };
 
-    if let Some(presence) = last_presence.read().await.get(&user_id) {
-        if presence.status != OnlineStatus::Offline && presence.status != OnlineStatus::Invisible {
-            if let Some(game_name) = &presence.game_name {
-                let content = if let Some(username) = username {
-                    format!("{username} is currently playing {game_name}")
-                } else {
-                    format!("currently playing {game_name}")
-                };
-                interaction
-                    .edit_response(&ctx.http, EditInteractionResponse::new().content(content))
-                    .await?;
-                return Ok(());
-            }
-        }
+    if let Some(presence) = last_presence.read().await.get(&user_id)
+        && presence.status != OnlineStatus::Offline
+        && presence.status != OnlineStatus::Invisible
+        && let Some(game_name) = &presence.game_name
+    {
+        let content = if let Some(username) = username {
+            format!("{username} is currently playing {game_name}")
+        } else {
+            format!("currently playing {game_name}")
+        };
+        interaction
+            .edit_response(&ctx.http, EditInteractionResponse::new().content(content))
+            .await?;
+        return Ok(());
     }
 
     let db = {

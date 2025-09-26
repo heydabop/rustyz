@@ -97,21 +97,19 @@ pub async fn process_vote(
         "SELECT voter_id, create_date FROM vote WHERE guild_id = $1 AND votee_id = $2 ORDER BY create_date DESC LIMIT 1",
         guild_id,
         author_id)
-        .fetch_optional(&db).await? {
-            if last_vote_against.voter_id == user_id && now.signed_duration_since(last_vote_against.create_date) < Duration::try_hours(12).unwrap() {
+        .fetch_optional(&db).await?
+            && last_vote_against.voter_id == user_id && now.signed_duration_since(last_vote_against.create_date) < Duration::try_hours(12).unwrap() {
                 return Ok(Some("Really?..."));
             }
-        }
     #[allow(clippy::panic, clippy::unwrap_used)]
     if let Some(last_vote_from) = sqlx::query!(
         "SELECT votee_id, create_date FROM vote WHERE guild_id = $1 AND voter_id = $2 ORDER BY create_date DESC LIMIT 1",
         guild_id,
         author_id)
-        .fetch_optional(&db).await? {
-            if last_vote_from.votee_id == user_id && now.signed_duration_since(last_vote_from.create_date) < Duration::try_hours(12).unwrap() {
+        .fetch_optional(&db).await?
+            && last_vote_from.votee_id == user_id && now.signed_duration_since(last_vote_from.create_date) < Duration::try_hours(12).unwrap() {
                 return Ok(Some("Really?..."));
             }
-        }
 
     record_vote(db, is_upvote, author_id, guild_id, user_id).await?;
 

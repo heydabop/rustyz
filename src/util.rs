@@ -68,10 +68,10 @@ pub async fn get_user_status(
     if let Some(last_presence) = last_presence.read().await.get(&user_id) {
         return Some(last_presence.status);
     }
-    if let Some(guild) = ctx.cache.guild(guild_id) {
-        if let Some(presence) = guild.presences.get(&user_id) {
-            return Some(presence.status);
-        }
+    if let Some(guild) = ctx.cache.guild(guild_id)
+        && let Some(presence) = guild.presences.get(&user_id)
+    {
+        return Some(presence.status);
     }
     None
 }

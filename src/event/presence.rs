@@ -76,11 +76,10 @@ pub async fn update(
             data.get::<model::UserGuildList>().unwrap().clone()
         };
         let in_guild_list = {
-            let in_guild_list = match guild_lists.read().await.get(&user_id) {
+            match guild_lists.read().await.get(&user_id) {
                 Some(g) => g.contains(&guild_id),
                 None => false,
-            };
-            in_guild_list
+            }
         };
         // Add guild ID to user's list, creating list for user if they're new
         if !in_guild_list {
@@ -106,10 +105,10 @@ pub async fn update(
             .read()
             .await
             .get(&user_id)
+            && last_presence.status == presence.status
+            && last_presence.game_name == game_name
         {
-            if last_presence.status == presence.status && last_presence.game_name == game_name {
-                return;
-            }
+            return;
         }
 
         #[allow(clippy::panic)]

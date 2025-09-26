@@ -151,10 +151,10 @@ pub async fn raiderio(ctx: &Context, interaction: &CommandInteraction) -> Comman
             if num_dungeons == dungeons.len() {
                 break;
             }
-            if let Some(run) = best_runs_by_dungeon.get(&run.short_name) {
-                if run.is_some() {
-                    continue;
-                }
+            if let Some(run) = best_runs_by_dungeon.get(&run.short_name)
+                && run.is_some()
+            {
+                continue;
             }
             best_runs_by_dungeon.insert(run.short_name.clone(), Some(run));
             num_dungeons += 1;

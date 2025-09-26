@@ -3,7 +3,7 @@ name = "rustyz"
 version = "0.1.0"
 authors = ["heydabop <heydabop@gmail.com>"]
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.90"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -26,4 +26,4 @@ sqlx = {version = "0.8.2", default-features = false, features = ["chrono", "rust
 tokio = {version = "1.37.0", features = ["process", "rt-multi-thread", "signal"]}
 toml = "0.8"
 tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
+tracing-subscriber = "0.3.20"

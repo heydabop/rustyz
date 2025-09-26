@@ -191,10 +191,10 @@ async fn user_ids_and_name_from_option(
             None => return Ok(None),
         };
         let guild = { ctx.cache.guild(guild_id).map(|g| g.clone()) };
-        if let Some(guild) = guild {
-            if let Ok(member) = guild.member(ctx, user_id).await {
-                username.clone_from(&member.nick);
-            }
+        if let Some(guild) = guild
+            && let Ok(member) = guild.member(ctx, user_id).await
+        {
+            username.clone_from(&member.nick);
         }
         if username.is_none() {
             let members = util::collect_members_guild_id(ctx, guild_id).await?;
@@ -257,10 +257,10 @@ pub async fn gen_playtime_message(
         };
 
         // user is still playing the same thing
-        if let Some(game) = &game {
-            if game == &last.game {
-                continue;
-            }
+        if let Some(game) = &game
+            && game == &last.game
+        {
+            continue;
         }
 
         // user is playing something different (or nothing), record how long they played last game
@@ -344,10 +344,10 @@ pub async fn gen_playtime_message(
     }
 
     let mut time_format_string = "%b %d, %Y";
-    if let Some(start_date) = start_date {
-        if (end_date - start_date).num_days() < 1 {
-            time_format_string = "%l:%M%p";
-        }
+    if let Some(start_date) = start_date
+        && (end_date - start_date).num_days() < 1
+    {
+        time_format_string = "%l:%M%p";
     }
 
     Ok(format!(

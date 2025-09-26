@@ -147,32 +147,32 @@ pub async fn poll_shipments_loop(discord_http: Arc<Http>, db: Pool<Postgres>, ap
                     continue;
                 }
             };
-            if let Some(tracking_status) = new_status.tracking_status {
-                if old_status != &tracking_status.status.to_string() {
-                    if tracking_status.status == Status::Delivered {
-                        let comment = if let Some(c) = row.comment {
-                            format!(" ({c}) ")
-                        } else {
-                            String::from(" ")
-                        };
-                        let channel_id = match u64::try_from(row.channel_id) {
-                            Ok(c) => ChannelId::new(c),
-                            Err(e) => {
-                                error!(error = %e, channel_id = row.channel_id, "unable to convert channel id");
-                                continue;
-                            }
-                        };
-                        if let Err(e) = channel_id.say(&discord_http, format!("<@{}>: Your {carrier} shipment {}{comment}was marked as delivered at {} with the following message: {}", row.author_id, row.tracking_number, tracking_status.status_date, tracking_status.status_details)).await {
+            if let Some(tracking_status) = new_status.tracking_status
+                && old_status != &tracking_status.status.to_string()
+            {
+                if tracking_status.status == Status::Delivered {
+                    let comment = if let Some(c) = row.comment {
+                        format!(" ({c}) ")
+                    } else {
+                        String::from(" ")
+                    };
+                    let channel_id = match u64::try_from(row.channel_id) {
+                        Ok(c) => ChannelId::new(c),
+                        Err(e) => {
+                            error!(error = %e, channel_id = row.channel_id, "unable to convert channel id");
+                            continue;
+                        }
+                    };
+                    if let Err(e) = channel_id.say(&discord_http, format!("<@{}>: Your {carrier} shipment {}{comment}was marked as delivered at {} with the following message: {}", row.author_id, row.tracking_number, tracking_status.status_date, tracking_status.status_details)).await {
                             error!(error = %e, "error alerting user of shipment");
                             continue;
                         }
-                    }
+                }
 
-                    #[allow(clippy::panic)]
+                #[allow(clippy::panic)]
                     if let Err(e) = sqlx::query!("UPDATE shipment SET status = 'delivered' WHERE carrier = $1::shipment_carrier AND tracking_number = $2 AND status <> 'delivered'", &row.carrier as _, row.tracking_number).fetch_optional(&db).await {
                         error!(error = %e, "error updating polled shipment");
                     }
-                }
             }
         }
     }

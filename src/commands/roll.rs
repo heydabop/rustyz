@@ -6,10 +6,10 @@ use serenity::client::Context;
 
 pub async fn roll(ctx: &Context, interaction: &CommandInteraction) -> CommandResult {
     let mut sides: u32 = 100;
-    if let Some(o) = interaction.data.options.first() {
-        if let CommandDataOptionValue::Integer(s) = o.value {
-            sides = u32::try_from(s)?;
-        }
+    if let Some(o) = interaction.data.options.first()
+        && let CommandDataOptionValue::Integer(s) = o.value
+    {
+        sides = u32::try_from(s)?;
     }
 
     let result = {

@@ -35,74 +35,66 @@ VALUES ($1, $2, $3, $4, $5)"#,
             error!(%e, "error inserting message into db");
         }
     }
-    if let Some(caps) = handler.vote_regex.captures(&msg.content) {
-        if let Ok(user_id) = caps[1].parse::<u64>().map(UserId::new) {
-            let is_upvote = &caps[2] == "++";
-            if let Some(guild_id) = msg.guild_id {
-                match commands::vote::process_vote(
-                    &ctx,
-                    is_upvote,
-                    msg.author.id,
-                    guild_id,
-                    user_id,
-                )
+    if let Some(caps) = handler.vote_regex.captures(&msg.content)
+        && let Ok(user_id) = caps[1].parse::<u64>().map(UserId::new)
+    {
+        let is_upvote = &caps[2] == "++";
+        if let Some(guild_id) = msg.guild_id {
+            match commands::vote::process_vote(&ctx, is_upvote, msg.author.id, guild_id, user_id)
                 .await
-                {
-                    Ok(Some(reply)) => {
-                        if let Err(e) = msg.reply(&ctx, reply).await {
-                            error!(%e, "unable to reply to message");
-                        }
+            {
+                Ok(Some(reply)) => {
+                    if let Err(e) = msg.reply(&ctx, reply).await {
+                        error!(%e, "unable to reply to message");
                     }
-                    Err(e) => {
-                        error!(%e, "unable to process vote message");
-                        report_interaction_error(
-                            &ctx,
-                            format!("error running vote from message: `{e}`",),
-                        )
-                        .await;
-                    }
-                    _ => {}
                 }
-            } else if let Err(e) = msg.reply(&ctx, "Votes can only be done in a server").await {
-                error!(%e, "unable to reply to message");
+                Err(e) => {
+                    error!(%e, "unable to process vote message");
+                    report_interaction_error(
+                        &ctx,
+                        format!("error running vote from message: `{e}`",),
+                    )
+                    .await;
+                }
+                _ => {}
             }
+        } else if let Err(e) = msg.reply(&ctx, "Votes can only be done in a server").await {
+            error!(%e, "unable to reply to message");
         }
     }
-    if let Some(caps) = handler.twitch_regex.captures(&msg.content) {
-        if !handler.twitch_clip_regex.is_match(&msg.content) {
-            if let Some(channel_match) = caps.get(2) {
-                let channel_name = channel_match.as_str();
-                let (access_token, client_id) = match twitch::get_access_token(&ctx).await {
-                    Ok(a) => a,
-                    Err(e) => {
-                        error!(%e, "error getting twitch auth");
-                        return;
-                    }
-                };
-                match twitch::get_stream_info(&access_token, &client_id, channel_name).await {
-                    Ok(s) => {
-                        if let Some(stream) = s {
-                            if let Err(e) = msg
-                                .channel_id
-                                .send_message(
-                                    ctx,
-                                    CreateMessage::new().content(format!(
-                                        "{} playing {}\n{}\n{} viewers",
-                                        stream.user_name,
-                                        stream.game_name,
-                                        stream.title,
-                                        stream.viewer_count.to_formatted_string(&Locale::en)
-                                    )),
-                                )
-                                .await
-                            {
-                                error!(%e, "error sending twitch message");
-                            }
-                        }
-                    }
-                    Err(e) => error!(%e, "error getting twitch stream info"),
+    if let Some(caps) = handler.twitch_regex.captures(&msg.content)
+        && !handler.twitch_clip_regex.is_match(&msg.content)
+        && let Some(channel_match) = caps.get(2)
+    {
+        let channel_name = channel_match.as_str();
+        let (access_token, client_id) = match twitch::get_access_token(&ctx).await {
+            Ok(a) => a,
+            Err(e) => {
+                error!(%e, "error getting twitch auth");
+                return;
+            }
+        };
+        match twitch::get_stream_info(&access_token, &client_id, channel_name).await {
+            Ok(s) => {
+                if let Some(stream) = s
+                    && let Err(e) = msg
+                        .channel_id
+                        .send_message(
+                            ctx,
+                            CreateMessage::new().content(format!(
+                                "{} playing {}\n{}\n{} viewers",
+                                stream.user_name,
+                                stream.game_name,
+                                stream.title,
+                                stream.viewer_count.to_formatted_string(&Locale::en)
+                            )),
+                        )
+                        .await
+                {
+                    error!(%e, "error sending twitch message");
                 }
             }
+            Err(e) => error!(%e, "error getting twitch stream info"),
         }
     }
 }

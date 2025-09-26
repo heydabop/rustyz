@@ -180,10 +180,10 @@ pub async fn create(ctx: Context, db: Pool<Postgres>, interaction: Interaction) 
                 return;
             }
         };
-        if let Some(flags) = interaction.message.flags {
-            if flags.contains(MessageFlags::EPHEMERAL) {
-                return;
-            }
+        if let Some(flags) = interaction.message.flags
+            && flags.contains(MessageFlags::EPHEMERAL)
+        {
+            return;
         }
         let mut message = interaction.message.clone();
         if let Err(e) = message
