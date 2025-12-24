@@ -297,11 +297,13 @@ async fn get_character_media(
     let client = reqwest::Client::new();
 
     #[allow(clippy::unwrap_used)]
-    let alt_avatar = if race_id.is_some() && gender_type.is_some() {
+    let alt_avatar = if let Some(race) = race_id
+        && let Some(gender) = gender_type
+    {
         format!(
             "&alt=/shadow/avatar/{}-{}.jpg",
-            race_id.unwrap(),
-            i32::from(gender_type.unwrap() != "MALE")
+            race,
+            i32::from(gender != "MALE")
         )
     } else {
         String::new()
