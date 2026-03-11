@@ -7,6 +7,7 @@ use std::time::SystemTime;
 pub struct Discord {
     pub application_id: u64,
     pub bot_token: String,
+    pub suppress_embed_channel_id: u64,
 }
 
 #[derive(Deserialize)]

@@ -6,7 +6,8 @@ use crate::model;
 
 use serde_json::json;
 use serenity::all::{
-    Command, CommandDataOptionValue, CommandInteraction, CommandOptionType, Interaction,
+    Command, CommandDataOptionValue, CommandInteraction, CommandOptionType, EditMessage,
+    Interaction,
 };
 use serenity::async_trait;
 use serenity::builder::{CreateCommand, CreateCommandOption};
@@ -29,10 +30,11 @@ pub struct Handler {
     twitch_regex: regex::Regex,
     twitch_clip_regex: regex::Regex,
     vote_regex: regex::Regex,
+    suppress_embed_channel_id: ChannelId,
 }
 
 impl Handler {
-    pub fn new(db: Pool<Postgres>) -> Result<Self, regex::Error> {
+    pub fn new(db: Pool<Postgres>, suppress_embed_channel_id: u64) -> Result<Self, regex::Error> {
         #[allow(clippy::unwrap_used)]
         Ok(Self {
             db,
@@ -43,6 +45,7 @@ impl Handler {
                 .case_insensitive(true)
                 .build()?,
             vote_regex: regex::RegexBuilder::new(r"<@!?(\d+?)>\s*(\+\+|--)").build()?,
+            suppress_embed_channel_id: ChannelId::new(suppress_embed_channel_id),
         })
     }
 }
@@ -295,8 +298,17 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn message(&self, ctx: Context, msg: Message) {
-        message::create(self, ctx, msg).await;
+    async fn message(&self, ctx: Context, mut msg: Message) {
+        message::create(self, &ctx, &msg).await;
+
+        if msg.channel_id == self.suppress_embed_channel_id
+            && !msg.embeds.is_empty()
+            && let Err(e) = msg
+                .edit(&ctx, EditMessage::new().suppress_embeds(true))
+                .await
+        {
+            error!(%e, "unable to suppress embeds on new dle message");
+        }
     }
 
     async fn message_delete(
@@ -321,12 +333,22 @@ impl EventHandler for Handler {
 
     async fn message_update(
         &self,
-        _ctx: Context,
+        ctx: Context,
         _old: Option<Message>,
-        _new: Option<Message>,
+        new: Option<Message>,
         update: MessageUpdateEvent,
     ) {
-        message::update(&self.db, update).await;
+        message::update(&self.db, &update).await;
+
+        if update.channel_id == self.suppress_embed_channel_id
+            && let Some(mut new) = new
+            && !new.embeds.is_empty()
+            && let Err(e) = new
+                .edit(&ctx, EditMessage::new().suppress_embeds(true))
+                .await
+        {
+            error!(%e, "unable to suppress embeds on updated dle message");
+        }
     }
 }
 

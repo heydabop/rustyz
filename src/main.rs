@@ -89,13 +89,14 @@ async fn main() {
 
     let shippo_api_key = cfg.shippo.api_key.clone();
 
-    let event_handler = match event::Handler::new(pool.clone()) {
-        Ok(h) => h,
-        Err(e) => {
-            error!(%e, "Error creating event handler");
-            exit(1);
-        }
-    };
+    let event_handler =
+        match event::Handler::new(pool.clone(), cfg.discord.suppress_embed_channel_id) {
+            Ok(h) => h,
+            Err(e) => {
+                error!(%e, "Error creating event handler");
+                exit(1);
+            }
+        };
 
     let intents = GatewayIntents::GUILDS
         | GatewayIntents::GUILD_MEMBERS

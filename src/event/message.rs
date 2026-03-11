@@ -1,6 +1,6 @@
+use super::Handler;
 use crate::event::report_interaction_error;
 use crate::{commands, twitch};
-
 use num_format::{Locale, ToFormattedString};
 use serenity::all::UserId;
 use serenity::builder::CreateMessage;
@@ -14,9 +14,7 @@ use sqlx::types::Decimal;
 use sqlx::{Pool, Postgres};
 use tracing::error;
 
-use super::Handler;
-
-pub async fn create(handler: &Handler, ctx: Context, msg: Message) {
+pub async fn create(handler: &Handler, ctx: &Context, msg: &Message) {
     {
         #[allow(clippy::panic)]
         if let Err(e) = sqlx::query!(
@@ -40,7 +38,7 @@ VALUES ($1, $2, $3, $4, $5)"#,
     {
         let is_upvote = &caps[2] == "++";
         if let Some(guild_id) = msg.guild_id {
-            match commands::vote::process_vote(&ctx, is_upvote, msg.author.id, guild_id, user_id)
+            match commands::vote::process_vote(ctx, is_upvote, msg.author.id, guild_id, user_id)
                 .await
             {
                 Ok(Some(reply)) => {
@@ -51,7 +49,7 @@ VALUES ($1, $2, $3, $4, $5)"#,
                 Err(e) => {
                     error!(%e, "unable to process vote message");
                     report_interaction_error(
-                        &ctx,
+                        ctx,
                         format!("error running vote from message: `{e}`",),
                     )
                     .await;
@@ -67,7 +65,7 @@ VALUES ($1, $2, $3, $4, $5)"#,
         && let Some(channel_match) = caps.get(2)
     {
         let channel_name = channel_match.as_str();
-        let (access_token, client_id) = match twitch::get_access_token(&ctx).await {
+        let (access_token, client_id) = match twitch::get_access_token(ctx).await {
             Ok(a) => a,
             Err(e) => {
                 error!(%e, "error getting twitch auth");
@@ -80,7 +78,7 @@ VALUES ($1, $2, $3, $4, $5)"#,
                     && let Err(e) = msg
                         .channel_id
                         .send_message(
-                            ctx,
+                            &ctx,
                             CreateMessage::new().content(format!(
                                 "{} playing {}\n{}\n{} viewers",
                                 stream.user_name,
@@ -131,8 +129,8 @@ pub async fn delete_bulk(db: &Pool<Postgres>, channel_id: ChannelId, message_ids
     }
 }
 
-pub async fn update(db: &Pool<Postgres>, update: MessageUpdateEvent) {
-    let content: String = if let Some(c) = update.content {
+pub async fn update(db: &Pool<Postgres>, update: &MessageUpdateEvent) {
+    let content: &str = if let Some(c) = update.content.as_ref() {
         c
     } else {
         return;
