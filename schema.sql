@@ -2,12 +2,15 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.4 (Debian 12.4-3)
--- Dumped by pg_dump version 12.4 (Debian 12.4-3)
+\restrict MLjdedW7o1tWaq0yWhTrfXmndAfu6oRAfxpzcQSMeWZp7ceOKHdsxLRvwIMCECC
+
+-- Dumped from database version 18.3 (Debian 18.3-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Debian 18.3-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -15,6 +18,13 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: -
+--
+
+-- *not* creating schema, since initdb creates it
+
 
 --
 -- Name: online_status; Type: TYPE; Schema: public; Owner: -
@@ -60,11 +70,11 @@ CREATE TYPE public.shipment_tracking_status AS ENUM (
 
 CREATE FUNCTION public.row_update_date() RETURNS trigger
     LANGUAGE plpgsql
-    AS $$
-begin
-new.update_date = now();
-return new;
-end;
+    AS $$                                                                                                                                                                                                                                                        
+begin                                                                                                                                                                                                                                                                                                                         
+new.update_date = now();                                                                                                                                                                                                                                                                                                      
+return new;                                                                                                                                                                                                                                                                                                                   
+end;                                                                                                                                                                                                                                                                                                                          
 $$;
 
 
@@ -267,7 +277,8 @@ CREATE TABLE public.user_presence (
     create_date timestamp with time zone DEFAULT now() NOT NULL,
     user_id bigint NOT NULL,
     status public.online_status NOT NULL,
-    game_name character varying(512)
+    game_name character varying(512),
+    is_startup boolean DEFAULT false NOT NULL
 );
 
 
@@ -473,6 +484,14 @@ CREATE TRIGGER shipment_row_update_date BEFORE UPDATE ON public.shipment FOR EAC
 
 
 --
+-- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
+--
+
+REVOKE USAGE ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO PUBLIC;
+
+
+--
 -- Name: TABLE bot_start; Type: ACL; Schema: public; Owner: -
 --
 
@@ -580,3 +599,6 @@ GRANT USAGE ON SEQUENCE public.vote_id_seq TO rustyz;
 --
 -- PostgreSQL database dump complete
 --
+
+\unrestrict MLjdedW7o1tWaq0yWhTrfXmndAfu6oRAfxpzcQSMeWZp7ceOKHdsxLRvwIMCECC
+
