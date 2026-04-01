@@ -302,7 +302,10 @@ impl EventHandler for Handler {
         message::create(self, &ctx, &msg).await;
 
         if msg.channel_id == self.suppress_embed_channel_id
-            && !msg.embeds.is_empty()
+            && msg
+                .embeds
+                .iter()
+                .any(|e| e.image.is_some() || e.thumbnail.is_some() || e.video.is_some())
             && let Err(e) = msg
                 .edit(&ctx, EditMessage::new().suppress_embeds(true))
                 .await
