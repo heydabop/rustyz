@@ -298,19 +298,11 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn message(&self, ctx: Context, mut msg: Message) {
+    async fn message(&self, ctx: Context, msg: Message) {
         message::create(self, &ctx, &msg).await;
 
-        if msg.channel_id == self.suppress_embed_channel_id
-            && msg
-                .embeds
-                .iter()
-                .any(|e| e.image.is_some() || e.thumbnail.is_some() || e.video.is_some())
-            && let Err(e) = msg
-                .edit(&ctx, EditMessage::new().suppress_embeds(true))
-                .await
-        {
-            error!(%e, "unable to suppress embeds on new dle message");
+        if msg.channel_id == self.suppress_embed_channel_id {
+            suppress_embeds(&ctx, msg).await;
         }
     }
 
@@ -344,13 +336,9 @@ impl EventHandler for Handler {
         message::update(&self.db, &update).await;
 
         if update.channel_id == self.suppress_embed_channel_id
-            && let Some(mut new) = new
-            && !new.embeds.is_empty()
-            && let Err(e) = new
-                .edit(&ctx, EditMessage::new().suppress_embeds(true))
-                .await
+            && let Some(new) = new
         {
-            error!(%e, "unable to suppress embeds on updated dle message");
+            suppress_embeds(&ctx, new).await;
         }
     }
 }
@@ -426,5 +414,28 @@ VALUES ($1, $2, $3, $4, $5)"#,
     .await
     {
         error!(%e, "error inserting command log into db");
+    }
+}
+
+async fn suppress_embeds(ctx: &Context, mut msg: Message) {
+    for e in &msg.embeds {
+        info!(
+            kind = e.kind,
+            image = e.image.is_some(),
+            thumbnail = e.thumbnail.is_some(),
+            video = e.video.is_some(),
+            "embed found"
+        );
+    }
+
+    if !msg.embeds.is_empty() && msg.embeds.iter().all(|e| e.kind == Some("article".into())) {
+        if let Err(e) = msg
+            .edit(&ctx, EditMessage::new().suppress_embeds(true))
+            .await
+        {
+            error!(%e, "unable to suppress embeds on new dle message");
+        } else {
+            info!(message_id = u64::from(msg.id), "suppressed embeds");
+        }
     }
 }
