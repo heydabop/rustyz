@@ -50,7 +50,7 @@ VALUES ($1, $2, $3, $4, $5)"#,
                     error!(%e, "unable to process vote message");
                     report_interaction_error(
                         ctx,
-                        format!("error running vote from message: `{e}`",),
+                        format!("error running vote from message: `{e}`"),
                     )
                     .await;
                 }

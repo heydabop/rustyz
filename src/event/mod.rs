@@ -428,7 +428,12 @@ async fn suppress_embeds(ctx: &Context, mut msg: Message) {
         );
     }
 
-    if !msg.embeds.is_empty() && msg.embeds.iter().all(|e| e.kind == Some("article".into())) {
+    if !msg.embeds.is_empty()
+        && msg
+            .embeds
+            .iter()
+            .all(|e| e.kind == Some("article".into()) || e.kind == Some("link".into()))
+    {
         if let Err(e) = msg
             .edit(&ctx, EditMessage::new().suppress_embeds(true))
             .await

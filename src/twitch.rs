@@ -57,6 +57,10 @@ pub async fn get_access_token(ctx: &Context) -> Result<(String, String), Error> 
         data.get::<config::Twitch>().unwrap().clone()
     };
     let client_id = config.client_id.clone();
+    #[expect(
+        clippy::collapsible_match,
+        reason = "I clippy wants to collapse if/else blocks beacuse they both return the same thing? But one refreshes auth"
+    )]
     match &config.auth {
         Some(a) => {
             if SystemTime::now() < a.expires_at {

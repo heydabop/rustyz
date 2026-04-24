@@ -118,7 +118,7 @@ pub async fn lastplayed(ctx: &Context, interaction: &CommandInteraction) -> Comm
     };
 
     let content = if let Some(username) = username {
-        format!("{username} was playing {game_name} {since_str} ago",)
+        format!("{username} was playing {game_name} {since_str} ago")
     } else {
         format!("was playing {game_name} {since_str} ago")
     };

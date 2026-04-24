@@ -105,7 +105,7 @@ pub async fn get_tracking_status(
 
 pub async fn poll_shipments_loop(discord_http: Arc<Http>, db: Pool<Postgres>, api_key: String) {
     info!("starting shipment poller");
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(60 * 15));
+    let mut interval = tokio::time::interval(std::time::Duration::from_mins(15));
 
     loop {
         interval.tick().await;

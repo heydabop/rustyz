@@ -325,8 +325,8 @@ pub async fn gen_playtime_message(
         time: total_time,
         game: String::from("All Games"),
     });
-    gametimes.sort_by(|a, b| b.time.cmp(&a.time));
-    let min_offset = offset.max(0);
+    gametimes.sort_by_key(|b| std::cmp::Reverse(b.time));
+    let min_offset = offset;
     let max_offset = (offset + usize::from(OFFSET_INC)).min(gametimes.len());
     let total_lines = gametimes.len();
     let gametimes = &gametimes[min_offset..max_offset];
