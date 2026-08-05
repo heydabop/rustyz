@@ -251,13 +251,7 @@ async fn get_access_token(ctx: &Context) -> Result<String, reqwest::Error> {
         data.get::<config::Wow>().unwrap().clone()
     };
     // If we already have auth and it hasn't expired yet
-    if let Some(auth) = wow_config.auth.and_then(|a| {
-        if a.expires_at > SystemTime::now() {
-            Some(a)
-        } else {
-            None
-        }
-    }) {
+    if let Some(auth) = wow_config.auth.filter(|a| a.expires_at > SystemTime::now()) {
         // Return existing saved token
         Ok(auth.access_token)
     } else {
@@ -724,12 +718,12 @@ pub async fn character(
         .field("Stamina", stats.stamina.to_string(), true)
         .field("Armor", stats.armor.to_string(), true)
         .field("\u{200B}", "\u{200B}", false)
-        .field("Crit", format!("{:.2}%", &stats.crit()), true)
-        .field("Haste", format!("{:.2}%", &stats.haste()), true)
+        .field("Crit", format!("{:.2}%", stats.crit()), true)
+        .field("Haste", format!("{:.2}%", stats.haste()), true)
         .field("Mastery", stats.mastery.to_string(), true)
         .field(
             "Versatility",
-            format!("{:.2}%", &stats.versatility_damage_done_bonus),
+            format!("{:.2}%", stats.versatility_damage_done_bonus),
             true,
         );
     if let Some(inset_url) = inset_url {
